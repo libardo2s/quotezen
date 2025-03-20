@@ -1,22 +1,19 @@
-from sqlalchemy import Column, Integer, String, DateTime
-from datetime import datetime
-from database import db  # Import db from database.py
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+from database import db
 
 class Company(db.Model):
     __tablename__ = 'companies'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    company_name = Column(String(100), nullable=False, unique=True)
-    duns = Column(String(20), unique=True, nullable=True)  # DUNS (Data Universal Numbering System)
+    company_name = Column(String(100), nullable=False)
+    duns = Column(String(20), unique=True, nullable=False)  # D-U-N-S number should be unique
 
-    contact_name = Column(String(100), nullable=False)
-    contact_phone = Column(String(20), nullable=False)
-    contact_email = Column(String(100), unique=True, nullable=False)
+    # Foreign Key linking to User model (assuming a company has an associated user)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
 
-    address = Column(String(255), nullable=True)
+    # Relationship with User model
+    user = relationship("User", backref="companies")
 
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationship with Carrier
-    carriers = db.relationship('Carrier', back_populates='company', cascade="all, delete-orphan")
+    def __repr__(self):
+        return f"<Company {self.company_name} - DUNS: {self.duns}>"

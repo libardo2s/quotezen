@@ -2,7 +2,6 @@ from sqlalchemy import Column, Integer, String, DateTime, Float
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import db  # Import db from database.py
-from models.associations import lane_carriers  # Import the Many-to-Many table
 
 class Lane(db.Model):
     __tablename__ = 'lanes'
@@ -24,4 +23,4 @@ class Lane(db.Model):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationship with Carrier
-    carriers = relationship("Carrier", secondary=lane_carriers, back_populates="lanes")
+    #carriers = relationship("Carrier", secondary=lane_carriers, back_populates="lanes")
