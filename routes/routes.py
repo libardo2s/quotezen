@@ -1,12 +1,12 @@
-from flask import jsonify, render_template, request, redirect, url_for, flash
+from flask import jsonify, render_template, request, redirect, url_for, flash, session
 from routes import app_routes  # Import the blueprint
 
 @app_routes.route("/", methods=["GET"])
 def home():
-    return jsonify({"message": "Welcome to the Flask API!"})
+    return redirect(url_for("app_routes.signin"))
 
 
-@app_routes.route("/signin", methods=["GET", "POST"])
+@app_routes.route("/signin", methods=["GET"])
 def signin():
     return render_template("signin.html")
 
@@ -34,16 +34,27 @@ def signup():
 
     return render_template('signup.html')
 
+
 @app_routes.route('/opt', methods=["GET", "POST"])
 def otp():
     return render_template('otp.html')
 
-@app_routes.route('/forgot-password', methods=["GET", "POST"])
+
+@app_routes.route('/forgot-password', methods=["GET"])
 def forgot_password():
     return render_template('forgot_password.html')
 
-@app_routes.route('/dashboard', methods=["GET", "POST"])
-def dashboard():
-    return render_template('dashboard.html')
 
+@app_routes.route("/dashboard")
+def dashboard():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+
+    return render_template("dashboard.html")
+
+
+@app_routes.route("/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return redirect(url_for("app_routes.signin"))
 

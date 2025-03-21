@@ -16,6 +16,7 @@ from routes import app_routes
 
 # Initialize Flask App
 app = Flask(__name__)
+app.secret_key = 'your-secret-key'
 app.config.from_object(Config)
 
 # Initialize Database

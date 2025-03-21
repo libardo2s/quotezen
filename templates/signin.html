@@ -8,6 +8,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+
 </head>
 <body class="bg-light">
 
@@ -16,25 +18,35 @@
             <div class="text-center">
                 <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" class="mb-3 img-fluid" style="max-width: 250px;">
             </div>
-            <form method="POST" action="{{ url_for('app_routes.otp') }}">
+            <form 
+                hx-post="{{ url_for('app_routes.api_sign_in') }}" 
+                hx-target="#signin-message"
+                hx-swap="innerHTML"
+                hx-indicator="#loading-spinner"
+            >
                 <div class="mb-3">
                     <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" placeholder="Enter your email" required>
+                    <input type="email" class="form-control" id="username" name="username" placeholder="Enter your email" required>
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label">Password</label>
                     <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
                 </div>
-                
-                <!-- Remember Me Checkbox -->
+
                 <div class="form-check mb-3">
                     <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
                     <label class="form-check-label" for="remember_me">Remember Me</label>
                 </div>
 
+                <!-- Submit button -->
                 <button type="submit" class="btn btn-success w-100">Sign In</button>
+
+                <!-- Spinner + Message container -->
+                <div class="text-center mt-3">
+                    <div id="loading-spinner" class="spinner-border text-primary d-none" role="status"></div>
+                </div>
+                <div id="signin-message" class="mt-2"></div>
             </form>
-            
             <div class="text-center mt-3">
                 <a href="{{ url_for('app_routes.forgot_password') }}" class="text-secondary">Forgot Password?</a>
                 <span class="mx-2">|</span>
@@ -45,5 +57,28 @@
 
     <!-- Bootstrap JS (Optional) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.body.addEventListener('htmx:afterRequest', function (event) {
+            const detail = event.detail;
+            const xhr = detail.xhr;
+    
+            try {
+                const response = JSON.parse(xhr.responseText);
+                const messageContainer = document.querySelector("#signin-message");
+    
+                if (response.status === "success") {
+                    messageContainer.innerHTML = `<div class='alert alert-success'>${response.message}</div>`;
+                    setTimeout(() => {
+                        window.location.href = response.redirect_url;
+                    }, 1500);
+                } else {
+                    messageContainer.innerHTML = `<div class='alert alert-danger'>${response.message}</div>`;
+                }
+            } catch (e) {
+                console.error("Failed to parse JSON:", e);
+            }
+        });
+    </script>
+    
 </body>
 </html>

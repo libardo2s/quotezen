@@ -74,3 +74,6 @@ celerybeat.pid
 # Build files
 dist/
 build/
+
+.terraform/
+*.terraform.lock

@@ -13,7 +13,16 @@ class User(db.Model):
     address = Column(String(200), nullable=True)
 
     # Role field with Enum restriction (only 'Admin', 'Shipper', or 'Carrier')
-    role = Column(Enum('Admin', 'CompanyShipper', 'Shipper', 'Carrier', name='user_roles'), nullable=False)
+    role = Column(
+        Enum(
+            'Admin', 
+            'CompanyShipper', 
+            'Shipper', 
+            'Carrier', 
+            'Carrier Admin'
+            'Shipper Admin', 
+            name='user_roles'
+        ), nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

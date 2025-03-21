@@ -55,3 +55,9 @@ body {
 .sidebar.collapsed ~ .main-content {
     margin-left: var(--sidebar-width-collapsed);
 }
+
+@media (max-width: 576px) {
+    #userDropdown strong {
+        display: none;
+    }
+}
