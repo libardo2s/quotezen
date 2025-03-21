@@ -30,4 +30,4 @@ class User(db.Model):
     def __repr__(self):
         return f"<User {self.email} - {self.role.value}>"
 
-Index('idx_users_email', User.email)   
+Index('idx_users_email', User.email)

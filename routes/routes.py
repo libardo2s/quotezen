@@ -53,6 +53,13 @@ def dashboard():
     return render_template("dashboard.html")
 
 
+@app_routes.route("/admin_settings", methods=["GET"])
+def admin_settings():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("admin_settings.html")
+
+
 @app_routes.route("/logout", methods=["POST"])
 def logout():
     session.clear()

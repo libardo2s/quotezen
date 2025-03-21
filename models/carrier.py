@@ -23,7 +23,6 @@ class Carrier(db.Model):
 
     # Relationships
     carrier = relationship("Carrier", backref="carrier_shippers")
-    shipper = relationship("Shipper", backref="carrier_shippers")
     user = relationship("User", backref="carrier_shippers")
 
     def __repr__(self):
