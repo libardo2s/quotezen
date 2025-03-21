@@ -76,4 +76,5 @@ dist/
 build/
 
 .terraform/
-*.terraform.lock
+*.terraform.lock.hcl
+terraform.tfstate
