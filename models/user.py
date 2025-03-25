@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Enum, Index
+from sqlalchemy import Column, Integer, String, DateTime, Enum, Index, Boolean
 from datetime import datetime
 from database import db
 
@@ -11,6 +11,7 @@ class User(db.Model):
     email = Column(String(100), unique=True, nullable=False, index=True)
     phone = Column(String(20), nullable=True)
     address = Column(String(200), nullable=True)
+    active = Column(Boolean, default=True, nullable=True)
 
     # Role field with Enum restriction (only 'Admin', 'Shipper', or 'Carrier')
     role = Column(

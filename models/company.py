@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
+from datetime import datetime
 from database import db
 
 class Company(db.Model):
@@ -7,13 +8,19 @@ class Company(db.Model):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     company_name = Column(String(100), nullable=False)
-    duns = Column(String(20), unique=True, nullable=False)  # D-U-N-S number should be unique
+    duns = Column(String(20), unique=True, nullable=False)
+    active = Column(Boolean, default=True, nullable=True)
 
-    # Foreign Key linking to User model (assuming a company has an associated user)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
 
-    # Relationship with User model
-    user = relationship("User", backref="companies")
+    # Relaciones diferenciadas por foreign_keys
+    user = relationship("User", foreign_keys=[user_id], backref="companies")
+    creator = relationship("User", foreign_keys=[created_by], backref="created_companies")
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def __repr__(self):
         return f"<Company {self.company_name} - DUNS: {self.duns}>"
+

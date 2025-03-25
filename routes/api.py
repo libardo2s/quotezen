@@ -6,6 +6,7 @@ from config import Config
 from botocore.exceptions import ClientError
 from models import User, Company
 from sqlalchemy.exc import IntegrityError
+from utils.token_required import token_required
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -96,7 +97,8 @@ def api_forgot_password():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
-@app_routes.route("/api/company", methods=["GET", "POST", "PUT", "DELETE"])
+@app_routes.route("/api/company", methods=["GET", "POST"])
+#@token_required
 def api_company():
     if request.method == "GET":
         companies = Company.query.all()
@@ -161,45 +163,73 @@ def api_company():
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
-        
-    if request.method == "PUT":
-        data = request.form  # Use form data instead of JSON for HTMX compatibility
-        company_id = data.get("id")
+    
 
-        if not company_id:
-            return jsonify({"status": "error", "message": "Company ID is required"}), 400
+@app_routes.route("/api/company/<int:company_id>", methods=["GET"])
+# @token_required
+def get_company_by_id(company_id):
+    company = Company.query.get(company_id)
+    if not company:
+        return jsonify({"status": "error", "message": "Company not found"}), 404
 
-        company = Company.query.get(company_id)
-        if not company:
-            return jsonify({"status": "error", "message": "Company not found"}), 404
+    return jsonify({
+        "id": company.id,
+        "company_name": company.company_name,
+        "duns": company.duns,
+        "user": {
+            "first_name": company.user.first_name,
+            "phone": company.user.phone,
+            "address": company.user.address,
+            "email": company.user.email
+        } if company.user else None
+    })
 
-        # Update fields
-        company.company_name = data.get("company_name", company.company_name)
-        company.duns = data.get("duns", company.duns)
+@app_routes.route("/api/company/<int:company_id>", methods=["PUT"])
+def update_company(company_id):
+    data = request.form  # HTMX sends data as form-encoded
 
-        try:
-            db.session.commit()
-            return jsonify({"status": "success", "message": "Company updated successfully!"})
-        except IntegrityError:
-            db.session.rollback()
-            return jsonify({"status": "error", "message": "DUNS number must be unique"}), 400
-        except Exception as e:
-            db.session.rollback()
-            return jsonify({"status": "error", "message": str(e)}), 500
+    company = Company.query.get(company_id)
+    if not company:
+        return jsonify({"status": "error", "message": "Company not found"}), 404
 
-    if request.method == "DELETE":
-        company_id = request.form.get("id")  # Use form data instead of JSON for HTMX
+    # Update Company fields
+    company.company_name = data.get("company_name", company.company_name)
+    company.duns = data.get("duns", company.duns)
 
-        if not company_id:
-            return jsonify({"status": "error", "message": "Company ID is required"}), 400
+    # Update associated User fields
+    user = company.user
+    if user:
+        user.first_name = data.get("contact_name", user.first_name)
+        user.phone = data.get("contact_phone", user.phone)
+        user.address = data.get("address", user.address)
+        user.email = data.get("contact_email", user.email)
 
-        company = Company.query.get(company_id)
-        if not company:
-            return jsonify({"status": "error", "message": "Company not found"}), 404
+    try:
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Company updated successfully!"})
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "DUNS number must be unique"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-        try:
-            db.session.delete(company)
-            db.session.commit()
-            return "", 204  # HTMX will remove the row automatically
-        except Exception as e:
-            return jsonify({"status": "error", "message": str(e)}), 500
+
+'''
+if request.method == "DELETE":
+    company_id = request.form.get("id")  # Use form data instead of JSON for HTMX
+
+    if not company_id:
+        return jsonify({"status": "error", "message": "Company ID is required"}), 400
+
+    company = Company.query.get(company_id)
+    if not company:
+        return jsonify({"status": "error", "message": "Company not found"}), 404
+
+    try:
+        db.session.delete(company)
+        db.session.commit()
+        return "", 204  # HTMX will remove the row automatically
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+'''
