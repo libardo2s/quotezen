@@ -28,26 +28,6 @@ migrate = Migrate(app, db)
 # Register Blueprints
 app.register_blueprint(app_routes)
 
-# Create tables if they don't exist
-with app.app_context():
-    #db.create_all()
-    #existing_user = User.query.filter_by(email='libardoii@hotmail.com').first()
-    '''
-    if not existing_user:
-        new_user = User(
-            first_name='Libardo',
-            last_name='Cuello',
-            email='libardoii@hotmail.com',
-            phone='1234567890',
-            address='123 Test Street',
-            role='Admin'  # or 'Carrier', 'Shipper', etc.
-        )
-        db.session.add(new_user)
-        db.session.commit()
-        print("User created successfully.")
-    else:
-        print("User already exists.")
-    '''
 
 if __name__ == '__main__':
     app.run(debug=True)

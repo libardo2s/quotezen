@@ -8,6 +8,8 @@ from models import User, Company
 from sqlalchemy.exc import IntegrityError
 from utils.token_required import token_required
 from utils.send_email import send_email
+from cryptography.fernet import Fernet
+from config import Config
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -130,6 +132,13 @@ def api_company():
             address = request.form.get("address")
             contact_email = request.form.get("contact_email")
 
+            f = Fernet(Config.HASH_KEY)
+            encrypted_email = f.encrypt(contact_email.encode()).decode()
+
+            # Send the hashed email via POST
+            register_url = f"http://127.0.0.1:5000/complete-registration/{encrypted_email}"
+
+
             # Validate required fields
             if not all([company_name, duns, contact_name, contact_phone, address, contact_email]):
                 return jsonify({"status": "error", "message": "All fields are required"}), 400
@@ -163,8 +172,6 @@ def api_company():
 
             try:
 
-                register_url = "https://yourdomain.com/complete-registration"
-
                 # Render HTML email content
                 html_content = render_template("email/company_welcome_email.html", register_url=register_url)
                 print(contact_email)
@@ -179,7 +186,12 @@ def api_company():
                 print(f"Email error: {str(e)}")
 
             # Return new table row for HTMX
-            return jsonify({"status": "success", "message": "Company created"}), 200
+            return jsonify(
+                {
+                    "status": "success", 
+                    "message": "Company created", 
+                    "complete_registration": register_url}
+                ), 200
 
         except IntegrityError as e:
             db.session.rollback()
@@ -210,7 +222,7 @@ def get_company_by_id(company_id):
 @app_routes.route("/api/company/<int:company_id>", methods=["PUT"])
 # @token_required
 def update_company(company_id):
-    data = request.form  # HTMX sends data as form-encoded
+    data = request.form
 
     company = Company.query.get(company_id)
     if not company:
@@ -258,5 +270,3 @@ def delete_company(company_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-
-        
