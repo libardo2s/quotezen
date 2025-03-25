@@ -1,12 +1,13 @@
 import boto3
 from database import db
-from flask import jsonify, request, session
+from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
 from botocore.exceptions import ClientError
 from models import User, Company
 from sqlalchemy.exc import IntegrityError
 from utils.token_required import token_required
+from utils.send_email import send_email
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -101,17 +102,19 @@ def api_forgot_password():
 #@token_required
 def api_company():
     if request.method == "GET":
-        companies = Company.query.all()
+        companies = Company.query.filter_by(active=True)
         return jsonify([
             {
                 "id": company.id,
                 "company_name": company.company_name,
                 "duns": company.duns,
+                "active": company.active,
                 "user": {
                     "first_name": company.user.first_name,
                     "phone": company.user.phone,
                     "address": company.user.address,
-                    "email": company.user.email
+                    "email": company.user.email,
+                    "active": company.user.active
                 } if company.user else None
             }
             for company in companies
@@ -131,6 +134,9 @@ def api_company():
             if not all([company_name, duns, contact_name, contact_phone, address, contact_email]):
                 return jsonify({"status": "error", "message": "All fields are required"}), 400
 
+            # Get creator user ID from session (or use current_user.id)
+            creator_id = session.get("user_id")  # Or: current_user.id
+
             # Create a user for the company (CompanyShipper role)
             company_user = User(
                 first_name=contact_name,
@@ -148,11 +154,29 @@ def api_company():
             new_company = Company(
                 company_name=company_name,
                 duns=duns,
-                user_id=company_user.id
+                user_id=company_user.id,
+                created_by=creator_id
             )
 
             db.session.add(new_company)
             db.session.commit()
+
+            try:
+
+                register_url = "https://yourdomain.com/complete-registration"
+
+                # Render HTML email content
+                html_content = render_template("email/company_welcome_email.html", register_url=register_url)
+                print(contact_email)
+
+                response = send_email(
+                    recipient=contact_email,
+                    subject="Welcome to QuoteZen!",
+                    body_text="Welcome to QuoteZen! Please complete your registration.",
+                    body_html=html_content
+                )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
 
             # Return new table row for HTMX
             return jsonify({"status": "success", "message": "Company created"}), 200
@@ -164,7 +188,6 @@ def api_company():
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
     
-
 @app_routes.route("/api/company/<int:company_id>", methods=["GET"])
 # @token_required
 def get_company_by_id(company_id):
@@ -185,6 +208,7 @@ def get_company_by_id(company_id):
     })
 
 @app_routes.route("/api/company/<int:company_id>", methods=["PUT"])
+# @token_required
 def update_company(company_id):
     data = request.form  # HTMX sends data as form-encoded
 
@@ -214,22 +238,25 @@ def update_company(company_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
-'''
-if request.method == "DELETE":
-    company_id = request.form.get("id")  # Use form data instead of JSON for HTMX
-
-    if not company_id:
-        return jsonify({"status": "error", "message": "Company ID is required"}), 400
-
+@app_routes.route("/api/company/<int:company_id>", methods=["DELETE"])
+def delete_company(company_id):
     company = Company.query.get(company_id)
+
     if not company:
         return jsonify({"status": "error", "message": "Company not found"}), 404
 
     try:
-        db.session.delete(company)
+        # Soft delete company
+        company.active = False
+
+        # Soft delete associated user (if exists)
+        if company.user:
+            company.user.active = False
+
         db.session.commit()
-        return "", 204  # HTMX will remove the row automatically
+        return jsonify({"status": "success", "message": "Company deleted"}), 200
     except Exception as e:
+        db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-'''
+
+        
