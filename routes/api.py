@@ -104,7 +104,8 @@ def api_forgot_password():
 #@token_required
 def api_company():
     if request.method == "GET":
-        companies = Company.query.filter_by(active=True)
+        creator_id = session.get("user_id")
+        companies = Company.query.filter_by(active=True, created_by=creator_id)
         return jsonify([
             {
                 "id": company.id,
