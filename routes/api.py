@@ -4,7 +4,7 @@ from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
 from botocore.exceptions import ClientError
-from models import User, Company
+from models import User, Company, Shipper
 from sqlalchemy.exc import IntegrityError
 from utils.token_required import token_required
 from utils.send_email import send_email
@@ -271,3 +271,132 @@ def delete_company(company_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/shipper", methods=["GET", "POST"])
+#@token_required
+def api_shipper():
+    if request.method == "GET":
+
+        role_user = session.get("user_role")
+        if role_user == 'Admin':
+            return []
+        
+        user_id = session.get("user_id")
+        company = Company.query.filter_by(user_id=user_id).first()
+        shippers = Shipper.query.filter_by(company_id=company.id, active=True).all()
+
+        return jsonify([
+            {
+                "id": shipper.id,
+                "company_id": shipper.company_id,
+                "active": shipper.active,
+                "user": {
+                    "first_name": shipper.user.first_name,
+                    "last_name": shipper.user.last_name,
+                    "phone": shipper.user.phone,
+                    "email": shipper.user.email,
+                    "active": shipper.user.active
+                } if shipper.user else None
+            }
+            for shipper in shippers
+        ])
+
+    if request.method == "POST":
+        try:
+            first_name = request.form.get("first_name")
+            last_name = request.form.get("last_name")
+            email = request.form.get("email")
+            phone = request.form.get("phone")
+            user_id = session.get("user_id")
+
+            # Get company of current user
+            company = Company.query.filter_by(user_id=user_id).first()
+            if not company:
+                return jsonify({"success": False, "message": "Company not found"}), 404
+
+            # Create user
+            new_user = User(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone=phone,
+                role="Shipper",
+                active=True
+            )
+            db.session.add(new_user)
+            db.session.flush()
+
+            # Create shipper
+            new_shipper = Shipper(
+                user_id=new_user.id,
+                company_id=company.id,
+                created_by=user_id,
+                active=True
+            )
+            db.session.add(new_shipper)
+            db.session.commit()
+
+            # Return new table row for HTMX
+            return jsonify(
+                {
+                    "status": "success", 
+                    "message": "Shipper created", 
+                    "complete_registration": ""
+                }), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
+@app_routes.route("/api/shipper/<int:shipper_id>", methods=["GET"])
+def get_shipper_by_id(shipper_id):
+    shipper = Shipper.query.get(shipper_id)
+    if not shipper:
+        return jsonify({"status": "error", "message": "Shipper not found"}), 404
+    
+    return jsonify({
+        "id": shipper.id,
+        "company_id": shipper.company_id,
+        "active": shipper.active,
+        "user": {
+            "first_name": shipper.user.first_name,
+            "last_name": shipper.user.last_name,
+            "phone": shipper.user.phone,
+            "email": shipper.user.email,
+            "active": shipper.user.active
+        } if shipper.user else None
+    })
+
+@app_routes.route("/api/shipper/<int:shipper_id>", methods=["PUT"])
+def update_shipper(shipper_id):
+    shipper = Shipper.query.get(shipper_id)
+
+    if not shipper:
+        return jsonify({"status": "error", "message": "Shipper not found"}), 404
+
+    user = shipper.user
+
+    # Obtener datos del formulario
+    data = request.form
+
+    try:
+        user.first_name = data.get("first_name")
+        user.last_name = data.get("last_name")
+        user.email = data.get("email")
+        user.phone = data.get("phone")
+
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Shipper updated successfully"})  
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "DUNS number must be unique"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to update shipper: {str(e)}"
+        }), 500
