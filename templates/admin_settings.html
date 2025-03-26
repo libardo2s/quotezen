@@ -340,6 +340,27 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete Shipper Confirmation Modal -->
+    <div class="modal fade" id="confirmDeleteShipperModal" tabindex="-1" aria-labelledby="confirmDeleteShipperLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="confirmDeleteShipperLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this shipper?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button id="confirmDeleteShipperBtn" type="button" class="btn btn-danger">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -367,7 +388,6 @@
         }
     });
     */
-
 
     document.body.addEventListener("htmx:afterOnLoad", function (event) {
         const target = event.target;
@@ -433,11 +453,7 @@
                         <button class="btn btn-sm btn-primary" data-id="${shipper.id}" data-type="shipper">
                             <i class="fas fa-edit"></i> Edit
                         </button>
-                        <button class="btn btn-sm btn-danger"
-                                hx-delete="${shipperApiUrl}/${shipper.id}"
-                                hx-confirm="Are you sure you want to delete this shipper?"
-                                hx-target="closest tr"
-                                hx-swap="outerHTML">
+                        <button class="btn btn-sm btn-danger delete-shipper-btn" data-id="${shipper.id}">
                             <i class="fas fa-trash"></i> Delete
                         </button>
                     </td>
@@ -518,7 +534,7 @@
 
                     htmx.trigger("#shipperTableBody", "refresh");
 
-                    
+
                     setTimeout(() => {
                         const modalId = verb === "post" ? "addShipperModal" : "editShipperModal";
                         const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
@@ -537,7 +553,7 @@
                 console.error("Failed to parse shipper response:", err);
                 //showMessage("Something went wrong while processing shipper request.", "danger");
             }
-        }else{
+        } else {
             console.log("here")
         }
     });
@@ -545,6 +561,7 @@
     document.body.addEventListener("click", async function (e) {
         const btn = e.target.closest("button[data-id]");
         const deleteBtn = event.target.closest("button.btn-danger");
+        const deleteShipperBtn = e.target.closest(".delete-shipper-btn");
 
         if (btn && btn.dataset.type !== "shipper" && btn.classList.contains("btn-primary")) {
             const id = btn.getAttribute("data-id");
@@ -611,6 +628,15 @@
                 showMessage("Failed to load shipper data.", "danger");
             }
         }
+
+        if (deleteShipperBtn) {
+            e.preventDefault();
+            shipperToDelete = `${shipperApiUrl}/${deleteShipperBtn.getAttribute("data-id")}`;
+            deleteShipperRowElement = deleteShipperBtn.closest("tr");
+
+            const deleteModal = new bootstrap.Modal(document.getElementById("confirmDeleteShipperModal"));
+            deleteModal.show();
+        }
     });
 
     document.addEventListener("htmx:configRequest", function (evt) {
@@ -623,6 +649,7 @@
 
     document.addEventListener("DOMContentLoaded", function () {
         const confirmBtn = document.getElementById("confirmDeleteBtn");
+        const confirmDeleteShipperBtn = document.getElementById("confirmDeleteShipperBtn");
         if (confirmBtn) {
             confirmBtn.addEventListener("click", async function () {
                 if (!companyToDelete || !deleteRowElement) return;
@@ -659,6 +686,38 @@
                 } finally {
                     companyToDelete = null;
                     deleteRowElement = null;
+                }
+            });
+        }
+
+        if (confirmDeleteShipperBtn) {
+            confirmDeleteShipperBtn.addEventListener("click", async function () {
+                if (!shipperToDelete || !deleteShipperRowElement) return;
+
+                const confirmModal = bootstrap.Modal.getInstance(document.getElementById("confirmDeleteShipperModal"));
+                confirmModal.hide();
+
+                try {
+                    const res = await fetch(shipperToDelete, {
+                        method: "DELETE",
+                        headers: {
+                            "Content-Type": "application/json"
+                        }
+                    });
+
+                    if (res.status === 204 || res.ok) {
+                        htmx.trigger("#shipperTableBody", "refresh");
+                        showMessage("Shipper deleted successfully!", "success");
+                    } else {
+                        const data = await res.json();
+                        throw new Error(data.message || "Deletion failed");
+                    }
+                } catch (err) {
+                    console.error("Shipper delete error:", err);
+                    showMessage("Failed to delete shipper: " + err.message, "danger");
+                } finally {
+                    shipperToDelete = null;
+                    deleteShipperRowElement = null;
                 }
             });
         }

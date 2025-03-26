@@ -265,6 +265,12 @@ def delete_company(company_id):
         # Soft delete associated user (if exists)
         if company.user:
             company.user.active = False
+        
+        shippers = Shipper.query.filter_by(company_id=company.id).all()
+        for shipper in shippers:
+            shipper.active = False
+            if shipper.user:
+                shipper.user.active = False
 
         db.session.commit()
         return jsonify({"status": "success", "message": "Company deleted"}), 200
@@ -400,3 +406,25 @@ def update_shipper(shipper_id):
             "status": "error",
             "message": f"Failed to update shipper: {str(e)}"
         }), 500
+    
+@app_routes.route("/api/shipper/<int:shipper_id>", methods=["DELETE"])
+def delete_shipper(shipper_id):
+    shipper = Shipper.query.get(shipper_id)
+
+    if not shipper:
+        return jsonify({"status": "error", "message": "Shipper not found"}), 404
+
+    try:
+        # Soft delete shipper
+        shipper.active = False
+
+        # Soft delete associated user (if exists)
+        if shipper.user:
+            shipper.user.active = False
+
+        db.session.commit()
+        return jsonify({"status": "success", "message": "Shipper deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
