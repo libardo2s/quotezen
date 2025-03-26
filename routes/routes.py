@@ -86,8 +86,6 @@ def company_complete_registration():
         password = request.form.get("password")
         confirm_password = request.form.get("confirm_password")
 
-        print(username, password, confirm_password)
-
         if not username or not password or not confirm_password:
             return jsonify({
                 "status": "error",

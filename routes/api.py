@@ -137,7 +137,7 @@ def api_company():
             encrypted_email = f.encrypt(contact_email.encode()).decode()
 
             # Send the hashed email via POST
-            register_url = f"http://127.0.0.1:5000/complete-registration/{encrypted_email}"
+            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
 
 
             # Validate required fields
@@ -175,7 +175,6 @@ def api_company():
 
                 # Render HTML email content
                 html_content = render_template("email/company_welcome_email.html", register_url=register_url)
-                print(contact_email)
 
                 response = send_email(
                     recipient=contact_email,
@@ -315,6 +314,12 @@ def api_shipper():
             phone = request.form.get("phone")
             user_id = session.get("user_id")
 
+            f = Fernet(Config.HASH_KEY)
+            encrypted_email = f.encrypt(email.encode()).decode()
+
+            # Send the hashed email via POST
+            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+
             # Get company of current user
             company = Company.query.filter_by(user_id=user_id).first()
             if not company:
@@ -342,12 +347,29 @@ def api_shipper():
             db.session.add(new_shipper)
             db.session.commit()
 
+            try:
+                html_content = render_template(
+                "email/shipper_welcome_email.html",
+                name=f"{first_name} {last_name}",
+                userAdminName=company.company_name,
+                link_to_create_password=register_url
+                )
+
+                response = send_email(
+                    recipient=email,
+                    subject="You're invited to QuoteZen!",
+                    body_text="You've been invited to QuoteZen. Click the link to complete registration.",
+                    body_html=html_content
+                )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
+
             # Return new table row for HTMX
             return jsonify(
                 {
                     "status": "success", 
                     "message": "Shipper created", 
-                    "complete_registration": ""
+                    "complete_registration": register_url
                 }), 200
 
         except Exception as e:
