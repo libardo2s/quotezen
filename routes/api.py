@@ -284,10 +284,28 @@ def api_shipper():
 
         role_user = session.get("user_role")
         if role_user == 'Admin':
-            return []
+            shippers = Shipper.query.filter_by(active=True).all()
+            return jsonify([
+                {
+                    "id": shipper.id,
+                    "company_id": shipper.company_id,
+                    "active": shipper.active,
+                    "user": {
+                        "first_name": shipper.user.first_name,
+                        "last_name": shipper.user.last_name,
+                        "phone": shipper.user.phone,
+                        "email": shipper.user.email,
+                        "active": shipper.user.active
+                    } if shipper.user else None
+                }
+                for shipper in shippers
+            ])
         
         user_id = session.get("user_id")
         company = Company.query.filter_by(user_id=user_id).first()
+        if not company:
+            return jsonify([])
+        
         shippers = Shipper.query.filter_by(company_id=company.id, active=True).all()
 
         return jsonify([

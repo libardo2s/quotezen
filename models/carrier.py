@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from database import db  # Import db from database.py
 
@@ -6,24 +7,24 @@ class Carrier(db.Model):
     __tablename__ = 'carriers'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    duns = Column(String(20), unique=True, nullable=False)  # Unique D-U-N-S number
+    carrier_name = Column(String(100), nullable=False)
+    duns = Column(String(20), unique=True, nullable=False)
     authority = Column(String(50), nullable=True)
-    scac = Column(String(20), unique=True, nullable=True)  # Standard Carrier Alpha Code
-    mc_number = Column(String(50), unique=True, nullable=True)  # Motor Carrier number
+    scac = Column(String(20), unique=True, nullable=True)
+    mc_number = Column(String(50), unique=True, nullable=True)
+    active = Column(Boolean, default=True, nullable=True)
 
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-   # Foreign Key linking to Carrier
-    carrier_id = Column(Integer, ForeignKey('carriers.id'), nullable=False)
-
-    # Foreign Key linking to Shipper
-    shipper_id = Column(Integer, ForeignKey('shippers.id'), nullable=False)
-
-    # Foreign Key linking to User
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
 
-    # Relationships
-    carrier = relationship("Carrier", backref="carrier_shippers")
-    user = relationship("User", backref="carrier_shippers")
+
+   # Relationships
+    shipper = relationship("Shipper", backref="shippers")
+    user = relationship("User", backref="shippers", foreign_keys=[user_id])
+    created_by_user = relationship("User", foreign_keys=[created_by])
 
     def __repr__(self):
         return f"<CarrierShipper DUNS: {self.duns} | Carrier: {self.carrier.company.company_name} | Shipper: {self.shipper.company.company_name}>"

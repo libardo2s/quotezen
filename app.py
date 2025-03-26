@@ -7,7 +7,7 @@ from flask_migrate import Migrate
 from models.company import Company
 from models.user import User
 from models.shipper import Shipper
-#from models.carrier import Carrier
+from models.carrier import Carrier
 #from models.quote import Quote
 #from models.lane import Lane
 

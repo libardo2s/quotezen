@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+
+{% block title %}Carrier Network | QuoteZen{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+    {% include "partials/summary_kpis.html" %}
+
+    <!-- Carrier Table -->
+    <div class="card border mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Carriers</strong>
+            <div>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addCarrierModal">
+                    <i class="fas fa-plus"></i> New Carrier
+                </button>
+                <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#carrierTable">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+        <div class="collapse show" id="carrierTable">
+            <div class="card-body">
+                <table class="table table-striped" id="carrier-table">
+                    <thead>
+                        <tr>
+                            <th>Shipper Name</th>
+                            <th>Authority</th>
+                            <th>SCAC</th>
+                            <th>MC#</th>
+                            <th>Contact Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <!--
+                    <tbody id="shipperTableBody" hx-get="{{ url_for('app_routes.api_shipper') }}"
+                        hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
+                    </tbody>
+                    -->
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carrier Modal -->
+    <div class="modal fade" id="addCarrierModal" tabindex="-1" aria-labelledby="carrierModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="carrierModalLabel">Carrier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <form >
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Shipper Name</label>
+                                <input type="text" name="company_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Authority</label>
+                                <input type="text" name="authority" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">SCAC</label>
+                                <input type="text" name="scac" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">MC#</label>
+                                <input type="text" name="mc_number" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Contact Name</label>
+                                <input type="text" name="contact_name" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="text" name="contact_phone" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="contact_email" class="form-control">
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-success">Create Carrier</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

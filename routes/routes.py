@@ -38,31 +38,6 @@ def signup():
 
     return render_template('signup.html')
 
-
-@app_routes.route('/opt', methods=["GET", "POST"])
-def otp():
-    return render_template('otp.html')
-
-
-@app_routes.route('/forgot-password', methods=["GET"])
-def forgot_password():
-    return render_template('forgot_password.html')
-
-
-@app_routes.route("/dashboard")
-def dashboard():
-    if "access_token" not in session:
-        return redirect(url_for("app_routes.signin"))
-
-    return render_template("dashboard.html")
-
-
-@app_routes.route("/admin_settings", methods=["GET"])
-def admin_settings():
-    if "access_token" not in session:
-        return redirect(url_for("app_routes.signin"))
-    return render_template("admin_settings.html")
-
 @app_routes.route('/complete-registration/<hashed_email>', methods=["GET"])
 def complete_registration(hashed_email):
     try:
@@ -139,6 +114,37 @@ def company_complete_registration():
             "status": "error",
             "message": f"Registration failed: {str(e)}"
         }), 500
+
+
+@app_routes.route('/opt', methods=["GET", "POST"])
+def otp():
+    return render_template('otp.html')
+
+
+@app_routes.route('/forgot-password', methods=["GET"])
+def forgot_password():
+    return render_template('forgot_password.html')
+
+
+@app_routes.route("/dashboard")
+def dashboard():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+
+    return render_template("dashboard.html")
+
+
+@app_routes.route("/admin_settings", methods=["GET"])
+def admin_settings():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("admin_settings.html")
+
+@app_routes.route("/carrier_network", methods=["GET"])
+def carrier_network():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("carrier_network.html")
 
 
 @app_routes.route("/logout", methods=["POST"])
