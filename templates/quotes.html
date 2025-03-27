@@ -1,90 +1,125 @@
 {% extends "layout.html" %}
 
-{% block title %}Quotes | QuoteZen{% endblock %}
+{% block title %}New Quote Request | QuoteZen{% endblock %}
 
 {% block content %}
 <div class="container-fluid p-4">
+
     {% include "partials/summary_kpis.html" %}
-    <div class="card border mb-4">
-        <div class="card-body">
-            <form>
-                <div class="row g-3">
-                    <div class="col-md-4">
-                        <label class="form-label">Mode</label>
-                        <select class="form-select">
-                            <option>Select</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Equipment Type</label>
-                        <select class="form-select">
-                            <option>Select</option>
-                        </select>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Rate Type</label>
-                        <select class="form-select">
-                            <option>Select</option>
-                        </select>
-                    </div>
+    <div class="row">
+        <div class="col-md-7">
+            <!-- Quote Form -->
+            <div class="card">
+                <div class="card-body">
+                    <form>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Mode</label>
+                                <select class="form-select">
+                                    <option>Select</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Equipment Type</label>
+                                <select class="form-select">
+                                    <option>Select</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Rate Type</label>
+                                <select class="form-select">
+                                    <option>Select</option>
+                                </select>
+                            </div>
 
-                    <div class="col-md-6">
-                        <label class="form-label">Origin</label>
-                        <input type="text" class="form-control" placeholder="City, St / Zip">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Destination</label>
-                        <input type="text" class="form-control" placeholder="City, St / Zip">
-                    </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Origin</label>
+                                <input type="text" class="form-control" placeholder="City, St / Zip">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Destination</label>
+                                <input type="text" class="form-control" placeholder="City, St / Zip">
+                            </div>
 
-                    <div class="col-md-3">
-                        <label class="form-label">Pickup Date</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Delivery Date</label>
-                        <input type="date" class="form-control">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Additional Stops</label>
-                        <input type="text" class="form-control">
-                    </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Pickup Date</label>
+                                <input type="date" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Delivery Date</label>
+                                <input type="date" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Additional Stops</label>
+                                <input type="text" class="form-control">
+                            </div>
 
-                    <div class="col-md-4">
-                        <label class="form-label">Commodity</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Weight</label>
-                        <input type="text" class="form-control">
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Declared Value</label>
-                        <input type="text" class="form-control">
-                    </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Commodity</label>
+                                <input type="text" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Weight</label>
+                                <input type="text" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Declared Value</label>
+                                <input type="text" class="form-control">
+                            </div>
 
-                    <div class="col-md-12">
-                        <label class="form-label">Accessorial</label>
-                        <select class="form-select">
-                            <option>Select</option>
-                        </select>
-                    </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Accessorial</label>
+                                <select class="form-select">
+                                    <option>Select</option>
+                                </select>
+                            </div>
 
-                    <div class="col-md-12">
-                        <label class="form-label">Comments</label>
-                        <textarea class="form-control" rows="4"></textarea>
-                    </div>
+                            <div class="col-md-12">
+                                <label class="form-label">Comments</label>
+                                <textarea class="form-control" rows="4"></textarea>
+                            </div>
 
-                    <div class="col-md-12 d-flex justify-content-end mt-3">
-                        <button type="submit" class="btn btn-success">Send Quote</button>
-                    </div>
+                            <div class="col-md-12 d-flex justify-content-end mt-3">
+                                <button type="submit" class="btn btn-success">Send Quote</button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
-            </form>
+            </div>
+        </div>
+
+        <!-- Request Send To Sidebar -->
+        <div class="col-md-4">
+            <div class="card p-3">
+                <label class="form-label"><strong>Send Request To:</strong></label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="selectAll">
+                    <label class="form-check-label" for="selectAll">Select All</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="adriFreight">
+                    <label class="form-check-label" for="adriFreight">Adri Freight</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="danLogistics">
+                    <label class="form-check-label" for="danLogistics">Dan Logistics</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="scottTrucking">
+                    <label class="form-check-label" for="scottTrucking">Scott Trucking</label>
+                </div>
+
+                <div class="mt-4">
+                    <label class="form-label"><strong>Leave Open For:</strong></label>
+                    <select class="form-select">
+                        <option>1 Day</option>
+                        <option>2 Days</option>
+                        <option>3 Days</option>
+                    </select>
+                </div>
+            </div>
         </div>
     </div>
+
 </div>
-
-<script>
-</script>
-
 {% endblock %}
