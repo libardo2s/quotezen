@@ -1,0 +1,124 @@
+{% extends "layout.html" %}
+
+{% block title %}Pending Quotes | QuoteZen{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+    {% include "partials/summary_kpis.html" %}
+
+    <!-- Pending Quotes Table -->
+    <div class="card">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Pending Quotes</h5>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-striped align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Quote #</th>
+                        <th>Origin</th>
+                        <th>Destination</th>
+                        <th>Pickup Date</th>
+                        <th>Delivery Date</th>
+                        <th>Commodity</th>
+                        <th>Weight</th>
+                        <th>Rate Type</th>
+                        <th>Status</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quote in pending_quotes %}
+                    <tr>
+                        <td>{{ quote.number }}</td>
+                        <td>{{ quote.origin }}</td>
+                        <td>{{ quote.destination }}</td>
+                        <td>{{ quote.pickup_date }}</td>
+                        <td>{{ quote.delivery_date }}</td>
+                        <td>{{ quote.commodity }}</td>
+                        <td>{{ quote.weight }}</td>
+                        <td>{{ quote.rate_type }}</td>
+                        <td>
+                            <span class="badge bg-warning">Pending</span>
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('app_routes.quote_detail', quote_id=quote.id) }}"
+                                class="btn btn-sm btn-outline-primary">
+                                View
+                            </a>
+                            <button class="btn btn-sm btn-outline-danger delete-quote-btn" data-id="{{ quote.id }}">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No pending quotes found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="confirmDeleteQuoteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Delete Quote</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this quote?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button id="confirmDeleteQuoteBtn" class="btn btn-danger">Yes, Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let quoteToDeleteId = null;
+
+    document.body.addEventListener('click', function (event) {
+        const deleteBtn = event.target.closest('.delete-quote-btn');
+        if (deleteBtn) {
+            quoteToDeleteId = deleteBtn.dataset.id;
+            const modalEl = new bootstrap.Modal(document.getElementById('confirmDeleteQuoteModal'));
+            modalEl.show();
+        }
+    });
+
+    document.getElementById('confirmDeleteQuoteBtn').addEventListener('click', async function () {
+        if (!quoteToDeleteId) return;
+
+        try {
+            const response = await fetch(`/api/quote/${quoteToDeleteId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.status === "success") {
+                location.reload(); // Reload to refresh table after delete
+            } else {
+                alert(result.message || "An error occurred while deleting.");
+            }
+        } catch (error) {
+            alert("An unexpected error occurred.");
+        } finally {
+            quoteToDeleteId = null;
+            const modal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteQuoteModal'));
+            modal.hide();
+        }
+    });
+</script>
+
+{% endblock %}

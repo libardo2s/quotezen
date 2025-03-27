@@ -1,0 +1,159 @@
+{% extends "layout.html" %}
+
+{% block title %}Frequent Lanes | QuoteZen{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+
+    {% include "partials/summary_kpis.html" %}
+
+    <!-- Frequent Lanes Table -->
+    <div class="card">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Frequent Lanes</h5>
+            <button class="btn btn-success btn-sm">Add New</button>
+        </div>
+        <div class="card-body table-responsive">
+            <table class="table table-striped align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nickname</th>
+                        <th>Lane</th>
+                        <th>Equipment Type</th>
+                        <th># Carriers</th>
+                        <th>Last Sent</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for lane in frequent_lanes %}
+                    <tr>
+                        <td>{{ lane.nickname }}</td>
+                        <td>{{ lane.origin }} &rarr; {{ lane.destination }}</td>
+                        <td>{{ lane.equipment_type }}</td>
+                        <td>{{ lane.carrier_count }}</td>
+                        <td>{{ lane.last_sent }}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-primary view-lane-btn" data-id="{{ lane.id }}">
+                                View
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="{{ lane.id }}">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No frequent lanes found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Frequent Lane Detail (Collapsible form, hidden by default) -->
+    <div id="laneDetailContainer" class="card mt-4 d-none">
+        <div class="card-header bg-white">
+            <h5>Lane Detail</h5>
+        </div>
+        <div class="card-body">
+            <form id="laneForm" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Mode</label>
+                    <select class="form-select" name="mode">
+                        <option>FTL</option>
+                        <option>LTL</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Equipment Type</label>
+                    <select class="form-select" name="equipment_type">
+                        <option>Reefer</option>
+                        <option>Dry Van</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Pickup Date</label>
+                    <input type="date" class="form-control" name="pickup_date">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Delivery Date</label>
+                    <input type="date" class="form-control" name="delivery_date">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Commodity</label>
+                    <input type="text" class="form-control" name="commodity">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Weight</label>
+                    <input type="text" class="form-control" name="weight">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Rate Type</label>
+                    <select class="form-select" name="rate_type">
+                        <option>All-in</option>
+                        <option>Per Mile</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Declared Value</label>
+                    <input type="text" class="form-control" name="declared_value">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Additional Stops</label>
+                    <input type="text" class="form-control" name="additional_stops">
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Comments</label>
+                    <textarea class="form-control" rows="3" name="comments"></textarea>
+                </div>
+
+                <!-- Send Request To (Sidebar-like selection) -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Send Request To:</label>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="selectAll">
+                        <label for="selectAll" class="form-check-label">Select All</label>
+                    </div>
+                    {% for carrier in carriers %}
+                    <div class="form-check">
+                        <input class="form-check-input carrier-checkbox" type="checkbox" id="carrier{{ carrier.id }}">
+                        <label class="form-check-label" for="carrier{{ carrier.id }}">{{ carrier.name }}</label>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Leave Open For -->
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Leave Open For:</label>
+                    <select class="form-select">
+                        <option>1 Hour</option>
+                        <option>3 Hours</option>
+                        <option>24 Hours</option>
+                    </select>
+                </div>
+
+                <!-- Submit -->
+                <div class="col-12 text-end">
+                    <button type="submit" class="btn btn-success">Send Quote</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    document.body.addEventListener("click", function (e) {
+        const viewBtn = e.target.closest(".view-lane-btn");
+        if (viewBtn) {
+            const laneDetail = document.getElementById("laneDetailContainer");
+            laneDetail.classList.remove('d-none');
+            laneDetail.scrollIntoView({ behavior: 'smooth' });
+            // Fetch lane details with lane ID (viewBtn.dataset.id) if necessary.
+        }
+    });
+</script>
+
+{% endblock %}

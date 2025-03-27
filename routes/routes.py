@@ -153,6 +153,19 @@ def quotes():
         return redirect(url_for("app_routes.signin"))
     return render_template("quotes.html")
 
+@app_routes.route("/pending_quotes", methods=["GET"])
+def pending_quotes():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("pending_quotes.html")
+
+
+@app_routes.route("/frequent_lanes", methods=["GET"])
+def frequent_lanes():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("frequent_lanes.html")
+
 
 @app_routes.route("/logout", methods=["POST"])
 def logout():
