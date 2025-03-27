@@ -3,13 +3,14 @@ from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
-from botocore.exceptions import ClientError
-from models import User, Company, Shipper
+from models import User, Company, Shipper, Carrier
+from models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
-from utils.token_required import token_required
+#from utils.token_required import token_required
 from utils.send_email import send_email
 from cryptography.fernet import Fernet
 from config import Config
+from datetime import datetime
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -395,6 +396,7 @@ def api_shipper():
             return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["GET"])
+#@token_required
 def get_shipper_by_id(shipper_id):
     shipper = Shipper.query.get(shipper_id)
     if not shipper:
@@ -414,6 +416,7 @@ def get_shipper_by_id(shipper_id):
     })
 
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["PUT"])
+#@token_required
 def update_shipper(shipper_id):
     shipper = Shipper.query.get(shipper_id)
 
@@ -448,6 +451,7 @@ def update_shipper(shipper_id):
         }), 500
     
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["DELETE"])
+#@token_required
 def delete_shipper(shipper_id):
     shipper = Shipper.query.get(shipper_id)
 
@@ -468,3 +472,202 @@ def delete_shipper(shipper_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/carrier/", methods=["GET", "POST"]) 
+#@token_required
+def api_carrier():
+    if request.method == "GET":
+        user_id = session.get("user_id")
+
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+        carriers = Carrier.query.filter_by(active=True, created_by=user_id).all()
+        carrier_list = [
+            {
+                "id": carrier.id,
+                "carrier_name": carrier.carrier_name,
+                "authority": carrier.authority,
+                "scac": carrier.scac,
+                "mc_number": carrier.mc_number,
+                "active": carrier.active,
+                "created_at": carrier.created_at.isoformat(),
+                "updated_at": carrier.updated_at.isoformat(),
+                "user": {
+                    "first_name": carrier.user.first_name,
+                    "last_name": carrier.user.last_name,
+                    "phone": carrier.user.phone,
+                    "email": carrier.user.email,
+                    "active": carrier.user.active
+                } if carrier.user else None
+            }
+            for carrier in carriers
+        ]
+        return jsonify(carrier_list), 200
+    
+    if request.method == "POST":
+        user_id = session.get("user_id")
+        data = request.form
+
+        try:
+            shipper = Shipper.query.filter_by(user_id=user_id).first()
+
+            f = Fernet(Config.HASH_KEY)
+            encrypted_email = f.encrypt(data["contact_email"].encode()).decode()
+
+            # Send the hashed email via POST
+            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+
+            if not shipper:
+                return jsonify({"success": False, "message": "Shipper not found"}), 404
+            
+            new_user = User(
+                first_name=data.get("contact_name"),
+                last_name=data.get("contact_name"),
+                email=data.get("contact_email"),
+                phone=data.get("contact_phone"),
+                role="Carrier",
+                active=True
+            )
+            db.session.add(new_user)
+            db.session.flush()
+
+            new_carrier = Carrier(
+                carrier_name=data.get("carrier_name"),
+                authority=data.get("authority"),
+                scac=data.get("scac"),
+                mc_number=data.get("mc_number"),
+                active=data.get("active", True),
+                user_id=new_user.id,
+                created_by=user_id,
+            )
+
+            db.session.add(new_carrier)
+            db.session.flush()
+
+            new_carrier.shippers.append(shipper)
+
+            db.session.commit()
+
+            try:
+                html_content = render_template(
+                    "email/carrier_welcome_email.html",
+                    shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
+                    contact_name=data["carrier_name"],
+                    invite_url=register_url,
+                    current_year=datetime.utcnow().year
+                )
+
+                response = send_email(
+                    recipient=data["contact_email"],
+                    subject="You're invited to QuoteZen!",
+                    body_text="You've been invited to QuoteZen. Click the link to complete registration.",
+                    body_html=html_content
+                )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
+
+            return jsonify(
+                {
+                    "status": "success", 
+                    "message": "Shipper created", 
+                    "complete_registration": register_url
+                }), 200
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                "status": "error", 
+                "message": str(e), 
+            }), 400
+    
+@app_routes.route("/api/carrier/<string:mc_number>", methods=["GET"])
+#@token_required
+def get_carrier_by_mc(mc_number):
+    carrier = Carrier.query.filter_by(
+        mc_number=mc_number,
+        active=True,
+    ).first()
+
+    if not carrier:
+        return jsonify({"error": "Carrier not found"}), 404
+    
+    return jsonify({
+        "id": carrier.id,
+        "carrier_name": carrier.carrier_name,
+        "authority": carrier.authority,
+        "scac": carrier.scac,
+        "mc_number": carrier.mc_number,
+        "active": carrier.active,
+        "created_at": carrier.created_at.isoformat(),
+        "updated_at": carrier.updated_at.isoformat(),
+        "user": {
+            "first_name": carrier.user.first_name,
+            "last_name": carrier.user.last_name,
+            "phone": carrier.user.phone,
+            "email": carrier.user.email,
+            "active": carrier.user.active
+        } if carrier.user else None
+    })
+
+@app_routes.route("/api/carrier/<int:carrier_id>", methods=["GET"])
+#@token_required
+def get_carrier_by_id(carrier_id):
+    carrier = Carrier.query.get(carrier_id)
+
+    if not carrier:
+        return jsonify({"error": "Carrier not found"}), 404
+    
+    return jsonify({
+        "id": carrier.id,
+        "carrier_name": carrier.carrier_name,
+        "authority": carrier.authority,
+        "scac": carrier.scac,
+        "mc_number": carrier.mc_number,
+        "active": carrier.active,
+        "created_at": carrier.created_at.isoformat(),
+        "updated_at": carrier.updated_at.isoformat(),
+        "user": {
+            "first_name": carrier.user.first_name,
+            "last_name": carrier.user.last_name,
+            "phone": carrier.user.phone,
+            "email": carrier.user.email,
+            "active": carrier.user.active
+        } if carrier.user else None
+    })
+
+@app_routes.route("/api/carrier/<int:carrier_id>", methods=["PUT"])
+#@token_required
+def update_carrier(carrier_id):
+    try:
+        data = request.form
+        carrier = Carrier.query.get_or_404(carrier_id)
+        carrier.carrier_name = data.get("carrier_name")
+        carrier.authority = data.get("authority")
+        carrier.scac = data.get("scac")
+        carrier.mc_number = data.get("mc_number")
+
+        user = carrier.user
+        user.first_name = data.get("contact_name")
+        user.last_name = data.get("contact_name")
+        user.phone = data.get("contact_phone")
+        user.email = data.get("contact_email")
+
+        db.session.commit()
+
+        return jsonify({"status": "success", "message": "Carrier updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Update failed: {str(e)}"}), 500
+    
+@app_routes.route('/api/carrier/<int:carrier_id>', methods=['DELETE'])
+#@token_required
+def delete_carrier(carrier_id):
+    try:
+        carrier = Carrier.query.get_or_404(carrier_id)
+        carrier.active = False  # Set active flag to False instead of deleting
+        db.session.commit()
+
+        return jsonify({"status": "success", "message": "Carrier deleted successfully"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Deletion failed: {str(e)}"}), 500

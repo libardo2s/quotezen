@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+
+{% block title %}Quotes | QuoteZen{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    {% include "partials/summary_kpis.html" %}
+    <div class="card border mb-4">
+        <div class="card-body">
+            <form>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Equipment Type</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Rate Type</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Origin</label>
+                        <input type="text" class="form-control" placeholder="City, St / Zip">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Destination</label>
+                        <input type="text" class="form-control" placeholder="City, St / Zip">
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label">Pickup Date</label>
+                        <input type="date" class="form-control">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Delivery Date</label>
+                        <input type="date" class="form-control">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Additional Stops</label>
+                        <input type="text" class="form-control">
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">Commodity</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Weight</label>
+                        <input type="text" class="form-control">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Declared Value</label>
+                        <input type="text" class="form-control">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Accessorial</label>
+                        <select class="form-select">
+                            <option>Select</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Comments</label>
+                        <textarea class="form-control" rows="4"></textarea>
+                    </div>
+
+                    <div class="col-md-12 d-flex justify-content-end mt-3">
+                        <button type="submit" class="btn btn-success">Send Quote</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+</script>
+
+{% endblock %}

@@ -1,6 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
+from .association import carrier_shipper
 from database import db  # Import db from database.py
 
 class Carrier(db.Model):
@@ -8,7 +9,6 @@ class Carrier(db.Model):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     carrier_name = Column(String(100), nullable=False)
-    duns = Column(String(20), unique=True, nullable=False)
     authority = Column(String(50), nullable=True)
     scac = Column(String(20), unique=True, nullable=True)
     mc_number = Column(String(50), unique=True, nullable=True)
@@ -22,9 +22,14 @@ class Carrier(db.Model):
 
 
    # Relationships
-    shipper = relationship("Shipper", backref="shippers")
-    user = relationship("User", backref="shippers", foreign_keys=[user_id])
-    created_by_user = relationship("User", foreign_keys=[created_by])
+    user = relationship("User", backref="carrier_user", foreign_keys=[user_id])
+    created_by_user = relationship("User", backref="carrier_creator", foreign_keys=[created_by])
+
+    shippers = relationship(
+        "Shipper",
+        secondary=carrier_shipper,
+        back_populates="carriers"
+    )
 
     def __repr__(self):
         return f"<CarrierShipper DUNS: {self.duns} | Carrier: {self.carrier.company.company_name} | Shipper: {self.shipper.company.company_name}>"

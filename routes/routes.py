@@ -147,6 +147,13 @@ def carrier_network():
     return render_template("carrier_network.html")
 
 
+@app_routes.route("/quotes", methods=["GET"])
+def quotes():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("quotes.html")
+
+
 @app_routes.route("/logout", methods=["POST"])
 def logout():
     session.clear()

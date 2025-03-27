@@ -29,10 +29,7 @@
                 <i class="fas fa-home me-3"></i>
                 <span class="hide-on-collapse">Dashboard</span>
             </a>
-            <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
-                <i class="fas fa-file-alt me-3"></i>
-                <span class="hide-on-collapse">New Quote Request</span>
-            </a>
+           
             <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
                 <i class="fas fa-clock me-3"></i>
                 <span class="hide-on-collapse">Pending Quotes</span>
@@ -42,6 +39,10 @@
                 <span class="hide-on-collapse">Quote History</span>
             </a>
             -->
+            <a href="{{ url_for('app_routes.quotes') }}" class="sidebar-link text-decoration-none p-3 text-white">
+                <i class="fas fa-file-alt me-3"></i>
+                <span class="hide-on-collapse">Quotes</span>
+            </a>
             <a href="{{ url_for('app_routes.carrier_network') }}" class="sidebar-link text-decoration-none p-3 text-white">
                 <i class="fas fa-network-wired me-3"></i>
                 <span class="hide-on-collapse">Carrier Network</span>
