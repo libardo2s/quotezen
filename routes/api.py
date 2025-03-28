@@ -508,6 +508,72 @@ def api_carrier():
         user_id = session.get("user_id")
         data = request.form
 
+        if(data.get("simple_carrier") == "true"):
+            try:
+
+                carrier = Carrier.query.get(user_id)
+
+                f = Fernet(Config.HASH_KEY)
+                encrypted_email = f.encrypt(data.get("email").encode()).decode()
+
+                # Send the hashed email via POST
+                register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+
+                new_user = User(
+                    first_name=data.get("first_name"),
+                    last_name=data.get("last_name"),
+                    email=data.get("email"),
+                    phone=data.get("phone"),
+                    role="Carrier",
+                    active=True
+                )
+                db.session.add(new_user)
+                db.session.flush()
+
+                new_carrier = Carrier(
+                    carrier_name=data.get("first_name"),
+                    active=data.get("active", True),
+                    user_id=new_user.id,
+                    created_by=user_id,
+                )
+
+                db.session.add(new_carrier)
+                db.session.flush()
+
+                db.session.commit()
+
+                try:
+                    html_content = render_template(
+                        "email/carrier_welcome_email.html",
+                        shipper_name=f"{carrier.user.first_name} {carrier.user.last_name}",
+                        contact_name=data["carrier_name"],
+                        invite_url=register_url,
+                        current_year=datetime.utcnow().year
+                    )
+
+                    response = send_email(
+                        recipient=data.get("contact_email"),
+                        subject="You're invited to QuoteZen!",
+                        body_text="You've been invited to QuoteZen. Click the link to complete registration.",
+                        body_html=html_content
+                    )
+                except Exception as e:
+                    print(f"Email error: {str(e)}")
+
+                return jsonify(
+                    {
+                        "status": "success", 
+                        "message": "Shipper created", 
+                        "complete_registration": register_url
+                    }), 200
+            
+            except Exception as e:
+                db.session.rollback()
+                return jsonify({
+                    "status": "error", 
+                    "message": str(e), 
+                }), 400
+
         try:
             shipper = Shipper.query.filter_by(user_id=user_id).first()
 
@@ -525,7 +591,7 @@ def api_carrier():
                 last_name=data.get("contact_name"),
                 email=data.get("contact_email"),
                 phone=data.get("contact_phone"),
-                role="Carrier",
+                role="CarrierAdmin",
                 active=True
             )
             db.session.add(new_user)
@@ -641,16 +707,24 @@ def update_carrier(carrier_id):
     try:
         data = request.form
         carrier = Carrier.query.get_or_404(carrier_id)
-        carrier.carrier_name = data.get("carrier_name")
-        carrier.authority = data.get("authority")
-        carrier.scac = data.get("scac")
-        carrier.mc_number = data.get("mc_number")
+        if request.form.get("simple_carrier") == "true":
+            # Solo actualiza el usuario
+            carrier.user.first_name = request.form.get("first_name")
+            carrier.user.last_name = request.form.get("last_name")
+            carrier.user.email = request.form.get("email")
+            carrier.user.phone = request.form.get("phone")
+        else:
+            
+            carrier.carrier_name = data.get("carrier_name")
+            carrier.authority = data.get("authority")
+            carrier.scac = data.get("scac")
+            carrier.mc_number = data.get("mc_number")
 
-        user = carrier.user
-        user.first_name = data.get("contact_name")
-        user.last_name = data.get("contact_name")
-        user.phone = data.get("contact_phone")
-        user.email = data.get("contact_email")
+            user = carrier.user
+            user.first_name = data.get("contact_name")
+            user.last_name = data.get("contact_name")
+            user.phone = data.get("contact_phone")
+            user.email = data.get("contact_email")
 
         db.session.commit()
 

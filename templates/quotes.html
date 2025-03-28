@@ -91,25 +91,29 @@
         <!-- Request Send To Sidebar -->
         <div class="col-md-4">
             <div class="card p-3">
-                <label class="form-label"><strong>Send Request To:</strong></label>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="selectAll">
-                    <label class="form-check-label" for="selectAll">Select All</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="adriFreight">
-                    <label class="form-check-label" for="adriFreight">Adri Freight</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="danLogistics">
-                    <label class="form-check-label" for="danLogistics">Dan Logistics</label>
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="scottTrucking">
-                    <label class="form-check-label" for="scottTrucking">Scott Trucking</label>
+                <div class="col-md-12">
+                    <label class="form-label fw-bold">Send Request To:</label>
+
+                    <div class="d-flex flex-row align-items-start gap-3">
+                        <!-- Select Box -->
+                        <div class="col-md-6">
+                            <select id="carrierSelect" name="carrier_ids" multiple placeholder="Select Carriers...">
+                                <option value="select_all">— Select All —</option>
+                            </select>
+                        </div>
+
+                        <!-- Selected Tags -->
+                        <div id="selectedCarrierTags" class="d-flex flex-column flex-wrap gap-2"></div>
+                    </div>
+
+                    <!-- HTMX JSON loader -->
+                    <div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.api_carrier') }}" hx-trigger="load"
+                        hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
+                    </div>
                 </div>
 
-                <div class="mt-4">
+
+                <div class="col-md-12">
                     <label class="form-label"><strong>Leave Open For:</strong></label>
                     <select class="form-select">
                         <option>1 Day</option>
@@ -122,4 +126,90 @@
     </div>
 
 </div>
+<script>
+    let carrierSelectInstance = null;
+
+    document.addEventListener("htmx:afterSwap", function (event) {
+        if (event.target.id === "carrierJsonLoader") {
+            try {
+                const jsonText = event.target.innerText;
+                const carriers = JSON.parse(jsonText);
+                const select = document.getElementById("carrierSelect");
+                const selectedTags = document.getElementById("selectedCarrierTags");
+
+                // Reset select
+                select.innerHTML = '<option value="select_all">— Select All —</option>';
+                carriers.forEach(carrier => {
+                    const option = document.createElement("option");
+                    option.value = carrier.id;
+                    option.textContent = `${carrier.carrier_name} (MC#${carrier.mc_number})`;
+                    select.appendChild(option);
+                });
+
+                if (carrierSelectInstance) {
+                    carrierSelectInstance.destroy();
+                }
+
+                carrierSelectInstance = new TomSelect('#carrierSelect', {
+                    plugins: ['remove_button'],
+                    placeholder: 'Select Carriers...',
+                    onChange(values) {
+                        // Select All logic
+                        if (values.includes("select_all")) {
+                            const allIds = carriers.map(c => c.id.toString());
+                            carrierSelectInstance.setValue(allIds);
+                            return;
+                        }
+
+                        renderSelectedTags(values, carriers);
+                    }
+                });
+
+                function renderSelectedTags(selectedIds, carriersList) {
+                    selectedTags.innerHTML = '';
+
+                    selectedIds.forEach(id => {
+                        const carrier = carriersList.find(c => c.id.toString() === id);
+                        if (!carrier) return;
+
+                        const tag = document.createElement("span");
+                        tag.className = "badge bg-primary d-inline-flex align-items-center px-2 py-1";
+                        tag.innerHTML = `
+                            ${carrier.carrier_name} (MC#${carrier.mc_number})
+                            <button type="button" class="btn-close btn-close-white btn-sm ms-2" style="font-size: 0.6rem" aria-label="Remove"></button>
+                        `;
+
+                        tag.querySelector("button").addEventListener("click", () => {
+                            carrierSelectInstance.removeItem(id, true);
+                            renderSelectedTags(carrierSelectInstance.getValue(), carriersList);
+                        });
+
+                        selectedTags.appendChild(tag);
+                    });
+                }
+
+            } catch (err) {
+                console.error("Error parsing carrier JSON:", err);
+            }
+        }
+    });
+</script>
+
+<style>
+    /* Align select size */
+    #carrierSelect {
+        width: 100%;
+    }
+
+    /* Optional: Improve dropdown scroll */
+    .ts-dropdown {
+        max-height: 250px;
+        overflow-y: auto;
+    }
+
+    #selectedCarrierTags .badge {
+        white-space: nowrap;
+    }
+</style>
+
 {% endblock %}

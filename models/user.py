@@ -20,8 +20,8 @@ class User(db.Model):
             'CompanyShipper', 
             'Shipper', 
             'Carrier', 
-            'Carrier Admin'
-            'Shipper Admin', 
+            'CarrierAdmin',
+            'ShipperAdmin', 
             name='user_roles'
         ), nullable=False)
 
