@@ -745,3 +745,64 @@ def delete_carrier(carrier_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Deletion failed: {str(e)}"}), 500
+
+def get_all_created_user_ids(user_id):
+    """
+    Recursively collect all user IDs (carriers) created by the given user.
+    """
+    visited = set()
+    queue = [user_id]
+
+    while queue:
+        current_user_id = queue.pop()
+        if current_user_id in visited:
+            continue
+        visited.add(current_user_id)
+
+        # Fetch carriers where created_by matches this user ID
+        carriers_created = Carrier.query.filter_by(created_by=current_user_id, active=True).all()
+
+        for carrier in carriers_created:
+            if carrier.user_id:  # If carrier has a user
+                queue.append(carrier.user_id)
+
+    return visited
+
+
+@app_routes.route("/api/carrier_quotes/", methods=["GET"])
+def carrier_quotes():
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    # Get all user_ids that belong to carriers created directly or indirectly by this user
+    created_user_ids = get_all_created_user_ids(user_id)
+
+    # Get all carriers where created_by is in that list
+    carriers = Carrier.query.filter(
+        Carrier.active == True,
+        Carrier.created_by.in_(created_user_ids)
+    ).all()
+
+    carrier_list = [
+        {
+            "id": carrier.id,
+            "carrier_name": carrier.carrier_name,
+            "authority": carrier.authority,
+            "scac": carrier.scac,
+            "mc_number": carrier.mc_number,
+            "active": carrier.active,
+            "created_at": carrier.created_at.isoformat(),
+            "updated_at": carrier.updated_at.isoformat(),
+            "user": {
+                "first_name": carrier.user.first_name,
+                "last_name": carrier.user.last_name,
+                "phone": carrier.user.phone,
+                "email": carrier.user.email,
+                "active": carrier.user.active
+            } if carrier.user else None
+        }
+        for carrier in carriers
+    ]
+
+    return jsonify(carrier_list), 200

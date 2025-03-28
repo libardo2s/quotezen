@@ -107,7 +107,7 @@
                     </div>
 
                     <!-- HTMX JSON loader -->
-                    <div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.api_carrier') }}" hx-trigger="load"
+                    <div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.carrier_quotes') }}" hx-trigger="load"
                         hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
                     </div>
                 </div>
@@ -142,7 +142,7 @@
                 carriers.forEach(carrier => {
                     const option = document.createElement("option");
                     option.value = carrier.id;
-                    option.textContent = `${carrier.carrier_name} (MC#${carrier.mc_number})`;
+                    option.textContent = `${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}`;
                     select.appendChild(option);
                 });
 
@@ -175,7 +175,7 @@
                         const tag = document.createElement("span");
                         tag.className = "badge bg-primary d-inline-flex align-items-center px-2 py-1";
                         tag.innerHTML = `
-                            ${carrier.carrier_name} (MC#${carrier.mc_number})
+                            ${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}
                             <button type="button" class="btn-close btn-close-white btn-sm ms-2" style="font-size: 0.6rem" aria-label="Remove"></button>
                         `;
 
