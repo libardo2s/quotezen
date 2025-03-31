@@ -1,26 +1,55 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from database import db  # Import db from database.py
+from database import db
+
+lane_accessorials = db.Table(
+    'lane_accessorials',
+    db.Column('lane_id', db.Integer, db.ForeignKey('lanes.id'), primary_key=True),
+    db.Column('accessorial_id', db.Integer, db.ForeignKey('accessorials.id'), primary_key=True)
+)
+
 
 class Lane(db.Model):
     __tablename__ = 'lanes'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    
-    nickname = Column(String(100), nullable=True)  # Optional nickname for the lane
+
+    # Foreign Key to Shipper
+    shipper_id = Column(Integer, ForeignKey('shippers.id'), nullable=False)
+
+    shipper = relationship("Shipper", backref="lanes")
+
+    # Basic Details
+    nickname = Column(String(100), nullable=False)
+    mode = Column(String(50), nullable=False)  # Transport mode (e.g., Air, Ground, Ocean)
+    equipment_type = Column(String(50), nullable=False)  # Type of truck/trailer
+    temp_controlled = Column(Boolean, default=False)  # Whether temperature control is required
+    rate_type = Column(String(50), nullable=False)  # Type of rate (e.g., Flat, Per Mile)
+
+    # Locations
     origin = Column(String(100), nullable=False)  # City, State, Zip
     destination = Column(String(100), nullable=False)  # City, State, Zip
-    
-    equipment_type = Column(String(50), nullable=False)  # Type of equipment (e.g., Reefer, Dry Van)
-    temp = Column(Float, nullable=True)  # Temperature setting (if applicable)
-    rate_type = Column(String(50), nullable=False)  # All-in, Per Mile, etc.
-    
-    number_of_carriers = Column(Integer, default=0)  # Number of carriers assigned to this lane
-    last_sent = Column(DateTime, default=datetime.utcnow)  # Last time the quote request was sent
+
+    # Shipment Information
+    pickup_date = Column(DateTime, nullable=False)  # When the shipment is picked up
+    delivery_date = Column(DateTime, nullable=False)  # When the shipment is delivered
+
+    commodity = Column(String(100), nullable=False)  # Type of goods
+    weight = Column(Float, nullable=False)  # Weight of shipment
+    declared_value = Column(Float, nullable=True)  # Declared monetary value
+
+    # Additional Details
+    additional_stops = Column(Integer, default=0)  # Number of additional stops
+    accessorials = relationship(
+        "Accessorial",
+        secondary=lane_accessorials,
+        back_populates="lanes"
+    )
+    comments = Column(Text, nullable=True)  # Additional comments or notes
+
+    leave_open_for_option = Column(String(100), nullable=False)  # Hours, Minute, Seconds
+    leave_open_for_number = Column(Numeric(100), nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-    # Relationship with Carrier
-    #carriers = relationship("Carrier", secondary=lane_carriers, back_populates="lanes")
