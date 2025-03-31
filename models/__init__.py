@@ -7,3 +7,4 @@ from models.mode import Mode
 from models.rate_type import RateType
 from models.accessorial import Accessorial
 from models.city import City
+from models.quote import Quote

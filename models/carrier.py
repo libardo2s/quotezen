@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from .association import carrier_shipper
 from database import db  # Import db from database.py
+from .association import quote_carrier
 
 class Carrier(db.Model):
     __tablename__ = 'carriers'
@@ -29,6 +30,12 @@ class Carrier(db.Model):
         "Shipper",
         secondary=carrier_shipper,
         back_populates="carriers"
+    )
+
+    quotes = relationship(
+        'Quote',
+        secondary=quote_carrier,
+        back_populates='carriers'
     )
 
     def __repr__(self):

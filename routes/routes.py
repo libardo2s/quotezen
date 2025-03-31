@@ -5,7 +5,7 @@ from flask import jsonify, render_template, request, redirect, url_for, flash, s
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
-from models import User, Mode, EquipmentType, RateType, Accessorial, City
+from models import User, Mode, EquipmentType, RateType, Accessorial, Quote
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
@@ -173,8 +173,8 @@ def quotes():
 def pending_quotes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    return render_template("pending_quotes.html")
-
+    quotes = Quote.query.order_by(Quote.created_at.desc()).all()
+    return render_template("pending_quotes.html", pending_quotes=quotes)
 
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():

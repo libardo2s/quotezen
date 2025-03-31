@@ -5,7 +5,7 @@ from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
-from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City
+from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote
 from models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
@@ -13,11 +13,6 @@ from utils.send_email import send_email
 from cryptography.fernet import Fernet
 from config import Config
 from datetime import datetime
-
-base_dir = os.path.dirname(os.path.abspath(__file__))
-csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
-location_df = pd.read_csv(csv_path, low_memory=False)
-
 
 @app_routes.route("/api/status", methods=["GET"])
 def api_status():
@@ -774,7 +769,6 @@ def get_all_created_user_ids(user_id):
 
     return visited
 
-
 @app_routes.route("/api/carrier_quotes/", methods=["GET"])
 def carrier_quotes():
     user_id = session.get("user_id")
@@ -884,3 +878,43 @@ def autocomplete_location():
     ]
 
     return jsonify(response)
+
+@app_routes.route("/api/quote", methods=["GET", "POST"])
+def api_quote():
+    if request.method == "GET":
+        pass
+
+    if request.method == "POST":
+        try:
+            form = request.form
+            carrier_ids = form.getlist("carrier_ids[]")  # From <select multiple>
+
+            # Query all selected carriers
+            selected_carriers = Carrier.query.filter(Carrier.id.in_(carrier_ids)).all()
+
+            quote = Quote(
+                mode=form.get("mode"),
+                equipment_type=form.get("equipment_type"),
+                rate_type=form.get("rate_type"),
+                temp_controlled=False,
+                origin=form.get("origin"),
+                destination=form.get("destination"),
+                pickup_date=datetime.strptime(form.get("pickup_date"), "%Y-%m-%d") if form.get("pickup_date") else None,
+                delivery_date=datetime.strptime(form.get("delivery_date"), "%Y-%m-%d") if form.get("delivery_date") else None,
+                commodity=form.get("commodity"),
+                weight=float(form.get("weight") or 0),
+                declared_value=float(form.get("declared_value") or 0),
+                accessorials=",".join(form.getlist("accessorials[]")),
+                comments=form.get("comments"),
+                additional_stops=None,  # Add JSON logic later if needed
+                carriers=selected_carriers  # ✅ Set the relationship
+            )
+
+            db.session.add(quote)
+            db.session.commit()
+
+            return jsonify({"status": "success", "quote_id": quote.id})
+
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": str(e)}), 500

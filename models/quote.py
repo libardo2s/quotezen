@@ -2,6 +2,8 @@ from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKe
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from database import db  # Import db from database.py
+from sqlalchemy.dialects.postgresql import JSON
+from .association import quote_carrier
 
 class Quote(db.Model):
     __tablename__ = 'quotes'
@@ -27,10 +29,11 @@ class Quote(db.Model):
     declared_value = Column(Float, nullable=True)  # Declared monetary value
 
     # Additional Details
-    additional_stops = Column(Integer, default=0)  # Number of additional stops
-    lorem_ipsum = Column(Text, nullable=True)  # Placeholder for future data if needed
+    additional_stops = Column(JSON, nullable=True) 
     accessorials = Column(Text, nullable=True)  # Extra services like straps, pallet exchange
     comments = Column(Text, nullable=True)  # Additional comments or notes
+
+    carriers = relationship('Carrier', secondary=quote_carrier, back_populates='quotes')
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -31,22 +31,17 @@
                 <tbody>
                     {% for quote in pending_quotes %}
                     <tr>
-                        <td>{{ quote.number }}</td>
+                        <td>{{ quote.id }}</td>
                         <td>{{ quote.origin }}</td>
                         <td>{{ quote.destination }}</td>
-                        <td>{{ quote.pickup_date }}</td>
-                        <td>{{ quote.delivery_date }}</td>
+                        <td>{{ quote.pickup_date.strftime('%Y-%m-%d') }}</td>
+                        <td>{{ quote.delivery_date.strftime('%Y-%m-%d') }}</td>
                         <td>{{ quote.commodity }}</td>
                         <td>{{ quote.weight }}</td>
                         <td>{{ quote.rate_type }}</td>
-                        <td>
-                            <span class="badge bg-warning">Pending</span>
-                        </td>
+                        <td><span class="badge bg-warning">Pending</span></td>
                         <td class="text-center">
-                            <a href="{{ url_for('app_routes.quote_detail', quote_id=quote.id) }}"
-                                class="btn btn-sm btn-outline-primary">
-                                View
-                            </a>
+                            <a href="#" class="btn btn-sm btn-outline-primary">View</a>
                             <button class="btn btn-sm btn-outline-danger delete-quote-btn" data-id="{{ quote.id }}">
                                 Delete
                             </button>
