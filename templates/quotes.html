@@ -59,7 +59,8 @@
                                     class="list-group position-absolute w-100 z-3 autocomplete-dropdown"></div>
 
                             </div>
-
+                            <div id="originLoading" class="htmx-indicator spinner-border spinner-border-sm"
+                                role="status" style="display:none;"></div>
                             <div class="col-md-3">
                                 <label class="form-label">Pickup Date</label>
                                 <input type="date" class="form-control">
@@ -184,10 +185,22 @@
 
     document.addEventListener("htmx:afterOnLoad", function (evt) {
         const target = evt.detail.target;
-        const inputId = (target.id === "originSuggestions") ? "originInput" :
-            (target.id === "destinationSuggestions") ? "destinationInput" : null;
 
-        if (!inputId) return;
+        let inputId = null;
+        let inputEl = null;
+
+        if (target.id === "originSuggestions") {
+            inputId = "originInput";
+            inputEl = document.getElementById(inputId);
+        } else if (target.id === "destinationSuggestions") {
+            inputId = "destinationInput";
+            inputEl = document.getElementById(inputId);
+        } else if (target.classList.contains("autocomplete-dropdown") && target.id.startsWith("stopSuggestions-")) {
+            // For dynamic stop input autocomplete
+            inputEl = target.previousElementSibling;
+        }
+
+        if (!inputEl) return;
 
         try {
             const suggestions = JSON.parse(target.innerText);
@@ -207,7 +220,7 @@
                 el.dataset.value = item.value;
 
                 el.addEventListener("click", () => {
-                    document.getElementById(inputId).value = el.dataset.value;
+                    inputEl.value = el.dataset.value;
                     target.innerHTML = "";
                     target.classList.remove("showing");
                 });
@@ -296,6 +309,64 @@
         if (!destBox.contains(e.target) && !document.getElementById("destinationInput").contains(e.target)) {
             destBox.innerHTML = "";
             destBox.classList.remove("showing");
+        }
+    });
+
+    document.getElementById('addStopBtn').addEventListener('click', () => {
+        const container = document.getElementById('additionalStopsContainer');
+
+        const stopRow = document.createElement('div');
+        stopRow.className = 'row g-2 align-items-end mb-2 position-relative';
+        stopRow.innerHTML = `
+        <div class="col-md-6 position-relative">
+            <label class="form-label">City, St or Zip</label>
+            <input type="text" 
+                   class="form-control stop-autocomplete" 
+                   name="q"
+                   placeholder="City, St or Zip"
+                   autocomplete="off"
+                   hx-get="/api/autocomplete-location"
+                   hx-trigger="keyup changed delay:300ms"
+                   hx-target="#stopSuggestions-${stopIndex}"
+            >
+            <div id="stopSuggestions-${stopIndex}" class="list-group position-absolute w-100 z-3 autocomplete-dropdown"></div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Pickup / Drop off</label>
+            <select class="form-select" name="stops[${stopIndex}][type]">
+                <option value="pickup">Pickup</option>
+                <option value="dropoff">Drop Off</option>
+            </select>
+        </div>
+        <div class="col-md-2 text-end">
+            <button type="button" class="btn btn-danger btn-sm remove-stop">Remove</button>
+        </div>
+    `;
+
+        container.appendChild(stopRow);
+        stopIndex++;
+
+        // Reprocess new HTMX content
+        htmx.process(stopRow);
+
+        // Remove logic
+        stopRow.querySelector('.remove-stop').addEventListener('click', () => {
+            stopRow.remove();
+        });
+    });
+
+    document.getElementById('additionalStopsForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const modal = bootstrap.Modal.getInstance(document.getElementById('additionalStopsModal'));
+        modal.hide();
+
+        // Optionally store data or send to server
+        console.log('Additional stops saved');
+    });
+
+    document.getElementById("additionalStopsContainer").addEventListener("click", function (e) {
+        if (e.target.classList.contains("remove-stop-btn")) {
+            e.target.closest(".row").remove();
         }
     });
 </script>
