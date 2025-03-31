@@ -906,15 +906,35 @@ def api_quote():
                 declared_value=float(form.get("declared_value") or 0),
                 accessorials=",".join(form.getlist("accessorials[]")),
                 comments=form.get("comments"),
-                additional_stops=None,  # Add JSON logic later if needed
-                carriers=selected_carriers  # ✅ Set the relationship
+                additional_stops=None,
+                carriers=selected_carriers
             )
 
             db.session.add(quote)
             db.session.commit()
+
+            try:
+                for carrier in selected_carriers:
+                    if carrier.user.email:
+                        quote_url = f"/{quote.id}"
+                        html_content = render_template(
+                            "emails/new_quote.html",
+                            quote_url=quote_url,
+                            current_year=datetime.now().year
+                        )
+
+                        send_email(
+                            recipient=carrier.email,
+                            subject="New Quote Available - Urgent",
+                            body_text="You have a new quote available in QuoteZen.",
+                            body_html=html_content
+                        )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
 
             return jsonify({"status": "success", "quote_id": quote.id})
 
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
+

@@ -8,15 +8,15 @@
     {% include "partials/summary_kpis.html" %}
 
     <!-- Pending Quotes Table -->
-    <div class="card">
+    <div class="card mt-4">
         <div class="card-header bg-white">
             <h5 class="mb-0">Pending Quotes</h5>
         </div>
         <div class="card-body table-responsive">
-            <table class="table table-striped align-middle">
+            <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>Quote #</th>
+                        <th>#</th>
                         <th>Origin</th>
                         <th>Destination</th>
                         <th>Pickup Date</th>
@@ -30,8 +30,17 @@
                 </thead>
                 <tbody>
                     {% for quote in pending_quotes %}
+                    <!-- Main row -->
                     <tr>
-                        <td>{{ quote.id }}</td>
+                        <td>
+                            <button class="btn btn-sm toggle-detail-btn" data-open="false" data-id="{{ quote.id }}"
+                                hx-get="{{ url_for('app_routes.quote_details', quote_id=quote.id) }}?toggle=true&open=true"
+                                hx-target="#quote-details-{{ quote.id }}" hx-swap="outerHTML"
+                                aria-label="Toggle details">
+                                <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
+                            </button>
+                            {{ quote.id }}
+                        </td>
                         <td>{{ quote.origin }}</td>
                         <td>{{ quote.destination }}</td>
                         <td>{{ quote.pickup_date.strftime('%Y-%m-%d') }}</td>
@@ -39,7 +48,7 @@
                         <td>{{ quote.commodity }}</td>
                         <td>{{ quote.weight }}</td>
                         <td>{{ quote.rate_type }}</td>
-                        <td><span class="badge bg-warning">Pending</span></td>
+                        <td><span class="badge bg-warning text-dark">Pending</span></td>
                         <td class="text-center">
                             <a href="#" class="btn btn-sm btn-outline-primary">View</a>
                             <button class="btn btn-sm btn-outline-danger delete-quote-btn" data-id="{{ quote.id }}">
@@ -47,6 +56,10 @@
                             </button>
                         </td>
                     </tr>
+
+                    <!-- Expandable row for details -->
+                    <tr id="quote-details-{{ quote.id }}"></tr>
+
                     {% else %}
                     <tr>
                         <td colspan="10" class="text-center text-muted">No pending quotes found.</td>
@@ -57,7 +70,7 @@
         </div>
     </div>
 
-    <!-- Delete Confirmation Modal -->
+    <!-- Delete Modal -->
     <div class="modal fade" id="confirmDeleteQuoteModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -81,6 +94,28 @@
 <script>
     let quoteToDeleteId = null;
 
+    document.body.addEventListener("click", function (e) {
+        const btn = e.target.closest(".toggle-detail-btn");
+        if (btn) {
+            const quoteId = btn.dataset.id;
+            const isOpen = btn.dataset.open === "true";
+            const newOpen = !isOpen;
+
+            btn.dataset.open = newOpen;
+
+            // Update hx-get attribute dynamically
+            const url = `/quote/${quoteId}/details?toggle=true&open=${newOpen}`;
+            btn.setAttribute("hx-get", url);
+
+            // Rotate icon
+            const icon = document.getElementById(`icon-${quoteId}`);
+            if (icon) {
+                icon.classList.toggle("bi-chevron-down", !newOpen);
+                icon.classList.toggle("bi-chevron-up", newOpen);
+            }
+        }
+    });
+
     document.body.addEventListener('click', function (event) {
         const deleteBtn = event.target.closest('.delete-quote-btn');
         if (deleteBtn) {
@@ -102,7 +137,7 @@
             const result = await response.json();
 
             if (response.ok && result.status === "success") {
-                location.reload(); // Reload to refresh table after delete
+                location.reload();
             } else {
                 alert(result.message || "An error occurred while deleting.");
             }
@@ -115,5 +150,4 @@
         }
     });
 </script>
-
 {% endblock %}

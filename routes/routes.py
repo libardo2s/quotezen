@@ -176,6 +176,17 @@ def pending_quotes():
     quotes = Quote.query.order_by(Quote.created_at.desc()).all()
     return render_template("pending_quotes.html", pending_quotes=quotes)
 
+@app_routes.route("/quote/<int:quote_id>/details", methods=["GET"])
+def quote_details(quote_id):
+    quote = Quote.query.get_or_404(quote_id)
+    toggle = request.args.get("toggle") == "true"
+
+    # If this is a toggle request and the row is already open, return an empty row to close
+    if toggle and request.args.get("open") == "false":
+        return render_template_string('<tr id="quote-details-{{ quote.id }}"></tr>', quote=quote)
+
+    return render_template("partials/quote_details_row.html", quote=quote)
+
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():
     if "access_token" not in session:
