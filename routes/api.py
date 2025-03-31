@@ -5,7 +5,7 @@ from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
-from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial
+from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City
 from models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
@@ -867,11 +867,20 @@ def autocomplete_location():
     if not term:
         return jsonify([])
 
-    matches = location_df[location_df["CityName"].str.lower().str.contains(term)]
+    # Use ilike for case-insensitive partial match
+    results = (
+        City.query
+        .filter(City.city_name.ilike(f"%{term}%"))
+        .limit(10)
+        .all()
+    )
 
-    results = matches.head(10).apply(lambda row: {
-        "label": f"{row['CityName']}, {row['ProvinceAbbr']} {row['PostalCode']} ({row['CountryName']})",
-        "value": f"{row['CityName']}, {row['ProvinceAbbr']} {row['PostalCode']}"
-    }, axis=1).tolist()
+    response = [
+        {
+            "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
+            "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+        }
+        for city in results
+    ]
 
-    return jsonify(results)
+    return jsonify(response)
