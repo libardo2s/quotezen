@@ -43,11 +43,21 @@
 
                             <div class="col-md-6">
                                 <label class="form-label">Origin</label>
-                                <input type="text" class="form-control" placeholder="City, St / Zip">
+                                <input id="originInput" type="text" name="q" class="form-control"
+                                    placeholder="City, St / Zip" autocomplete="off" hx-get="/api/autocomplete-location"
+                                    hx-trigger="keyup changed delay:300ms" hx-target="#originSuggestions"
+                                    hx-indicator="#originLoading">
+                                <div id="originSuggestions"
+                                    class="list-group position-absolute w-100 z-3 autocomplete-dropdown"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Destination</label>
-                                <input type="text" class="form-control" placeholder="City, St / Zip">
+                                <input id="destinationInput" type="text" name="q" class="form-control"
+                                    placeholder="City, St / Zip" autocomplete="off" hx-get="/api/autocomplete-location"
+                                    hx-trigger="keyup changed delay:300ms" hx-target="#destinationSuggestions">
+                                <div id="destinationSuggestions"
+                                    class="list-group position-absolute w-100 z-3 autocomplete-dropdown"></div>
+
                             </div>
 
                             <div class="col-md-3">
@@ -59,10 +69,12 @@
                                 <input type="date" class="form-control">
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Additional Stops</label>
-                                <input type="text" class="form-control">
+                                <label class="form-label d-block">Additional Stops</label>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal"
+                                    data-bs-target="#additionalStopsModal">
+                                    Manage Additional Stops
+                                </button>
                             </div>
-
                             <div class="col-md-4">
                                 <label class="form-label">Commodity</label>
                                 <input type="text" class="form-control">
@@ -135,11 +147,77 @@
                 </div>
             </div>
         </div>
+
+        <!-- Modal for Additional Stops -->
+        <div class="modal fade" id="additionalStopsModal" tabindex="-1" aria-labelledby="additionalStopsModalLabel"
+            aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <form id="additionalStopsForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="additionalStopsModalLabel">Additional Stops</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+
+                        <div class="modal-body">
+                            <div id="additionalStopsContainer">
+                                <!-- Dynamic Stops will appear here -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-secondary mt-2" id="addStopBtn">+ Add
+                                Stop</button>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Stops</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
 
 </div>
 <script>
     let carrierSelectInstance = null;
+    let stopIndex = 0;
+
+    document.addEventListener("htmx:afterOnLoad", function (evt) {
+        const target = evt.detail.target;
+        const inputId = (target.id === "originSuggestions") ? "originInput" :
+            (target.id === "destinationSuggestions") ? "destinationInput" : null;
+
+        if (!inputId) return;
+
+        try {
+            const suggestions = JSON.parse(target.innerText);
+            target.innerHTML = "";
+
+            if (suggestions.length > 0) {
+                target.classList.add("showing");
+            } else {
+                target.classList.remove("showing");
+            }
+
+            suggestions.forEach(item => {
+                const el = document.createElement("button");
+                el.type = "button";
+                el.className = "list-group-item list-group-item-action";
+                el.textContent = item.label;
+                el.dataset.value = item.value;
+
+                el.addEventListener("click", () => {
+                    document.getElementById(inputId).value = el.dataset.value;
+                    target.innerHTML = "";
+                    target.classList.remove("showing");
+                });
+
+                target.appendChild(el);
+            });
+        } catch (err) {
+            console.error("Invalid JSON from autocomplete API", err);
+        }
+    });
 
     document.addEventListener("htmx:afterSwap", function (event) {
         if (event.target.id === "carrierJsonLoader") {
@@ -205,6 +283,21 @@
             }
         }
     });
+
+    document.addEventListener("click", function (e) {
+        const originBox = document.getElementById("originSuggestions");
+        const destBox = document.getElementById("destinationSuggestions");
+
+        if (!originBox.contains(e.target) && !document.getElementById("originInput").contains(e.target)) {
+            originBox.innerHTML = "";
+            originBox.classList.remove("showing");
+        }
+
+        if (!destBox.contains(e.target) && !document.getElementById("destinationInput").contains(e.target)) {
+            destBox.innerHTML = "";
+            destBox.classList.remove("showing");
+        }
+    });
 </script>
 
 <style>
@@ -221,6 +314,32 @@
 
     #selectedCarrierTags .badge {
         white-space: nowrap;
+    }
+
+    .list-group-item {
+        cursor: pointer;
+    }
+
+    /* Fade & slide in animation */
+    .autocomplete-dropdown.showing {
+        animation: fadeSlideDown 0.2s ease-in-out;
+    }
+
+    @keyframes fadeSlideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Make sure dropdown appears above other elements */
+    .z-3 {
+        z-index: 1030;
     }
 </style>
 

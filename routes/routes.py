@@ -1,9 +1,15 @@
+import os
 import boto3
-from flask import jsonify, render_template, request, redirect, url_for, flash, session
+import pandas as pd
+from flask import jsonify, render_template, request, redirect, url_for, flash, session, render_template_string
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
 from models import User, Mode, EquipmentType, RateType, Accessorial
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
+location_df = pd.read_csv(csv_path, low_memory=False)
 
 @app_routes.route("/", methods=["GET"])
 def home():
@@ -175,7 +181,6 @@ def frequent_lanes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
     return render_template("frequent_lanes.html")
-
 
 @app_routes.route("/logout", methods=["POST"])
 def logout():
