@@ -5,7 +5,7 @@ from flask import jsonify, render_template, request, redirect, url_for, flash, s
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
-from models import User, Mode, EquipmentType, RateType, Accessorial
+from models import User, Mode, EquipmentType, RateType, Accessorial, City
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
@@ -184,7 +184,7 @@ def frequent_lanes():
     equipment_types = EquipmentType.query.all()
     rate_types = RateType.query.all()
     accessorials = Accessorial.query.all()
-    cities = Cities.query.all()
+    cities = City.query.all()
     return render_template(
         "frequent_lanes.html",
         modes=modes,
