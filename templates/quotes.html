@@ -85,14 +85,18 @@
                                 <input type="text" class="form-control">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label">Declared Value</label>
-                                <input type="text" class="form-control">
+                                <label class="form-label">Declared Value (USD)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="declaredValue" name="declared_value"
+                                        placeholder="0.00">
+                                </div>
                             </div>
 
                             <div class="col-md-12">
                                 <label class="form-label">Accessorial</label>
-                                <select class="form-select" name="accessorial">
-                                    <option value="Select">Select</option>
+                                <select id="accessorialSelect" name="accessorials" multiple
+                                    placeholder="Select Accessorials...">
                                     {% for accessorial in accessorials %}
                                     <option value="{{ accessorial.name }}">{{ accessorial.name }}</option>
                                     {% endfor %}
@@ -136,15 +140,23 @@
                         hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
                     </div>
                 </div>
-
-
+                
                 <div class="col-md-12">
                     <label class="form-label"><strong>Leave Open For:</strong></label>
-                    <select class="form-select">
-                        <option>1 Day</option>
-                        <option>2 Days</option>
-                        <option>3 Days</option>
-                    </select>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <select class="form-select" id="leave_open_for_select">
+                                <option>Hours</option>
+                                <option>Minutes</option>
+                                <option>Days</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <input type="number" class="form-control" id="number_leave_open_for">
+                        </div>
+                    </div>
+
+
                 </div>
             </div>
         </div>
@@ -182,6 +194,18 @@
 <script>
     let carrierSelectInstance = null;
     let stopIndex = 0;
+    let accessorialSelectInstance = null;
+
+    document.addEventListener("DOMContentLoaded", function () {
+        if (accessorialSelectInstance) {
+            accessorialSelectInstance.destroy();
+        }
+
+        accessorialSelectInstance = new TomSelect('#accessorialSelect', {
+            plugins: ['remove_button'],
+            placeholder: 'Select Accessorials...'
+        });
+    });
 
     document.addEventListener("htmx:afterOnLoad", function (evt) {
         const target = evt.detail.target;

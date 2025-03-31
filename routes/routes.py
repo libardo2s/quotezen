@@ -184,7 +184,7 @@ def frequent_lanes():
     equipment_types = EquipmentType.query.all()
     rate_types = RateType.query.all()
     accessorials = Accessorial.query.all()
-    cities = City.query.all()
+    #cities = City.query.all()
     return render_template(
         "frequent_lanes.html",
         modes=modes,
