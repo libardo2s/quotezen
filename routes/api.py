@@ -1,4 +1,6 @@
+import os
 import boto3
+import pandas as pd
 from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
@@ -11,6 +13,10 @@ from utils.send_email import send_email
 from cryptography.fernet import Fernet
 from config import Config
 from datetime import datetime
+
+base_dir = os.path.dirname(os.path.abspath(__file__))
+csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
+location_df = pd.read_csv(csv_path, low_memory=False)
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -854,3 +860,18 @@ def api_accessorials():
         for accessorial in accessorials
     ]
     return jsonify(accessorial_list), 200
+
+@app_routes.route("/api/autocomplete-location", methods=["GET"])
+def autocomplete_location():
+    term = request.args.get("q", "").strip().lower()
+    if not term:
+        return jsonify([])
+
+    matches = location_df[location_df["CityName"].str.lower().str.contains(term)]
+
+    results = matches.head(10).apply(lambda row: {
+        "label": f"{row['CityName']}, {row['ProvinceAbbr']} {row['PostalCode']} ({row['CountryName']})",
+        "value": f"{row['CityName']}, {row['ProvinceAbbr']} {row['PostalCode']}"
+    }, axis=1).tolist()
+
+    return jsonify(results)
