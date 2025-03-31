@@ -3,19 +3,19 @@
 {% block title %}Frequent Lanes | QuoteZen{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+    <div class="container-fluid p-4">
 
-    {% include "partials/summary_kpis.html" %}
+        {% include "partials/summary_kpis.html" %}
 
-    <!-- Frequent Lanes Table -->
-    <div class="card">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Frequent Lanes</h5>
-            <button class="btn btn-success btn-sm">Add New</button>
-        </div>
-        <div class="card-body table-responsive">
-            <table class="table table-striped align-middle">
-                <thead class="table-light">
+        <!-- Frequent Lanes Table -->
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Frequent Lanes</h5>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#quoteModal">Add New</button>
+            </div>
+            <div class="card-body table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead class="table-light">
                     <tr>
                         <th>Nickname</th>
                         <th>Lane</th>
@@ -24,136 +24,399 @@
                         <th>Last Sent</th>
                         <th class="text-center">Actions</th>
                     </tr>
-                </thead>
-                <tbody>
+                    </thead>
+                    <tbody>
                     {% for lane in frequent_lanes %}
-                    <tr>
-                        <td>{{ lane.nickname }}</td>
-                        <td>{{ lane.origin }} &rarr; {{ lane.destination }}</td>
-                        <td>{{ lane.equipment_type }}</td>
-                        <td>{{ lane.carrier_count }}</td>
-                        <td>{{ lane.last_sent }}</td>
-                        <td class="text-center">
-                            <button class="btn btn-sm btn-outline-primary view-lane-btn" data-id="{{ lane.id }}">
-                                View
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="{{ lane.id }}">
-                                Delete
-                            </button>
-                        </td>
-                    </tr>
+                        <tr>
+                            <td>{{ lane.nickname }}</td>
+                            <td>{{ lane.origin }} &rarr; {{ lane.destination }}</td>
+                            <td>{{ lane.equipment_type }}</td>
+                            <td>{{ lane.carrier_count }}</td>
+                            <td>{{ lane.last_sent }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-primary view-lane-btn" data-id="{{ lane.id }}">
+                                    View
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="{{ lane.id }}">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted">No frequent lanes found.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">No frequent lanes found.</td>
+                        </tr>
                     {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
+
+        <!-- Modal -->
+        <div class="modal fade" id="quoteModal" tabindex="-1" aria-labelledby="quoteModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="quoteModalLabel">New Frequent Lane</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <!-- Quote Form -->
+                                <div class="card">
+                                    <div class="card-body">
+                                        <form>
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Mode</label>
+                                                    <select class="form-select" name="mode">
+                                                        <option value="Select">Select</option>
+                                                        {% for mode in modes %}
+                                                            <option value="{{ mode.name }}">{{ mode.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Equipment Type</label>
+                                                    <select class="form-select" name="equipment_type">
+                                                        <option value="Select">Select</option>
+                                                        {% for equipment in equipment_types %}
+                                                            <option value="{{ equipment.name }}">{{ equipment.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Rate Type</label>
+                                                    <select class="form-select" name="rate_type">
+                                                        <option value="Select">Select</option>
+                                                        {% for rate_type in rate_types %}
+                                                            <option value="{{ rate_type.name }}">{{ rate_type.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Origin</label>
+                                                    <input type="text" class="form-control" placeholder="City, St / Zip">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Destination</label>
+                                                    <input type="text" class="form-control" placeholder="City, St / Zip">
+                                                </div>
+
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Pickup Date</label>
+                                                    <input type="date" class="form-control">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="form-label">Delivery Date</label>
+                                                    <input type="date" class="form-control">
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label">Additional Stops</label>
+                                                    <select id="additionalStopsSelect" name="additional_stops" multiple placeholder="Select cities...">
+                                                        {% for city in cities %}
+                                                            <option value="{{ city.id }}">{{ city.city_name }} ({{ city.zip_code }})</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Commodity</label>
+                                                    <input type="text" class="form-control">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Weight</label>
+                                                    <input type="text" class="form-control">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Declared Value (USD)</label>
+                                                    <div class="input-group">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="number" class="form-control" id="declaredValue" name="declared_value" placeholder="0.00">
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <label class="form-label">Accessorial</label>
+                                                    <select id="accessorialSelect" name="accessorials" multiple placeholder="Select Accessorials...">
+                                                        {% for accessorial in accessorials %}
+                                                            <option value="{{ accessorial.name }}">{{ accessorial.name }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+
+                                                <div class="col-md-12">
+                                                    <label class="form-label">Comments</label>
+                                                    <textarea class="form-control" rows="4"></textarea>
+                                                </div>
+
+                                                <div class="col-md-12 d-flex justify-content-end mt-3">
+                                                    <button type="submit" class="btn btn-success">Save Frequent Lane</button>
+                                                </div>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Request Send To Sidebar -->
+                            <div class="col-md-4">
+                                <div class="card p-3">
+                                    <div class="col-md-12">
+                                        <label class="form-label fw-bold">Send Request To:</label>
+
+                                        <div class="d-flex flex-row align-items-start gap-3">
+                                            <!-- Select Box -->
+                                            <div class="col-md-6">
+                                                <select id="carrierSelect" name="carrier_ids" multiple placeholder="Select Carriers...">
+                                                    <option value="select_all">— Select All —</option>
+                                                </select>
+                                            </div>
+
+                                            <!-- Selected Tags -->
+                                            <div id="selectedCarrierTags" class="d-flex flex-column flex-wrap gap-2"></div>
+                                        </div>
+
+                                        <!-- HTMX JSON loader -->
+                                        <div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.carrier_quotes') }}" hx-trigger="load"
+                                             hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
+                                        </div>
+                                    </div>
+
+
+                                    <div class="col-md-12">
+                                        <label class="form-label"><strong>Leave Open For:</strong></label>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <select class="form-select" id="leave_open_for_select">
+                                                    <option>Hours</option>
+                                                    <option>Minutes</option>
+                                                    <option>Days</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <input type="number" class="form-control" id="number_leave_open_for">
+                                            </div>
+                                        </div>
+
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Frequent Lane Detail (Collapsible form, hidden by default) -->
+        <div id="laneDetailContainer" class="card mt-4 d-none">
+            <div class="card-header bg-white">
+                <h5>Lane Detail</h5>
+            </div>
+            <div class="card-body">
+                <form id="laneForm" class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Mode</label>
+                        <select class="form-select" name="mode">
+                            <option>FTL</option>
+                            <option>LTL</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Equipment Type</label>
+                        <select class="form-select" name="equipment_type">
+                            <option>Reefer</option>
+                            <option>Dry Van</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Pickup Date</label>
+                        <input type="date" class="form-control" name="pickup_date">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Delivery Date</label>
+                        <input type="date" class="form-control" name="delivery_date">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Commodity</label>
+                        <input type="text" class="form-control" name="commodity">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Weight</label>
+                        <input type="text" class="form-control" name="weight">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Rate Type</label>
+                        <select class="form-select" name="rate_type">
+                            <option>All-in</option>
+                            <option>Per Mile</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Declared Value</label>
+                        <input type="text" class="form-control" name="declared_value">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Additional Stops</label>
+                        <input type="text" class="form-control" name="additional_stops">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Comments</label>
+                        <textarea class="form-control" rows="3" name="comments"></textarea>
+                    </div>
+
+                    <!-- Send Request To (Sidebar-like selection) -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Send Request To:</label>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="selectAll">
+                            <label for="selectAll" class="form-check-label">Select All</label>
+                        </div>
+                        {% for carrier in carriers %}
+                            <div class="form-check">
+                                <input class="form-check-input carrier-checkbox" type="checkbox" id="carrier{{ carrier.id }}">
+                                <label class="form-check-label" for="carrier{{ carrier.id }}">{{ carrier.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Leave Open For -->
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Leave Open For:</label>
+                        <select class="form-select">
+                            <option>1 Hour</option>
+                            <option>3 Hours</option>
+                            <option>24 Hours</option>
+                        </select>
+                    </div>
+
+                    <!-- Submit -->
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-success">Send Quote</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
     </div>
 
-    <!-- Frequent Lane Detail (Collapsible form, hidden by default) -->
-    <div id="laneDetailContainer" class="card mt-4 d-none">
-        <div class="card-header bg-white">
-            <h5>Lane Detail</h5>
-        </div>
-        <div class="card-body">
-            <form id="laneForm" class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Mode</label>
-                    <select class="form-select" name="mode">
-                        <option>FTL</option>
-                        <option>LTL</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Equipment Type</label>
-                    <select class="form-select" name="equipment_type">
-                        <option>Reefer</option>
-                        <option>Dry Van</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Pickup Date</label>
-                    <input type="date" class="form-control" name="pickup_date">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Delivery Date</label>
-                    <input type="date" class="form-control" name="delivery_date">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Commodity</label>
-                    <input type="text" class="form-control" name="commodity">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Weight</label>
-                    <input type="text" class="form-control" name="weight">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Rate Type</label>
-                    <select class="form-select" name="rate_type">
-                        <option>All-in</option>
-                        <option>Per Mile</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Declared Value</label>
-                    <input type="text" class="form-control" name="declared_value">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label">Additional Stops</label>
-                    <input type="text" class="form-control" name="additional_stops">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label">Comments</label>
-                    <textarea class="form-control" rows="3" name="comments"></textarea>
-                </div>
+    <script>
+        document.body.addEventListener("click", function (e) {
+            const viewBtn = e.target.closest(".view-lane-btn");
+            if (viewBtn) {
+                const laneDetail = document.getElementById("laneDetailContainer");
+                laneDetail.classList.remove('d-none');
+                laneDetail.scrollIntoView({ behavior: 'smooth' });
+                // Fetch lane details with lane ID (viewBtn.dataset.id) if necessary.
+            }
+        });
+    </script>
+    <script>
+        let carrierSelectInstance = null;
 
-                <!-- Send Request To (Sidebar-like selection) -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Send Request To:</label>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="selectAll">
-                        <label for="selectAll" class="form-check-label">Select All</label>
-                    </div>
-                    {% for carrier in carriers %}
-                    <div class="form-check">
-                        <input class="form-check-input carrier-checkbox" type="checkbox" id="carrier{{ carrier.id }}">
-                        <label class="form-check-label" for="carrier{{ carrier.id }}">{{ carrier.name }}</label>
-                    </div>
-                    {% endfor %}
-                </div>
+        document.addEventListener("htmx:afterSwap", function (event) {
+            if (event.target.id === "carrierJsonLoader") {
+                try {
+                    const jsonText = event.target.innerText;
+                    const carriers = JSON.parse(jsonText);
+                    const select = document.getElementById("carrierSelect");
+                    const selectedTags = document.getElementById("selectedCarrierTags");
 
-                <!-- Leave Open For -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Leave Open For:</label>
-                    <select class="form-select">
-                        <option>1 Hour</option>
-                        <option>3 Hours</option>
-                        <option>24 Hours</option>
-                    </select>
-                </div>
+                    // Reset select
+                    select.innerHTML = '<option value="select_all">— Select All —</option>';
+                    carriers.forEach(carrier => {
+                        const option = document.createElement("option");
+                        option.value = carrier.id;
+                        option.textContent = `${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}`;
+                        select.appendChild(option);
+                    });
 
-                <!-- Submit -->
-                <div class="col-12 text-end">
-                    <button type="submit" class="btn btn-success">Send Quote</button>
-                </div>
-            </form>
-        </div>
-    </div>
+                    if (carrierSelectInstance) {
+                        carrierSelectInstance.destroy();
+                    }
 
-</div>
+                    carrierSelectInstance = new TomSelect('#carrierSelect', {
+                        plugins: ['remove_button'],
+                        placeholder: 'Select Carriers...',
+                        onChange(values) {
+                            // Select All logic
+                            if (values.includes("select_all")) {
+                                const allIds = carriers.map(c => c.id.toString());
+                                carrierSelectInstance.setValue(allIds);
+                                return;
+                            }
 
-<script>
-    document.body.addEventListener("click", function (e) {
-        const viewBtn = e.target.closest(".view-lane-btn");
-        if (viewBtn) {
-            const laneDetail = document.getElementById("laneDetailContainer");
-            laneDetail.classList.remove('d-none');
-            laneDetail.scrollIntoView({ behavior: 'smooth' });
-            // Fetch lane details with lane ID (viewBtn.dataset.id) if necessary.
-        }
-    });
-</script>
+                            renderSelectedTags(values, carriers);
+                        }
+                    });
+
+                    function renderSelectedTags(selectedIds, carriersList) {
+                        selectedTags.innerHTML = '';
+
+                        selectedIds.forEach(id => {
+                            const carrier = carriersList.find(c => c.id.toString() === id);
+                            if (!carrier) return;
+
+                            const tag = document.createElement("span");
+                            tag.className = "badge bg-primary d-inline-flex align-items-center px-2 py-1";
+                            tag.innerHTML = `
+                            ${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}
+                            <button type="button" class="btn-close btn-close-white btn-sm ms-2" style="font-size: 0.6rem" aria-label="Remove"></button>
+                        `;
+
+                            tag.querySelector("button").addEventListener("click", () => {
+                                carrierSelectInstance.removeItem(id, true);
+                                renderSelectedTags(carrierSelectInstance.getValue(), carriersList);
+                            });
+
+                            selectedTags.appendChild(tag);
+                        });
+                    }
+
+                } catch (err) {
+                    console.error("Error parsing carrier JSON:", err);
+                }
+            }
+        });
+    </script>
+    <script>
+        let accessorialSelectInstance = null;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            if (accessorialSelectInstance) {
+                accessorialSelectInstance.destroy();
+            }
+
+            accessorialSelectInstance = new TomSelect('#accessorialSelect', {
+                plugins: ['remove_button'],
+                placeholder: 'Select Accessorials...'
+            });
+        });
+    </script>
+    <script>
+        let additionalStopsSelectInstance = null;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            if (additionalStopsSelectInstance) {
+                additionalStopsSelectInstance.destroy();
+            }
+
+            additionalStopsSelectInstance = new TomSelect('#additionalStopsSelect', {
+                plugins: ['remove_button'],
+                placeholder: 'Select additional stop cities...',
+                valueField: 'id',
+                labelField: 'name',
+                searchField: ['name', 'zip'],
+                render: {
+                    option: function(data, escape) {
+                        return `<div>${escape(data.name)} (${escape(data.zip)})</div>`;
+                    }
+                }
+            });
+        });
+    </script>
 
 {% endblock %}

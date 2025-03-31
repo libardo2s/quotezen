@@ -174,7 +174,18 @@ def pending_quotes():
 def frequent_lanes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    return render_template("frequent_lanes.html")
+    modes = Mode.query.all()
+    equipment_types = EquipmentType.query.all()
+    rate_types = RateType.query.all()
+    accessorials = Accessorial.query.all()
+    cities = Cities.query.all()
+    return render_template(
+        "frequent_lanes.html",
+        modes=modes,
+        equipment_types=equipment_types,
+        rate_types=rate_types,
+        accessorials=accessorials
+    )
 
 
 @app_routes.route("/logout", methods=["POST"])
