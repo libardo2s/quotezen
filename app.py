@@ -8,6 +8,10 @@ from models.company import Company
 from models.user import User
 from models.shipper import Shipper
 from models.carrier import Carrier
+from models.rate_type import RateType
+from models.equipment_type import EquipmentType
+from models.accessorial import Accessorial
+from models.mode import Mode
 #from models.quote import Quote
 #from models.lane import Lane
 

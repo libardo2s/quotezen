@@ -15,20 +15,29 @@
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label">Mode</label>
-                                <select class="form-select">
-                                    <option>Select</option>
+                                <select class="form-select" name="mode">
+                                    <option value="Select">Select</option>
+                                    {% for mode in modes %}
+                                    <option value="{{ mode.name }}">{{ mode.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Equipment Type</label>
-                                <select class="form-select">
-                                    <option>Select</option>
+                                <select class="form-select" name="equipment_type">
+                                    <option value="Select">Select</option>
+                                    {% for equipment in equipment_types %}
+                                    <option value="{{ equipment.name }}">{{ equipment.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label">Rate Type</label>
-                                <select class="form-select">
-                                    <option>Select</option>
+                                <select class="form-select" name="rate_type">
+                                    <option value="Select">Select</option>
+                                    {% for rate_type in rate_types %}
+                                    <option value="{{ rate_type.name }}">{{ rate_type.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
 
@@ -69,8 +78,11 @@
 
                             <div class="col-md-12">
                                 <label class="form-label">Accessorial</label>
-                                <select class="form-select">
-                                    <option>Select</option>
+                                <select class="form-select" name="accessorial">
+                                    <option value="Select">Select</option>
+                                    {% for accessorial in accessorials %}
+                                    <option value="{{ accessorial.name }}">{{ accessorial.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
 

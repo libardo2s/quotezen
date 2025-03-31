@@ -3,7 +3,7 @@ from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
-from models import User, Company, Shipper, Carrier
+from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial
 from models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
@@ -806,3 +806,51 @@ def carrier_quotes():
     ]
 
     return jsonify(carrier_list), 200
+
+@app_routes.route("/api/modes", methods=["GET"])
+def api_modes():
+    modes = Mode.query.all()
+    mode_list = [
+        {
+            "id": mode.id,
+            "name": mode.name,
+        }
+        for mode in modes
+    ]
+    return jsonify(mode_list), 200
+
+@app_routes.route("/api/equipment_types", methods=["GET"])
+def api_equipment_types():
+    equipment_types = EquipmentType.query.all()
+    equipment_list = [
+        {
+            "id": equipment.id,
+            "name": equipment.name,
+        }
+        for equipment in equipment_types
+    ]
+    return jsonify(equipment_list), 200
+
+@app_routes.route("/api/rate_types", methods=["GET"])
+def api_rate_types():
+    rate_types = RateType.query.all()
+    rate_list = [
+        {
+            "id": rate.id,
+            "name": rate.name,
+        }
+        for rate in rate_types
+    ]
+    return jsonify(rate_list), 200
+
+@app_routes.route("/api/accessorials", methods=["GET"])
+def api_accessorials():
+    accessorials = Accessorial.query.all()
+    accessorial_list = [
+        {
+            "id": accessorial.id,
+            "name": accessorial.name,
+        }
+        for accessorial in accessorials
+    ]
+    return jsonify(accessorial_list), 200

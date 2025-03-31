@@ -3,7 +3,7 @@ from flask import jsonify, render_template, request, redirect, url_for, flash, s
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
-from models.user import User 
+from models import User, Mode, EquipmentType, RateType, Accessorial
 
 @app_routes.route("/", methods=["GET"])
 def home():
@@ -151,7 +151,17 @@ def carrier_network():
 def quotes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    return render_template("quotes.html")
+    modes = Mode.query.all()
+    equipment_types = EquipmentType.query.all()
+    rate_types = RateType.query.all()
+    accessorials = Accessorial.query.all()
+    return render_template(
+        "quotes.html",
+        modes=modes,
+        equipment_types=equipment_types,
+        rate_types=rate_types,
+        accessorials=accessorials
+    )
 
 @app_routes.route("/pending_quotes", methods=["GET"])
 def pending_quotes():
