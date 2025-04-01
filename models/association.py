@@ -1,4 +1,4 @@
-from sqlalchemy import Table, Column, Integer, ForeignKey
+from sqlalchemy import Table, Column, Integer, ForeignKey, Numeric, Text
 from database import db
 
 carrier_shipper = Table(
@@ -12,5 +12,7 @@ quote_carrier = Table(
     'quote_carrier',
     db.Model.metadata,
     Column('quote_id', Integer, ForeignKey('quotes.id'), primary_key=True),
-    Column('carrier_id', Integer, ForeignKey('carriers.id'), primary_key=True)
+    Column('carrier_id', Integer, ForeignKey('carriers.id'), primary_key=True),
+    Column('rate', Numeric(10, 2), nullable=True),
+    Column('comment', Text, nullable=True) 
 )

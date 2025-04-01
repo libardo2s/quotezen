@@ -4,16 +4,18 @@
 
 {% block content %}
 <div class="container-fluid p-4">
-
     {% include "partials/summary_kpis.html" %}
-    <div class="row">
-        <div class="col-md-7">
-            <!-- Quote Form -->
-            <div class="card">
-                <div class="card-body">
-                    <form method="POST" id="quoteForm" hx-post="/api/quote" hx-trigger="submit"
-                        hx-target="#quoteFeedback" hx-swap="innerHTML">
+
+    <form method="POST" id="quoteForm" hx-post="/api/quote" hx-trigger="submit" hx-target="#quoteFeedback"
+        hx-swap="innerHTML">
+        <div class="row">
+            <!-- Main Form (Left Side) -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+
                         <div class="row g-3">
+                            <!-- Mode, Equipment, Rate Type -->
                             <div class="col-md-4">
                                 <label class="form-label">Mode</label>
                                 <select class="form-select" name="mode">
@@ -42,6 +44,7 @@
                                 </select>
                             </div>
 
+                            <!-- Origin/Destination -->
                             <div class="col-md-6">
                                 <label class="form-label">Origin</label>
                                 <input id="originInput" type="text" name="origin" class="form-control"
@@ -61,10 +64,11 @@
                                     onblur="this.setAttribute('name', 'destination')">
                                 <div id="destinationSuggestions"
                                     class="list-group position-absolute w-100 z-3 autocomplete-dropdown"></div>
-
                             </div>
                             <div id="originLoading" class="htmx-indicator spinner-border spinner-border-sm"
                                 role="status" style="display:none;"></div>
+
+                            <!-- Dates -->
                             <div class="col-md-3">
                                 <label class="form-label">Pickup Date</label>
                                 <input type="date" class="form-control" name="pickup_date">
@@ -80,6 +84,8 @@
                                     Manage Additional Stops
                                 </button>
                             </div>
+
+                            <!-- Commodity Info -->
                             <div class="col-md-4">
                                 <label class="form-label">Commodity</label>
                                 <input type="text" class="form-control" name="commodity">
@@ -97,6 +103,7 @@
                                 </div>
                             </div>
 
+                            <!-- Accessorial -->
                             <div class="col-md-12">
                                 <label class="form-label">Accessorial</label>
                                 <select id="accessorialSelect" name="accessorials[]" multiple
@@ -107,93 +114,90 @@
                                 </select>
                             </div>
 
+                            <!-- Comments -->
                             <div class="col-md-12">
                                 <label class="form-label">Comments</label>
                                 <textarea class="form-control" rows="4" name="comments"></textarea>
                             </div>
 
+                            <!-- Submit Button -->
                             <div class="col-md-12 d-flex justify-content-end mt-3">
                                 <button type="submit" class="btn btn-success">Send Quote</button>
                             </div>
                         </div>
-                    </form>
-                </div>
-            </div>
-        </div>
 
-        <!-- Request Send To Sidebar -->
-        <div class="col-md-4">
-            <div class="card p-3">
-                <div class="col-md-12">
-                    <label class="form-label fw-bold">Send Request To:</label>
-
-                    <div class="d-flex flex-row align-items-start gap-3">
-                        <!-- Select Box -->
-                        <div class="col-md-6">
-                            <select id="carrierSelect" name="carrier_ids[]" multiple placeholder="Select Carriers...">
-                                <option value="select_all">— Select All —</option>
-                            </select>
-                        </div>
-
-                        <!-- Selected Tags -->
-                        <div id="selectedCarrierTags" class="d-flex flex-column flex-wrap gap-2"></div>
-                    </div>
-
-                    <!-- HTMX JSON loader -->
-                    <div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.carrier_quotes') }}" hx-trigger="load"
-                        hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
-                    </div>
-                </div>
-
-                <div class="col-md-12">
-                    <label class="form-label"><strong>Leave Open For:</strong></label>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <select class="form-select" id="leave_open_for_unit">
-                                <option>Hours</option>
-                                <option>Minutes</option>
-                                <option>Days</option>
-                            </select>
-                        </div>
-                        <div class="col-md-6">
-                            <input type="number" class="form-control" id="leave_open_for_value">
-                        </div>
                     </div>
                 </div>
             </div>
-            <div id="quoteFeedback" class="mt-3"></div>
-        </div>
 
-        <!-- Modal for Additional Stops -->
-        <div class="modal fade" id="additionalStopsModal" tabindex="-1" aria-labelledby="additionalStopsModalLabel"
-            aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <form id="additionalStopsForm">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="additionalStopsModalLabel">Additional Stops</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
+            <!-- Carrier Sidebar (Right Side) -->
+            <div class="col-md-4">
+                <div class="card p-3 h-100">
+                    <div class="col-md-12">
+                        <label class="form-label fw-bold">Send Request To:</label>
+                        <select id="carrierSelect" name="carrier_ids[]" multiple placeholder="Select Carriers...">
+                            <option value="select_all">— Select All —</option>
+                            {% for carrier in carriers %}
+                            <option value="{{ carrier.id }}">{{ carrier.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div id="selectedCarrierTags" class="d-flex flex-wrap gap-2 mt-2"></div>
+                    </div>
 
-                        <div class="modal-body">
-                            <div id="additionalStopsContainer">
-                                <!-- Dynamic Stops will appear here -->
+                    <div class="col-md-12 mt-3">
+                        <label class="form-label fw-bold">Leave Open For:</label>
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <input type="number" class="form-control" name="leave_open_value" value="24">
                             </div>
-                            <button type="button" class="btn btn-sm btn-secondary mt-2" id="addStopBtn">+ Add
-                                Stop</button>
+                            <div class="col-md-6">
+                                <select class="form-select" name="leave_open_unit">
+                                    <option value="hours" selected>Hours</option>
+                                    <option value="minutes">Minutes</option>
+                                    <option value="days">Days</option>
+                                </select>
+                            </div>
                         </div>
-
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-primary">Save Stops</button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
+            </div>
+        </div>
+    </form>
+
+
+    <!-- Modal for Additional Stops -->
+    <div class="modal fade" id="additionalStopsModal" tabindex="-1" aria-labelledby="additionalStopsModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="additionalStopsForm">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="additionalStopsModalLabel">Additional Stops</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        <div id="additionalStopsContainer">
+                            <!-- Dynamic Stops will appear here -->
+                        </div>
+                        <button type="button" class="btn btn-sm btn-secondary mt-2" id="addStopBtn">+ Add Stop</button>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Stops</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-
 </div>
+
+<!-- HTMX JSON loader -->
+<div id="carrierJsonLoader" hx-get="{{ url_for('app_routes.carrier_quotes') }}" hx-trigger="load"
+    hx-target="#carrierJsonLoader" hx-swap="innerHTML" style="display: none;">
+</div>
+<div id="quoteFeedback"></div>
 <script>
     let carrierSelectInstance = null;
     let stopIndex = 0;
@@ -432,6 +436,7 @@
             e.target.closest(".row").remove();
         }
     });
+
 </script>
 
 <style>

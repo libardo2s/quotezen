@@ -5,8 +5,6 @@
 {% block content %}
 <div class="container-fluid p-4">
 
-    {% include "partials/summary_kpis.html" %}
-
     <!-- Pending Quotes Table -->
     <div class="card mt-4">
         <div class="card-header bg-white">
@@ -17,14 +15,14 @@
                 <thead class="table-light">
                     <tr>
                         <th>#</th>
-                        <th>Origin</th>
-                        <th>Destination</th>
-                        <th>Pickup Date</th>
-                        <th>Delivery Date</th>
-                        <th>Commodity</th>
-                        <th>Weight</th>
-                        <th>Rate Type</th>
-                        <th>Status</th>
+                        <th>Created At</th>
+                        <th>Lane</th>
+                        <th>Equipment Type</th>
+                        <th>Send At</th>
+                        <th>Open For</th>
+                        <th>Time Remaining</th>
+                        <th>Requester Form</th>
+                        <th>Rates Received</th>
                         <th class="text-center">Actions</th>
                     </tr>
                 </thead>
@@ -32,37 +30,83 @@
                     {% for quote in pending_quotes %}
                     <!-- Main row -->
                     <tr>
+                        <td>{{ quote.id }}</td>
+                        <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
+                        <td>{{ quote.origin }} - {{ quote.destination }}</td>
+                        <td>{{ quote.equipment_type or 'R' }}</td>
                         <td>
-                            <button class="btn btn-sm toggle-detail-btn" data-open="false" data-id="{{ quote.id }}"
-                                hx-get="{{ url_for('app_routes.quote_details', quote_id=quote.id) }}?toggle=true&open=true"
-                                hx-target="#quote-details-{{ quote.id }}" hx-swap="outerHTML"
+                            {% if quote.pickup_date.date() == today %}
+                            Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
+                            {% else %}
+                            {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
+                            {% endif %}
+                        </td>
+                        <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
+                        <td class="time-remaining" data-unit="{{ quote.open_unit }}"
+                            data-created-at="{{ quote.created_at.isoformat() }}" data-value="{{ quote.open_value }}">
+                            <!-- Initial value will be set by JS -->
+                            00:00:00
+                        </td>
+                        <td>{{ quote.carriers|length }}</td>
+                        <td>{{ quote.better_received_count or 0 }}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
                                 aria-label="Toggle details">
                                 <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
-                            </button>
-                            {{ quote.id }}
-                        </td>
-                        <td>{{ quote.origin }}</td>
-                        <td>{{ quote.destination }}</td>
-                        <td>{{ quote.pickup_date.strftime('%Y-%m-%d') }}</td>
-                        <td>{{ quote.delivery_date.strftime('%Y-%m-%d') }}</td>
-                        <td>{{ quote.commodity }}</td>
-                        <td>{{ quote.weight }}</td>
-                        <td>{{ quote.rate_type }}</td>
-                        <td><span class="badge bg-warning text-dark">Pending</span></td>
-                        <td class="text-center">
-                            <a href="#" class="btn btn-sm btn-outline-primary">View</a>
-                            <button class="btn btn-sm btn-outline-danger delete-quote-btn" data-id="{{ quote.id }}">
-                                Delete
                             </button>
                         </td>
                     </tr>
 
                     <!-- Expandable row for details -->
-                    <tr id="quote-details-{{ quote.id }}"></tr>
+                    <tr id="quote-details-{{ quote.id }}" style="display: none;">
+                        <td colspan="8" class="p-0">
+                            <div class="p-3">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Carrier</th>
+                                            <th>Rate</th>
+                                            <th>Contact</th>
+                                            <th>Phone</th>
+                                            <th>Email</th>
+                                            <th>Carrier Comment</th>
+                                            <th>Accept/Decline</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for carrier in quote.carriers %}
+                                        <tr>
+                                            <td>{{ carrier.user.first_name }} {{ carrier.user.last_name }}</td>
+                                            <td>${{ carrier.rate }}</td>
+                                            <td>{{ carrier.contact_name or '—' }}</td>
+                                            <td>{{ carrier.user.phone or '—' }}</td>
+                                            <td>{{ carrier.user.email or '—' }}</td>
+                                            <td>{{ carrier.comment or '—' }}</td>
+                                            <td>
+                                                {% if carrier.status == 'accepted' %}
+                                                <span class="badge bg-success">Accepted</span>
+                                                {% elif carrier.status == 'declined' %}
+                                                <span class="badge bg-danger">Declined</span>
+                                                {% else %}
+                                                <button class="btn btn-sm btn-success me-1">Accept</button>
+                                                <button class="btn btn-sm btn-danger">Decline</button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted">No carrier offers yet.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
 
                     {% else %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No pending quotes found.</td>
+                        <td colspan="8" class="text-center text-muted">No pending quotes found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -93,29 +137,95 @@
 
 <script>
     let quoteToDeleteId = null;
+    function toggleDetails(quoteId) {
+        const detailsRow = document.getElementById(`quote-details-${quoteId}`);
+        const icon = document.getElementById(`icon-${quoteId}`);
 
-    document.body.addEventListener("click", function (e) {
-        const btn = e.target.closest(".toggle-detail-btn");
-        if (btn) {
-            const quoteId = btn.dataset.id;
-            const isOpen = btn.dataset.open === "true";
-            const newOpen = !isOpen;
+        if (detailsRow.style.display === 'none') {
+            detailsRow.style.display = 'table-row';
+            icon.classList.remove('bi-chevron-down');
+            icon.classList.add('bi-chevron-up');
+        } else {
+            detailsRow.style.display = 'none';
+            icon.classList.remove('bi-chevron-up');
+            icon.classList.add('bi-chevron-down');
+        }
+    }
 
-            btn.dataset.open = newOpen;
+    document.addEventListener('DOMContentLoaded', function () {
+        const timeElements = document.querySelectorAll('.time-remaining');
 
-            // Update hx-get attribute dynamically
-            const url = `/quote/${quoteId}/details?toggle=true&open=${newOpen}`;
-            btn.setAttribute("hx-get", url);
+        timeElements.forEach(element => {
+            // Parse initial values
+            const createdAt = new Date(element.dataset.createdAt);
+            const unit = element.dataset.unit;
+            const value = parseFloat(element.dataset.value);
 
-            // Rotate icon
-            const icon = document.getElementById(`icon-${quoteId}`);
-            if (icon) {
-                icon.classList.toggle("bi-chevron-down", !newOpen);
-                icon.classList.toggle("bi-chevron-up", newOpen);
+            // Validate inputs
+            if (!unit || isNaN(value) || !createdAt.getTime()) {
+                element.textContent = '00:00:00';
+                return;
+            }
+
+            // Calculate expiration time
+            const expiration = new Date(createdAt);
+            switch (unit) {
+                case 'hours':
+                    expiration.setHours(expiration.getHours() + value);
+                    break;
+                case 'days':
+                    expiration.setDate(expiration.getDate() + value);
+                    break;
+                case 'minutes':
+                    expiration.setMinutes(expiration.getMinutes() + value);
+                    break;
+                default:
+                    element.textContent = '00:00:00';
+                    return;
+            }
+
+            // Store timer reference on the element
+            element.countdownTimer = setInterval(() => {
+                updateCountdown(element, expiration);
+            }, 1000);
+
+            // Initial update
+            updateCountdown(element, expiration);
+        });
+
+        function updateCountdown(element, expiration) {
+            const now = new Date();
+            const diffMs = expiration - now;
+
+            // Handle expired state
+            if (diffMs <= 0) {
+                element.textContent = '00:00:00';
+                element.classList.add('expired');
+                element.classList.remove('warning');
+                clearInterval(element.countdownTimer);
+                return;
+            }
+
+            // Calculate time components
+            const totalSeconds = Math.floor(diffMs / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+
+            // Update display
+            element.textContent =
+                `${String(hours).padStart(2, '0')}:` +
+                `${String(minutes).padStart(2, '0')}:` +
+                `${String(seconds).padStart(2, '0')}`;
+
+            // Add warning class for last 30 minutes
+            if (diffMs < 30 * 60 * 1000) {
+                element.classList.add('warning');
+            } else {
+                element.classList.remove('warning');
             }
         }
     });
-
     document.body.addEventListener('click', function (event) {
         const deleteBtn = event.target.closest('.delete-quote-btn');
         if (deleteBtn) {
@@ -150,4 +260,9 @@
         }
     });
 </script>
+
+<style>
+    .time-remaining.warning { color: orange; font-weight: bold; }
+    .time-remaining.expired { color: red; font-weight: bold; }
+</style>
 {% endblock %}

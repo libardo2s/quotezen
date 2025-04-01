@@ -33,6 +33,9 @@ class Quote(db.Model):
     accessorials = Column(Text, nullable=True)  # Extra services like straps, pallet exchange
     comments = Column(Text, nullable=True)  # Additional comments or notes
 
+    open_unit = Column(String(50), nullable=True)
+    open_value = Column(Float, nullable=True)
+
     carriers = relationship('Carrier', secondary=quote_carrier, back_populates='quotes')
 
     created_at = Column(DateTime, default=datetime.utcnow)

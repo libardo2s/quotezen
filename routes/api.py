@@ -907,7 +907,9 @@ def api_quote():
                 accessorials=",".join(form.getlist("accessorials[]")),
                 comments=form.get("comments"),
                 additional_stops=None,
-                carriers=selected_carriers
+                carriers=selected_carriers,
+                open_unit = form.get("leave_open_unit"),
+                open_value = form.get("leave_open_value"),
             )
 
             db.session.add(quote)
@@ -918,7 +920,7 @@ def api_quote():
                     if carrier.user.email:
                         quote_url = f"/{quote.id}"
                         html_content = render_template(
-                            "emails/new_quote.html",
+                            "emails/quote.html",
                             quote_url=quote_url,
                             current_year=datetime.now().year
                         )

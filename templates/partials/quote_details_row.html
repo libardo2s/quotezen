@@ -13,9 +13,9 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for carrier in carriers %}
+                    {% for carrier in quote.carriers %}
                     <tr>
-                        <td>{{ carrier.name }}</td>
+                        <td>{{ carrier.user.first_name carrier.user.last_name }}</td>
                         <td>${{ carrier.rate }}</td>
                         <td>{{ carrier.contact }}</td>
                         <td>{{ carrier.notes or "—" }}</td>
