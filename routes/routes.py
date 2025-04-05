@@ -137,7 +137,15 @@ def forgot_password():
 def dashboard():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-
+    # if session.get('user_role') == 'CompanyShipper':
+    #     return redirect(url_for("app_routes.company_shipper"))
+    # if session.get('user_role') == 'Shipper':
+    #     return redirect(url_for("app_routes.shipper"))
+    # if session.get('user_role') == 'CarrierAdmin':
+    #     return redirect(url_for("app_routes.carrier_network"))
+    # if session.get('user_role') == 'Carrier':
+    #     return redirect(url_for("app_routes.carrier"))
+    # if session.get('user_role') == 'Admin':
     return render_template("dashboard.html")
 
 
@@ -147,11 +155,42 @@ def admin_settings():
         return redirect(url_for("app_routes.signin"))
     return render_template("admin_settings.html")
 
+
+@app_routes.route("/company_shipper", methods=["GET"])
+def company_shipper():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    if session.get('user_role') == 'CompanyShipper':
+        return render_template("company_shipper.html")
+    else:
+        return redirect(url_for("app_routes.home"))
+
+
+@app_routes.route("/shipper", methods=["GET"])
+def shipper():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    return render_template("carrier_network.html")
+    # else:
+    #     return redirect(url_for("app_routes.home"))
+
+
 @app_routes.route("/carrier_network", methods=["GET"])
 def carrier_network():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
     return render_template("carrier_network.html")
+
+
+@app_routes.route("/carrier_pending_quotes", methods=["GET"])
+def carrier_pending_quotes():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+    carrier_quotes = Quote.query.order_by(Quote.created_at.desc()).all()
+    return render_template(
+        "carrier_pending_quotes.html",
+        pending_quotes=carrier_quotes,
+        now=datetime.utcnow())
 
 
 @app_routes.route("/quotes", methods=["GET"])
@@ -175,7 +214,8 @@ def pending_quotes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
     quotes = Quote.query.order_by(Quote.created_at.desc()).all()
-    return render_template("pending_quotes.html", pending_quotes=quotes, now=datetime.utcnow())
+    return render_template(
+        "pending_quotes.html", pending_quotes=quotes, now=datetime.utcnow())
 
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():
@@ -185,7 +225,6 @@ def frequent_lanes():
     equipment_types = EquipmentType.query.all()
     rate_types = RateType.query.all()
     accessorials = Accessorial.query.all()
-    #cities = City.query.all()
     return render_template(
         "frequent_lanes.html",
         modes=modes,
@@ -194,7 +233,7 @@ def frequent_lanes():
         accessorials=accessorials
     )
 
-@app_routes.route("/logout", methods=["POST"])
+@app_routes.route("/logout", methods=["GET"])
 def logout():
     session.clear()
     return redirect(url_for("app_routes.signin"))

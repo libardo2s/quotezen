@@ -6,6 +6,9 @@ from database import db  # Import db from database.py
 from .association import quote_carrier
 
 class Carrier(db.Model):
+    """
+    This is the carrier admin
+    """
     __tablename__ = 'carriers'
 
     id = Column(Integer, primary_key=True, autoincrement=True)

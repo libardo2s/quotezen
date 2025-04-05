@@ -7,6 +7,8 @@ from models.equipment_type import EquipmentType
 from models.accessorial import Accessorial
 import pandas as pd
 from models.city import City
+from models.user import User
+
 
 # Initialize Flask App
 app = Flask(__name__)
@@ -50,7 +52,7 @@ with app.app_context():
         print("Accessorial added")
 
     # 1. Leer el archivo CSV
-    df = pd.read_csv("/Users/kandreyrosales/Desktop/quotezen/USA 5-digit & Canadian 6-digit.csv")
+    df = pd.read_csv("/Users/kandreyrosales/Desktop/quotezen/static/address_info.csv")
 
     # 2. Limpiar los datos
     df = df.fillna("")
@@ -86,4 +88,22 @@ with app.app_context():
         db.session.bulk_save_objects(cities)
 
     print(f"✅ Importadas {len(cities)} ciudades correctamente.")
+
+    existing_user = User.query.filter_by(email='kevin@kanalyticstech.com').first()
+
+    if not existing_user:
+        new_user = User(
+            first_name='Kevin',
+            last_name='Rosales',
+            email='kevin@kanalyticstech.com',
+            phone='1234567890',
+            address='123 Test Street',
+            role='Admin'  # or 'Carrier', 'Shipper', etc.
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        print("User created successfully.")
+    else:
+        print("User already exists.")
+
 

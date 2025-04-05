@@ -173,130 +173,6 @@
                 </div>
             </div>
         </div>
-
-        {% if session.get('user_role') in ['CarrierAdmin'] %}
-            <!-- Simple Carrier Table -->
-            <div class="card border mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Carriers</strong>
-                    <div>
-                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addSimpleCarrierModal">
-                            <i class="fas fa-plus"></i> New Carrier
-                        </button>
-                        <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse"
-                                data-bs-target="#simpleCarrierTable">
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="collapse show" id="simpleCarrierTable">
-                    <div class="card-body">
-                        <table class="table table-striped" id="simple-carrier-table">
-                            <thead>
-                            <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Email Address</th>
-                                <th>Contact Phone</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody id="simpleCarrierTableBody" hx-get="{{ url_for('app_routes.api_carrier') }}"
-                                   hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add Simple Carrier Modal -->
-            <div class="modal fade" id="addSimpleCarrierModal" tabindex="-1" aria-labelledby="addSimpleCarrierModalModalLabel"
-                 aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form hx-post="{{ url_for('app_routes.api_carrier') }}" hx-target="#simple-carrier-message"
-                              hx-swap="innerHTML" hx-indicator="#shipper-loading-spinner">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="addShipperModalLabel">Add New Carrier</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="first_name" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="last_name" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" name="email" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="phone" class="form-label">Contact Phone</label>
-                                    <input type="tel" class="form-control" name="phone" pattern="\d+" inputmode="numeric"
-                                           required>
-                                </div>
-                                <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Save Carrier</button>
-                            </div>
-                            <div id="shipper-loading-spinner" class="htmx-indicator">
-                                <span class="spinner-border spinner-border-sm text-primary"></span> Saving...
-                            </div>
-                            <div id="simple-carrier-message" class="mt-2"></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Edit Simple Carrier Modal -->
-            <div class="modal fade" id="editSimpleCarrierModal" tabindex="-1" aria-labelledby="editSimpleCarrierModalLabel"
-                 aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form id="editSimpleCarrierForm" hx-put="" hx-target="#edit-simple-carrier-message" hx-swap="innerHTML">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="editSimpleCarrierModalLabel">Edit Carrier</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <input type="hidden" name="carrier_id" id="edit_simple_carrier_id">
-
-                                <div class="mb-3">
-                                    <label class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" id="edit_simple_first_name"
-                                           required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" id="edit_simple_last_name"
-                                           required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" name="email" id="edit_simple_email" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" name="phone" id="edit_simple_phone" required>
-                                </div>
-                                <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Update Carrier</button>
-                            </div>
-                            <div id="edit-simple-carrier-message" class="mt-2"></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-        {% endif %}
     </div>
 
     <script>
@@ -306,6 +182,7 @@
 
             try {
                 const data = JSON.parse(responseText);
+
                 // For carriers
                 if (target.id === "carrierTableBody") {
                     if (!Array.isArray(data) || data.length === 0) {
@@ -317,7 +194,6 @@
                     if (countEl) {
                         countEl.textContent = data.length;
                     }
-
                     const rows = data.map(carrier => {
                         return `
                         <tr>
@@ -328,39 +204,6 @@
                             <td>${carrier.user.first_name || "N/A"} ${carrier.user.last_name || ""}</td>
                             <td>${carrier.user.phone || "N/A"}</td>
                             <td>${carrier.user.email || "N/A"}</td>
-                            <td class="text-center">
-                                <button class="btn btn-sm btn-primary edit-carrier-btn" data-id="${carrier.id}">
-                                    <i class="fas fa-edit"></i> Edit
-                                </button>
-                                <button class="btn btn-sm btn-danger delete-carrier-btn" data-id="${carrier.id}">
-                                    <i class="fas fa-trash"></i> Delete
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                    }).join("");
-
-                    target.innerHTML = rows;
-                }
-
-                if (target.id === "simpleCarrierTableBody") {
-                    if (!Array.isArray(data) || data.length === 0) {
-                        target.innerHTML = `<tr><td colspan="8">No carriers found</td></tr>`;
-                        return;
-                    }
-
-                    //document.getElementById("simpleCarrierTableBody").textContent = data.length;
-                    const countEl = document.getElementById("simpleCarrierTableBody");
-                    if (countEl) {
-                        countEl.textContent = data.length;
-                    }
-                    const rows = data.map(carrier => {
-                        return `
-                        <tr>
-                            <td>${carrier.user.first_name || "N/A"}</td>
-                            <td>${carrier.user.last_name || ""}</td>
-                            <td>${carrier.user.email || "N/A"}</td>
-                            <td>${carrier.user.phone || "N/A"}</td>
                             <td class="text-center">
                                 <button class="btn btn-sm btn-primary edit-carrier-btn" data-id="${carrier.id}">
                                     <i class="fas fa-edit"></i> Edit

@@ -1,0 +1,169 @@
+{% extends "layout.html" %}
+
+{% block title %}Pending Quotes | QuoteZen{% endblock %}
+
+{% block content %}
+    <div class="container-fluid p-4">
+
+        <!-- Pending Quotes Table -->
+        <div class="card mt-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Pending Quotes</h5>
+            </div>
+            <div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Created At</th>
+                        <th>Lane</th>
+                        <th>Equipment Type</th>
+                        <th>Send At</th>
+                        <th>Open For</th>
+                        <th>Time Remaining</th>
+                        <th>Requester Form</th>
+                        <th>Rates Received</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for quote in pending_quotes %}
+                        <!-- Main row -->
+                        <tr>
+                            <td>{{ quote.id }}</td>
+                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
+                            <td>{{ quote.origin }} - {{ quote.destination }}</td>
+                            <td>{{ quote.equipment_type or 'R' }}</td>
+                            <td>
+                                {% if quote.pickup_date.date() == today %}
+                                    Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
+                                {% else %}
+                                    {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
+                                {% endif %}
+                            </td>
+                            <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
+                            <td class="time-remaining" data-unit="{{ quote.open_unit }}"
+                                data-created-at="{{ quote.created_at.isoformat() }}" data-value="{{ quote.open_value }}">
+                                <!-- Initial value will be set by JS -->
+                                00:00:00
+                            </td>
+                            <td>{{ quote.carriers|length }}</td>
+                            <td>{{ quote.better_received_count or 0 }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
+                                        aria-label="Toggle details">
+                                    <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
+                                </button>
+                            </td>
+                            <td>
+                                <form hx-post="{{ url_for('app_routes.update_rate') }}"
+                                      hx-trigger="change"
+                                      hx-target="this"
+                                      hx-swap="outerHTML">
+                                    <input type="hidden" name="carrier_id" value="{{ carrier.id }}">
+                                    <input type="number"
+                                           name="rate"
+                                           value="{{ carrier.rate }}"
+                                           class="form-control form-control-sm"
+                                           style="max-width: 100px;"
+                                           step="0.01"
+                                           min="0">
+                                </form>
+                            </td>
+                        </tr>
+
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No pending quotes found.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const timeElements = document.querySelectorAll('.time-remaining');
+
+            timeElements.forEach(element => {
+                // Parse initial values
+                const createdAt = new Date(element.dataset.createdAt);
+                const unit = element.dataset.unit;
+                const value = parseFloat(element.dataset.value);
+
+                // Validate inputs
+                if (!unit || isNaN(value) || !createdAt.getTime()) {
+                    element.textContent = '00:00:00';
+                    return;
+                }
+
+                // Calculate expiration time
+                const expiration = new Date(createdAt);
+                switch (unit) {
+                    case 'hours':
+                        expiration.setHours(expiration.getHours() + value);
+                        break;
+                    case 'days':
+                        expiration.setDate(expiration.getDate() + value);
+                        break;
+                    case 'minutes':
+                        expiration.setMinutes(expiration.getMinutes() + value);
+                        break;
+                    default:
+                        element.textContent = '00:00:00';
+                        return;
+                }
+
+                // Store timer reference on the element
+                element.countdownTimer = setInterval(() => {
+                    updateCountdown(element, expiration);
+                }, 1000);
+
+                // Initial update
+                updateCountdown(element, expiration);
+            });
+
+            function updateCountdown(element, expiration) {
+                const now = new Date();
+                const diffMs = expiration - now;
+
+                // Handle expired state
+                if (diffMs <= 0) {
+                    element.textContent = '00:00:00';
+                    element.classList.add('expired');
+                    element.classList.remove('warning');
+                    clearInterval(element.countdownTimer);
+                    return;
+                }
+
+                // Calculate time components
+                const totalSeconds = Math.floor(diffMs / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+
+                // Update display
+                element.textContent =
+                    `${String(hours).padStart(2, '0')}:` +
+                    `${String(minutes).padStart(2, '0')}:` +
+                    `${String(seconds).padStart(2, '0')}`;
+
+                // Add warning class for last 30 minutes
+                if (diffMs < 30 * 60 * 1000) {
+                    element.classList.add('warning');
+                } else {
+                    element.classList.remove('warning');
+                }
+            }
+        });
+    </script>
+
+    <style>
+        .time-remaining.warning { color: orange; font-weight: bold; }
+        .time-remaining.expired { color: red; font-weight: bold; }
+    </style>
+{% endblock %}
