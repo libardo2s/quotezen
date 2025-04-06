@@ -9,3 +9,4 @@ from models.accessorial import Accessorial
 from models.city import City
 from models.quote import Quote
 from models.lane import Lane
+from models.carrier_quote import QuoteCarrierRate

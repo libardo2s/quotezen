@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 import boto3
 
 from controller import create_carrier_user, create_carrier_admin
@@ -5,7 +7,8 @@ from database import db
 from flask import jsonify, request, session, render_template
 from routes import app_routes
 from config import Config
-from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote
+from models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
+                    QuoteCarrierRate)
 from models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
@@ -749,6 +752,31 @@ def autocomplete_location():
 
     return jsonify(response)
 
+
+def send_emails_to_carrier_company_and_users(selected_carriers, quote_id):
+    """
+    Sending email for carrier companies
+    """
+    try:
+        for carrier in selected_carriers:
+            if carrier.user.email:
+                quote_url = f"/{quote_id}"
+                html_content = render_template(
+                    "emails/quote.html",
+                    quote_url=quote_url,
+                    current_year=datetime.now().year
+                )
+
+                send_email(
+                    recipient=carrier.email,
+                    subject="New Quote Available - Urgent",
+                    body_text="You have a new quote available in QuoteZen.",
+                    body_html=html_content
+                )
+    except Exception as e:
+        print(f"Email error: {str(e)}")
+
+
 @app_routes.route("/api/quote", methods=["GET", "POST"])
 def api_quote():
     if request.method == "GET":
@@ -759,8 +787,9 @@ def api_quote():
             form = request.form
             carrier_ids = form.getlist("carrier_ids[]")  # From <select multiple>
 
-            # Query all selected carriers
+            # Query selected company carriers
             selected_carriers = Carrier.query.filter(Carrier.id.in_(carrier_ids)).all()
+            carriers_of_company_carrier = Carrier.query.filter(Carrier.created_by.in_(carrier_ids)).all()
 
             quote = Quote(
                 mode=form.get("mode"),
@@ -778,35 +807,87 @@ def api_quote():
                 comments=form.get("comments"),
                 additional_stops=None,
                 carriers=selected_carriers,
-                open_unit = form.get("leave_open_unit"),
-                open_value = form.get("leave_open_value"),
+                open_unit=form.get("leave_open_unit"),
+                open_value=form.get("leave_open_value"),
             )
 
             db.session.add(quote)
             db.session.commit()
 
-            try:
-                for carrier in selected_carriers:
-                    if carrier.user.email:
-                        quote_url = f"/{quote.id}"
-                        html_content = render_template(
-                            "emails/quote.html",
-                            quote_url=quote_url,
-                            current_year=datetime.now().year
-                        )
-
-                        send_email(
-                            recipient=carrier.email,
-                            subject="New Quote Available - Urgent",
-                            body_text="You have a new quote available in QuoteZen.",
-                            body_html=html_content
-                        )
-            except Exception as e:
-                print(f"Email error: {str(e)}")
+            send_emails_to_carrier_company_and_users(
+                selected_carriers=selected_carriers+carriers_of_company_carrier,
+                quote_id=quote.id
+            )
 
             return jsonify({"status": "success", "quote_id": quote.id})
 
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app_routes.route("/api/update_rate", methods=["POST"])
+def api_update_rate():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        quote_id = request.form.get("quote_id", type=int)
+        carrier_id = request.form.get("carrier_id", type=int)
+        rate_str = request.form.get("rate")
+        comment = request.form.get("comment", "")  # opcional
+
+        if not all([quote_id, carrier_id, rate_str]):
+            return jsonify({"status": "error", "message": "Missing data"}), 400
+
+        try:
+            rate = Decimal(rate_str)
+        except Exception:
+            return jsonify({"status": "error", "message": "Invalid rate format"}), 400
+
+        # Validación de carrier
+        carrier = Carrier.query.get(carrier_id)
+        if not carrier:
+            return jsonify({"status": "error", "message": "Carrier not found"}), 404
+
+        carrier_admin_id = carrier.created_by
+
+        # Guardar historial en QuoteCarrierRate (auditoría)
+        quote_rate = QuoteCarrierRate.query.filter_by(
+            quote_id=quote_id,
+            carrier_id=carrier_id,
+            user_id=user_id
+        ).first()
+
+        if quote_rate:
+            quote_rate.rate = rate
+            quote_rate.comment = comment
+            quote_rate.created_at = datetime.utcnow()
+        else:
+            quote_rate = QuoteCarrierRate(
+                quote_id=quote_id,
+                carrier_id=carrier_id,
+                user_id=user_id,
+                carrier_admin_id=carrier_admin_id,
+                rate=rate,
+                comment=comment,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(quote_rate)
+
+        # También actualizamos la tabla quote_carrier
+        from models.association import quote_carrier  # si lo tienes separado
+        db.session.execute(
+            quote_carrier.update()
+            .where(quote_carrier.c.quote_id == quote_id)
+            .where(quote_carrier.c.carrier_id == carrier_id)
+            .values(rate=rate, comment=comment)
+        )
+
+        db.session.commit()
+        return "", 204
+    except Exception as e:
+        print("[ERROR]", str(e))
+        return jsonify({"status": "error", "message": "Internal error"}), 500
 

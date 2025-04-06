@@ -3,10 +3,12 @@ import boto3
 import pandas as pd
 from datetime import datetime
 from flask import jsonify, render_template, request, redirect, url_for, flash, session, render_template_string
+
+from database import db
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
-from models import User, Mode, EquipmentType, RateType, Accessorial, Quote
+from models import User, Mode, EquipmentType, RateType, Accessorial, Quote, Carrier, QuoteCarrierRate
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
@@ -186,11 +188,64 @@ def carrier_network():
 def carrier_pending_quotes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    carrier_quotes = Quote.query.order_by(Quote.created_at.desc()).all()
+
+    user_id = session.get("user_id")
+    carrier = Carrier.query.filter_by(user_id=user_id).first()
+
+    if not carrier:
+        return redirect(url_for("app_routes.signin"))
+
+    carrier_company_id = carrier.created_by
+
+    # Recoger filtros de la query
+    filters = {
+        "equipment_type": request.args.get("equipment_type"),
+        "mode": request.args.get("mode"),
+        "rate_type": request.args.get("rate_type"),
+        "origin": request.args.get("origin"),
+        "destination": request.args.get("destination"),
+    }
+
+    # Base query
+    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == carrier_company_id)
+
+    # Aplicar filtros si existen
+    if filters["equipment_type"]:
+        query = query.filter(Quote.equipment_type == filters["equipment_type"])
+    if filters["mode"]:
+        query = query.filter(Quote.mode == filters["mode"])
+    if filters["rate_type"]:
+        query = query.filter(Quote.rate_type == filters["rate_type"])
+    if filters["origin"]:
+        query = query.filter(Quote.origin.ilike(f"%{filters['origin']}%"))
+    if filters["destination"]:
+        query = query.filter(Quote.destination.ilike(f"%{filters['destination']}%"))
+
+    carrier_quotes = query.all()
+
+    # Obtener rates enviados por este usuario
+    for quote in carrier_quotes:
+        existing_rate = QuoteCarrierRate.query.filter_by(
+            quote_id=quote.id,
+            user_id=user_id
+        ).order_by(QuoteCarrierRate.created_at.desc()).first()
+
+        quote.submitted_rate = existing_rate.rate if existing_rate else None
+        quote.submitted_comment = existing_rate.comment if existing_rate else ""
+
+    # Listas únicas para los select
+    equipment_types = [row[0] for row in db.session.query(Quote.equipment_type.distinct()).all()]
+    modes = [row[0] for row in db.session.query(Quote.mode.distinct()).all()]
+    rate_types = [row[0] for row in db.session.query(Quote.rate_type.distinct()).all()]
+
     return render_template(
         "carrier_pending_quotes.html",
         pending_quotes=carrier_quotes,
-        now=datetime.utcnow())
+        equipment_types=equipment_types,
+        modes=modes,
+        rate_types=rate_types,
+        now=datetime.utcnow()
+    )
 
 
 @app_routes.route("/quotes", methods=["GET"])

@@ -1,73 +1,113 @@
 {% extends "layout.html" %}
 
-{% block title %}Pending Quotes | QuoteZen{% endblock %}
+{% block title %}Carrier Pending Quotes | QuoteZen{% endblock %}
 
 {% block content %}
     <div class="container-fluid p-4">
 
-        <!-- Pending Quotes Table -->
+        <!-- Carrier User Pending Quotes Table -->
         <div class="card mt-4">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Pending Quotes</h5>
+                <h5 class="mb-0">Carrier Pending Quotes</h5>
             </div>
             <div class="card-body table-responsive">
+                <!-- Filter Form -->
+                <!-- Filter Form -->
+                <form method="get" class="row g-3 mb-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Equipment Type</label>
+                        <select name="equipment_type" class="form-select">
+                            <option value="">All</option>
+                            {% for eq in equipment_types %}
+                                <option value="{{ eq }}" {% if request.args.get('equipment_type') == eq %}selected{% endif %}>{{ eq }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Mode</label>
+                        <select name="mode" class="form-select">
+                            <option value="">All</option>
+                            {% for m in modes %}
+                                <option value="{{ m }}" {% if request.args.get('mode') == m %}selected{% endif %}>{{ m }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Rate Type</label>
+                        <select name="rate_type" class="form-select">
+                            <option value="">All</option>
+                            {% for rt in rate_types %}
+                                <option value="{{ rt }}" {% if request.args.get('rate_type') == rt %}selected{% endif %}>{{ rt }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Pickup (Origin)</label>
+                        <input type="text" name="origin" class="form-control"
+                               value="{{ request.args.get('origin', '') }}"
+                               placeholder="e.g. Miami">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Delivery (Destination)</label>
+                        <input type="text" name="destination" class="form-control"
+                               value="{{ request.args.get('destination', '') }}"
+                               placeholder="e.g. Dallas">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button type="submit" class="btn btn-primary w-50">Filter</button>
+                        <a href="{{ url_for('app_routes.carrier_pending_quotes') }}" class="btn btn-outline-secondary w-50">Reset</a>
+                    </div>
+                </form>
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                     <tr>
-                        <th>#</th>
-                        <th>Created At</th>
-                        <th>Lane</th>
-                        <th>Equipment Type</th>
-                        <th>Send At</th>
-                        <th>Open For</th>
-                        <th>Time Remaining</th>
-                        <th>Requester Form</th>
-                        <th>Rates Received</th>
-                        <th class="text-center">Actions</th>
+                        <th>Mode</th>
+                        <th>Shipper</th>
+                        <th>Pickup</th>
+                        <th>Delivery</th>
+                        <th>Equip</th>
+                        <th>Temp</th>
+                        <th>Weight</th>
+                        <th>Comments</th>
+                        <th>Rate Type</th>
+                        <th class="text-center">Rate</th>
                     </tr>
                     </thead>
                     <tbody>
                     {% for quote in pending_quotes %}
                         <!-- Main row -->
                         <tr>
-                            <td>{{ quote.id }}</td>
-                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
-                            <td>{{ quote.origin }} - {{ quote.destination }}</td>
-                            <td>{{ quote.equipment_type or 'R' }}</td>
+                            <td>{{ quote.mode }}</td>
+                            <td>{{ quote.carriers[0].created_by_user.first_name }} {{ quote.carriers[0].created_by_user.last_name }}</td>
+                            <td>{{ quote.origin }}</td> <!-- Pickup -->
+                            <td>{{ quote.destination }}</td> <!-- Delivery -->
+                            <td>{{ quote.equipment_type }}</td> <!-- Delivery -->
+                            <td>{{ quote.temp_controlled }}</td>
+                            <td>{{ quote.weight}}</td>
+                            <td>{{ quote.comments}}</td>
+                            <td>{{ quote.rate_type }}</td>
                             <td>
-                                {% if quote.pickup_date.date() == today %}
-                                    Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
-                                {% else %}
-                                    {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
-                                {% endif %}
-                            </td>
-                            <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                            <td class="time-remaining" data-unit="{{ quote.open_unit }}"
-                                data-created-at="{{ quote.created_at.isoformat() }}" data-value="{{ quote.open_value }}">
-                                <!-- Initial value will be set by JS -->
-                                00:00:00
-                            </td>
-                            <td>{{ quote.carriers|length }}</td>
-                            <td>{{ quote.better_received_count or 0 }}</td>
-                            <td class="text-center">
-                                <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
-                                        aria-label="Toggle details">
-                                    <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
-                                </button>
-                            </td>
-                            <td>
-                                <form hx-post="{{ url_for('app_routes.update_rate') }}"
-                                      hx-trigger="change"
-                                      hx-target="this"
-                                      hx-swap="outerHTML">
-                                    <input type="hidden" name="carrier_id" value="{{ carrier.id }}">
-                                    <input type="number"
-                                           name="rate"
-                                           value="{{ carrier.rate }}"
-                                           class="form-control form-control-sm"
-                                           style="max-width: 100px;"
-                                           step="0.01"
-                                           min="0">
+                                <form
+                                        hx-post="{{ url_for('app_routes.api_update_rate') }}"
+                                        hx-target="this"
+                                        hx-swap="outerHTML"
+                                        hx-trigger="submit">
+
+                                    <input type="hidden" name="carrier_id" value="{{ quote.carriers[0].id }}">
+                                    <input type="hidden" name="quote_id" value="{{ quote.id }}">
+
+                                    <div class="input-group input-group-sm" style="max-width: 180px;">
+                                        <input type="number"
+                                               required
+                                               name="rate"
+                                               value="{{ quote.submitted_rate or '' }}"
+                                               class="form-control"
+                                               step="0.01"
+                                               min="0">
+                                        <button class="btn btn-outline-primary" type="submit">
+                                            <i class="bi bi-check2-circle"></i> Save
+                                        </button>
+                                    </div>
                                 </form>
                             </td>
                         </tr>
