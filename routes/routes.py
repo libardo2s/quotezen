@@ -249,7 +249,7 @@ def carrier_pending_quotes():
         pending_quotes=carrier_quotes,
         equipment_types=equipment_types,
         modes=modes,
-        carrier_admin_quote=carrier,
+        carrier_admin_quote=carrier_user,
         carrier_company_id=carrier_company_id,
         rate_types=rate_types,
         now=datetime.utcnow()
