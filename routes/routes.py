@@ -195,12 +195,13 @@ def carrier_pending_quotes():
         return redirect(url_for("app_routes.signin"))
 
     user_id = session.get("user_id")
-    carrier = Carrier.query.filter_by(user_id=user_id).first()
+    carrier_user = Carrier.query.filter_by(user_id=user_id).first()
 
-    if not carrier:
+    if not carrier_user:
         return redirect(url_for("app_routes.signin"))
 
-    carrier_company_id = Carrier.query.filter_by(user_id=user_id).first()
+    # carrier_user.created_by is the ID of User table
+    carrier_company_id = carrier_user.created_by
 
     # Recoger filtros de la query
     filters = {
@@ -249,6 +250,7 @@ def carrier_pending_quotes():
         equipment_types=equipment_types,
         modes=modes,
         carrier_admin_quote=carrier,
+        carrier_company_id=carrier_company_id,
         rate_types=rate_types,
         now=datetime.utcnow()
     )

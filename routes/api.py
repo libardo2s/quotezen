@@ -843,7 +843,7 @@ def api_update_rate():
         quote_id = request.form.get("quote_id", type=int)
         carrier_id = request.form.get("carrier_id", type=int)
         rate_str = request.form.get("rate")
-        comment = request.form.get("comment", "")  # opcional
+        comment = request.form.get("comment", "")
 
         if not all([quote_id, carrier_id, rate_str]):
             return jsonify({"status": "error", "message": "Missing data"}), 400
@@ -858,8 +858,7 @@ def api_update_rate():
         # Guardar historial en QuoteCarrierRate (auditoría)
         quote_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote_id,
-            carrier_id=carrier_id,
-            user_id=user_id
+            carrier_id=carrier_id
         ).first()
 
         if quote_rate:
