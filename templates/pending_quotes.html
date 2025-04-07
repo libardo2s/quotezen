@@ -49,7 +49,7 @@
                                 00:00:00
                             </td>
                             <td>{{ quote.carriers|length }}</td>
-                            <td>{{ quote.better_received_count or 0 }}</td>
+                            <td>{{ quote.filtered_quote_rates|length  }}</td>
                             <td class="text-center">
                                 <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
                                         aria-label="Toggle details">
@@ -91,6 +91,11 @@
                                                                 class="btn btn-sm btn-success me-1"
                                                                 onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'accepted')">
                                                             Accept
+                                                        </button>
+                                                        <button
+                                                                class="btn btn-sm btn-danger me-1"
+                                                                onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'declined')">
+                                                            Decline
                                                         </button>
                                                     {% endif %}
                                                 </td>

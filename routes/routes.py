@@ -196,6 +196,7 @@ def carrier_pending_quotes():
 
     user_id = session.get("user_id")
     carrier_user = Carrier.query.filter_by(user_id=user_id).first()
+    #print("Carrier user:", carrier_user.carrier_name)
 
     if not carrier_user:
         return redirect(url_for("app_routes.signin"))
@@ -213,7 +214,9 @@ def carrier_pending_quotes():
     }
 
     # Base query
-    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == carrier_company_id)
+    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == user_id)
+    #print("Query:", len(query.all()))
+    # Aplicar filtros por defecto
 
     # Aplicar filtros si existen
     if filters["equipment_type"]:
@@ -253,6 +256,80 @@ def carrier_pending_quotes():
         carrier_company_id=carrier_company_id,
         rate_types=rate_types,
         now=datetime.utcnow()
+    )
+
+
+@app_routes.route("/carrier_pending_quotes/<hashed_id>", methods=["GET"])
+def carrier_pending_quotes_id(hashed_id):
+    
+    f = Fernet(Config.HASH_KEY)
+    quote_id = f.decrypt(hashed_id.encode()).decode()
+
+    user_id = session.get("user_id")
+    carrier_user = Carrier.query.filter_by(user_id=user_id).first()
+    #print("Carrier user:", carrier_user.carrier_name)
+
+    if not carrier_user:
+        return redirect(url_for("app_routes.signin"))
+
+    # carrier_user.created_by is the ID of User table
+    carrier_company_id = carrier_user.created_by
+
+    # Recoger filtros de la query
+    filters = {
+        "equipment_type": request.args.get("equipment_type"),
+        "mode": request.args.get("mode"),
+        "rate_type": request.args.get("rate_type"),
+        "origin": request.args.get("origin"),
+        "destination": request.args.get("destination"),
+    }
+
+    # Base query
+    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == user_id)
+    #print("Query:", len(query.all()))
+    # Aplicar filtros por defecto
+
+    # Aplicar filtros si existen
+    if filters["equipment_type"]:
+        query = query.filter(Quote.equipment_type == filters["equipment_type"])
+    if filters["mode"]:
+        query = query.filter(Quote.mode == filters["mode"])
+    if filters["rate_type"]:
+        query = query.filter(Quote.rate_type == filters["rate_type"])
+    if filters["origin"]:
+        query = query.filter(Quote.origin.ilike(f"%{filters['origin']}%"))
+    if filters["destination"]:
+        query = query.filter(Quote.destination.ilike(f"%{filters['destination']}%"))
+
+    carrier_quotes = query.all()
+
+    # Obtener rates enviados por este usuario
+    for quote in carrier_quotes:
+        existing_rate = QuoteCarrierRate.query.filter_by(
+            quote_id=quote.id,
+            carrier_admin_id=carrier_company_id
+        ).order_by(QuoteCarrierRate.created_at.desc()).first()
+
+        quote.submitted_rate = existing_rate.rate if existing_rate else None
+        quote.submitted_comment = existing_rate.comment if existing_rate else ""
+
+    # Listas únicas para los select
+    equipment_types = [row[0] for row in db.session.query(Quote.equipment_type.distinct()).all()]
+    modes = [row[0] for row in db.session.query(Quote.mode.distinct()).all()]
+    rate_types = [row[0] for row in db.session.query(Quote.rate_type.distinct()).all()]
+
+    print("Quote ID:", quote_id)
+
+    return render_template(
+        "carrier_pending_quotes.html",
+        pending_quotes=carrier_quotes,
+        equipment_types=equipment_types,
+        modes=modes,
+        carrier_admin_quote=carrier_user,
+        carrier_company_id=carrier_company_id,
+        rate_types=rate_types,
+        now=datetime.utcnow(),
+        quote_id=int(quote_id),
     )
 
 
@@ -374,7 +451,7 @@ def frequent_lanes():
         accessorials=accessorials
     )
 
-@app_routes.route("/logout", methods=["GET"])
+@app_routes.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return redirect(url_for("app_routes.signin"))

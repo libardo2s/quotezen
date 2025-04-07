@@ -50,7 +50,7 @@
                     <span class="hide-on-collapse">Pending Quotes</span>
                 </a>
             {% endif %}
-            {% if session.get('user_role') in ['Carrier'] %}
+            {% if session.get('user_role') in ['Carrier', 'CarrierAdmin'] %}
                 <a href="{{ url_for('app_routes.carrier_pending_quotes') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-clock me-3"></i>
                     <span class="hide-on-collapse">Carrier Pending Quotes</span>

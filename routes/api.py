@@ -753,26 +753,32 @@ def autocomplete_location():
     return jsonify(response)
 
 
-def send_emails_to_carrier_company_and_users(selected_carriers, quote_id):
+def send_emails_to_carrier_company_and_users(selected_carriers, quote_id, shipper_name):
     """
     Sending email for carrier companies
     """
     try:
+        f = Fernet(Config.HASH_KEY)
+        encrypted_id = f.encrypt(str(quote_id).encode()).decode()
+        # Send the hashed email via POST
+        quote_url = f"{Config.DOMAIN_URL}/carrier_pending_quotes/{encrypted_id}"
         for carrier in selected_carriers:
             if carrier.user.email:
-                quote_url = f"/{quote_id}"
                 html_content = render_template(
-                    "emails/quote.html",
+                    "email/quote.html",
                     quote_url=quote_url,
-                    current_year=datetime.now().year
+                    current_year=datetime.now().year,
+                    carrier_name=carrier.carrier_name,
+                    shipper_name=shipper_name,
                 )
 
-                send_email(
-                    recipient=carrier.email,
+                response = send_email(
+                    recipient=carrier.user.email,
                     subject="New Quote Available - Urgent",
                     body_text="You have a new quote available in QuoteZen.",
                     body_html=html_content
                 )
+                print(f"Email sent to {carrier.user.email}: {response}")
     except Exception as e:
         print(f"Email error: {str(e)}")
 
@@ -823,7 +829,8 @@ def api_quote():
 
             send_emails_to_carrier_company_and_users(
                 selected_carriers=selected_carriers + carriers_of_company_carrier,
-                quote_id=quote.id
+                quote_id=quote.id,
+                shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
             )
 
             return jsonify({"status": "success", "quote_id": quote.id})
@@ -853,7 +860,7 @@ def api_update_rate():
         except Exception:
             return jsonify({"status": "error", "message": "Invalid rate format"}), 400
 
-        carrier_admin = Carrier.query.filter_by(user_id=carrier_id).first()
+        carrier_admin = Carrier.query.get(carrier_id)
 
         # Guardar historial en QuoteCarrierRate (auditoría)
         quote_rate = QuoteCarrierRate.query.filter_by(
@@ -923,6 +930,50 @@ def quote_decision():
         # quote_rate.decision_at = datetime.utcnow()
 
         db.session.commit()
+
+        quote = Quote.query.get(quote_id)
+        carrier = Carrier.query.get(carrier_admin_id)
+        
+        if not quote or not carrier:
+            return jsonify({"status": "error", "message": "Quote or Carrier not found"}), 404
+
+        if decision == "accepted":
+            try:
+                # Get shipper information
+                shipper = Shipper.query.get(quote.shipper_id)
+                shipper_name = f"{shipper.user.first_name} {shipper.user.last_name}" if shipper and shipper.user else "Unknown Shipper"
+                
+                # Render the award email HTML
+                html_content = render_template(
+                    "email/quote_awarded.html",
+                    companyName=carrier.carrier_name,
+                    shipperName=shipper_name,
+                    quoteID=quote_id,
+                    scac=carrier.scac,
+                    rate=f"${float(rate):,.2f}",
+                    mode=quote.mode,
+                    equipmentType=quote.equipment_type,
+                    temp=quote.temp_controlled,
+                    origin=quote.origin,
+                    destination=quote.destination,
+                    commodity=quote.commodity,
+                    weight=f"{float(quote.weight):,.0f} lbs" if quote.weight else "N/A",
+                    declaredValue=f"${float(quote.declared_value):,.2f}" if quote.declared_value else "N/A",
+                    comments=quote.comments or "None"
+                )
+
+                # Send email to carrier
+                send_email(
+                    recipient=carrier.user.email,
+                    subject=f"Quote Awarded - {quote_id}",
+                    body_text=f"Your quote for {quote_id} has been awarded.",
+                    body_html=html_content
+                )
+
+            except Exception as e:
+                print(f"Error sending award email: {str(e)}")
+                # Don't fail the whole request if email fails
+                pass
         return jsonify({"status": "success"}), 200
 
     except Exception as e:

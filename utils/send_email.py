@@ -3,6 +3,7 @@ import boto3
 
 def send_email(recipient, subject, body_text, body_html=None):
     config = current_app.config
+    recipient="libardoii@hotmail.com" ### only for testing
 
     ses = boto3.client(
         'ses',
