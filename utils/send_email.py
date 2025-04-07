@@ -1,5 +1,6 @@
 from flask import current_app
 import boto3
+from config import Config
 
 def send_email(recipient, subject, body_text, body_html=None):
     config = current_app.config
@@ -21,7 +22,7 @@ def send_email(recipient, subject, body_text, body_html=None):
 
     response = ses.send_email(
         Source=config['SES_SENDER_EMAIL'],
-        Destination={'ToAddresses': [recipient]},
+        Destination={'ToAddresses': [Config.TEST_EMAIL]},
         Message={
             'Subject': {'Data': subject},
             'Body': body

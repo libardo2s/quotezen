@@ -1,5 +1,5 @@
 resource "aws_cognito_user_pool" "user_pool_quotezen" {
-  name = "${var.project_name}_user_pool"
+  name = "${var.app_name}_user_pool"
 
   # Configurar la autenticación por correo y contraseña
   username_attributes      = ["email"]
@@ -25,7 +25,7 @@ resource "aws_cognito_user_pool" "user_pool_quotezen" {
 }
 
 resource "aws_cognito_user_pool_client" "user_pool_client_quotezen" {
-  name                                 = "${var.project_name}_client"
+  name                                 = "${var.app_name}_client"
   user_pool_id                         = aws_cognito_user_pool.user_pool_quotezen.id
   explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_PASSWORD_AUTH"]
   generate_secret                      = false
@@ -40,6 +40,6 @@ resource "aws_cognito_user_pool_client" "user_pool_client_quotezen" {
 
 # Cognito domain configuration
 resource "aws_cognito_user_pool_domain" "cognito_domain_quotezen" {
-  domain       = "${var.project_name}"
+  domain       = "${var.app_name}"
   user_pool_id = aws_cognito_user_pool.user_pool_quotezen.id
 }
