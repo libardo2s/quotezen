@@ -785,6 +785,12 @@ def api_quote():
     if request.method == "POST":
         try:
             form = request.form
+            user_id = session.get("user_id")
+
+            shipper = Shipper.query.filter_by(user_id=user_id).first()
+            if not shipper:
+                return jsonify({"status": "error", "message": "User is not a shipper"}), 403
+
             carrier_ids = form.getlist("carrier_ids[]")  # From <select multiple>
 
             # Query selected company carriers
@@ -809,13 +815,14 @@ def api_quote():
                 carriers=selected_carriers,
                 open_unit=form.get("leave_open_unit"),
                 open_value=form.get("leave_open_value"),
+                shipper_id=shipper.id  # 👈 aquí se asigna el shipper
             )
 
             db.session.add(quote)
             db.session.commit()
 
             send_emails_to_carrier_company_and_users(
-                selected_carriers=selected_carriers+carriers_of_company_carrier,
+                selected_carriers=selected_carriers + carriers_of_company_carrier,
                 quote_id=quote.id
             )
 
@@ -846,12 +853,7 @@ def api_update_rate():
         except Exception:
             return jsonify({"status": "error", "message": "Invalid rate format"}), 400
 
-        # Validación de carrier
-        carrier = Carrier.query.get(carrier_id)
-        if not carrier:
-            return jsonify({"status": "error", "message": "Carrier not found"}), 404
-
-        carrier_admin_id = carrier.created_by
+        carrier_admin = Carrier.query.filter_by(user_id=carrier_id).first()
 
         # Guardar historial en QuoteCarrierRate (auditoría)
         quote_rate = QuoteCarrierRate.query.filter_by(
@@ -869,7 +871,7 @@ def api_update_rate():
                 quote_id=quote_id,
                 carrier_id=carrier_id,
                 user_id=user_id,
-                carrier_admin_id=carrier_admin_id,
+                carrier_admin_id=carrier_admin.id,
                 rate=rate,
                 comment=comment,
                 created_at=datetime.utcnow()
@@ -891,3 +893,39 @@ def api_update_rate():
         print("[ERROR]", str(e))
         return jsonify({"status": "error", "message": "Internal error"}), 500
 
+
+@app_routes.route("/api/quote/decision", methods=["POST"])
+def quote_decision():
+    try:
+        data = request.get_json()
+        quote_id = data.get("quote_id")
+        carrier_admin_id = data.get("carrier_admin_id")
+        rate = data.get("rate")
+        decision = data.get("decision")  # "accepted" o "declined"
+
+        if not all([quote_id, carrier_admin_id, rate, decision]):
+            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+
+        if decision not in ["accepted", "declined"]:
+            return jsonify({"status": "error", "message": "Invalid decision"}), 400
+
+        # Buscar el registro del rate
+        quote_rate = QuoteCarrierRate.query.filter_by(
+            quote_id=quote_id,
+            carrier_admin_id=carrier_admin_id,
+            rate=rate
+        ).first()
+
+        if not quote_rate:
+            return jsonify({"status": "error", "message": "Rate not found"}), 404
+
+        # Actualizar el estado
+        quote_rate.status = decision
+        # quote_rate.decision_at = datetime.utcnow()
+
+        db.session.commit()
+        return jsonify({"status": "success"}), 200
+
+    except Exception as e:
+        print("[ERROR] quote_decision:", str(e))
+        return jsonify({"status": "error", "message": "Internal server error"}), 500

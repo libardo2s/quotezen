@@ -40,3 +40,6 @@ class Quote(db.Model):
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    shipper_id = Column(Integer, ForeignKey("shippers.id"), nullable=False)
+    shipper = relationship("Shipper", backref="quotes")

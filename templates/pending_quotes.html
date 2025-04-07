@@ -4,6 +4,7 @@
 
 {% block content %}
     <div class="container-fluid p-4">
+        <div id="decision-alert" class="alert d-none" role="alert"></div>
 
         <!-- Pending Quotes Table -->
         <div class="card mt-4">
@@ -67,20 +68,18 @@
                                             <th>Carrier</th>
                                             <th>Rate</th>
                                             <th>Contact</th>
-                                            <th>Phone</th>
                                             <th>Email</th>
                                             <th>Carrier Comment</th>
                                             <th>Accept/Decline</th>
                                         </tr>
                                         </thead>
                                         <tbody>
-                                        {% for carrier in quote.quote_rates %}
+                                        {% for carrier in quote.filtered_quote_rates %}
                                             <tr>
-                                                <td>{{ carrier.user.first_name }} {{ carrier.user.last_name }}</td>
+                                                <td>{{ carrier.carrier.carrier_name }}</td>
                                                 <td>${{ carrier.rate }}</td>
                                                 <td>{{ carrier.contact_name or '—' }}</td>
-                                                <td>{{ carrier.user.phone or '—' }}</td>
-                                                <td>{{ carrier.user.email or '—' }}</td>
+                                                <td>{{ carrier.carrier.user.email or '—' }}</td>
                                                 <td>{{ carrier.comment or '—' }}</td>
                                                 <td>
                                                     {% if carrier.status == 'accepted' %}
@@ -88,8 +87,11 @@
                                                     {% elif carrier.status == 'declined' %}
                                                         <span class="badge bg-danger">Declined</span>
                                                     {% else %}
-                                                        <button class="btn btn-sm btn-success me-1">Accept</button>
-                                                        <button class="btn btn-sm btn-danger">Decline</button>
+                                                        <button
+                                                                class="btn btn-sm btn-success me-1"
+                                                                onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'accepted')">
+                                                            Accept
+                                                        </button>
                                                     {% endif %}
                                                 </td>
                                             </tr>
@@ -259,4 +261,44 @@
         .time-remaining.warning { color: orange; font-weight: bold; }
         .time-remaining.expired { color: red; font-weight: bold; }
     </style>
+
+    <script>
+        function submitDecision(quoteId, carrierAdminId, rate, decision) {
+            fetch("/api/quote/decision", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    quote_id: quoteId,
+                    carrier_admin_id: carrierAdminId,
+                    rate: rate,
+                    decision: decision
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const alertBox = document.getElementById("decision-alert");
+
+                    if (data.status === "success") {
+                        alertBox.className = "alert alert-success";
+                        alertBox.textContent = `Quote ${decision} successfully!`;
+                    } else {
+                        alertBox.className = "alert alert-danger";
+                        alertBox.textContent = data.message || "Something went wrong";
+                    }
+
+                    alertBox.classList.remove("d-none");
+
+                    setTimeout(() => {
+                        alertBox.classList.add("d-none");
+                        location.reload();
+                    }, 2000);  // 2 seconds before reload
+                })
+                .catch(err => {
+                    const alertBox = document.getElementById("decision-alert");
+                    alertBox.className = "alert alert-danger";
+                    alertBox.textContent = "Unexpected error occurred.";
+                    alertBox.classList.remove("d-none");
+                });
+        }
+    </script>
 {% endblock %}

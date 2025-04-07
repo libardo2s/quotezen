@@ -1,18 +1,23 @@
 import os
 import boto3
 import pandas as pd
-from datetime import datetime
-from flask import jsonify, render_template, request, redirect, url_for, flash, session, render_template_string
-
-from database import db
+from flask import jsonify, request
 from routes import app_routes
 from cryptography.fernet import Fernet
 from config import Config
-from models import User, Mode, EquipmentType, RateType, Accessorial, Quote, Carrier, QuoteCarrierRate
+from models import User, Mode, EquipmentType, RateType, Accessorial, Carrier
+from flask import render_template, session, redirect, url_for
+from datetime import timedelta
+from models import Quote, QuoteCarrierRate, Shipper
+from database import db
+from sqlalchemy.orm import joinedload
+from datetime import datetime
+
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
 location_df = pd.read_csv(csv_path, low_memory=False)
+
 
 @app_routes.route("/", methods=["GET"])
 def home():
@@ -195,7 +200,7 @@ def carrier_pending_quotes():
     if not carrier:
         return redirect(url_for("app_routes.signin"))
 
-    carrier_company_id = carrier.created_by
+    carrier_company_id = Carrier.query.filter_by(user_id=user_id).first()
 
     # Recoger filtros de la query
     filters = {
@@ -227,7 +232,7 @@ def carrier_pending_quotes():
     for quote in carrier_quotes:
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
-            user_id=user_id
+            carrier_admin_id=carrier_company_id
         ).order_by(QuoteCarrierRate.created_at.desc()).first()
 
         quote.submitted_rate = existing_rate.rate if existing_rate else None
@@ -243,6 +248,7 @@ def carrier_pending_quotes():
         pending_quotes=carrier_quotes,
         equipment_types=equipment_types,
         modes=modes,
+        carrier_admin_quote=carrier,
         rate_types=rate_types,
         now=datetime.utcnow()
     )
@@ -264,13 +270,91 @@ def quotes():
         accessorials=accessorials
     )
 
+
 @app_routes.route("/pending_quotes", methods=["GET"])
 def pending_quotes():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    quotes = Quote.query.order_by(Quote.created_at.desc()).all()
+
+    user_id = session.get("user_id")
+    shipper = Shipper.query.filter_by(user_id=user_id).first()
+
+    if not shipper:
+        return redirect(url_for("app_routes.signin"))
+
+    # Subconsulta: quotes con al menos un rate aceptado
+    accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+        QuoteCarrierRate.status == 'accepted'
+    ).distinct().subquery()
+
+    # Solo quotes de este shipper que NO tienen ningún rate aceptado
+    quotes = Quote.query.options(
+        joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier_admin)
+    ).filter(
+        Quote.shipper_id == shipper.id,
+        ~Quote.id.in_(accepted_quotes_subquery)
+    ).order_by(Quote.created_at.desc()).all()
+
+    # Agrupar los quote_rates por carrier_admin_id (último por fecha)
+    for quote in quotes:
+        grouped = {}
+        for rate in sorted(quote.quote_rates, key=lambda r: r.created_at or datetime.min, reverse=True):
+            if rate.carrier_admin_id not in grouped:
+                grouped[rate.carrier_admin_id] = rate
+        quote.filtered_quote_rates = list(grouped.values())
+
     return render_template(
-        "pending_quotes.html", pending_quotes=quotes, now=datetime.utcnow())
+        "pending_quotes.html",
+        pending_quotes=quotes,
+        now=datetime.utcnow()
+    )
+
+@app_routes.route("/quote_history", methods=["GET"])
+def quote_history():
+    if "access_token" not in session:
+        return redirect(url_for("app_routes.signin"))
+
+    user_id = session.get("user_id")
+    now = datetime.utcnow()
+
+    # Obtener el shipper logueado
+    shipper = Shipper.query.filter_by(user_id=user_id).first()
+    if not shipper:
+        return redirect(url_for("app_routes.signin"))
+
+    # Obtener solo los quotes de este shipper
+    quotes = Quote.query.filter_by(shipper_id=shipper.id)\
+        .options(joinedload(Quote.quote_rates))\
+        .order_by(Quote.created_at.desc())\
+        .all()
+
+    valid_quotes = []
+    for quote in quotes:
+        # Rate aceptado
+        accepted_rate = next((r for r in quote.quote_rates if r.status == "accepted"), None)
+
+        # Expiración
+        expiration_time = quote.created_at
+        if quote.open_unit == "minutes":
+            expiration_time += timedelta(minutes=quote.open_value or 0)
+        elif quote.open_unit == "hours":
+            expiration_time += timedelta(hours=quote.open_value or 0)
+        elif quote.open_unit == "days":
+            expiration_time += timedelta(days=quote.open_value or 0)
+
+        is_expired = expiration_time < now
+
+        if accepted_rate or is_expired:
+            quote.accepted_rate = accepted_rate.rate if accepted_rate else None
+            quote.accepted_carrier_admin = f"{accepted_rate.user.first_name} {accepted_rate.user.last_name}" if accepted_rate else None
+            valid_quotes.append(quote)
+
+    return render_template(
+        "quote_history.html",
+        quotes=valid_quotes,
+        now=now
+    )
+
 
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():

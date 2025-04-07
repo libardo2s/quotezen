@@ -30,10 +30,13 @@
                 <i class="fas fa-home me-3"></i>
                 <span class="hide-on-collapse">Dashboard</span>
             </a>
-            <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
-                <i class="fas fa-history me-3"></i>
-                <span class="hide-on-collapse">Quote History</span>
-            </a>
+
+            {% if session.get('user_role') in ['Shipper'] %}
+                <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
+                    <i class="fas fa-history me-3"></i>
+                    <span class="hide-on-collapse">Quote History</span>
+                </a>
+            {% endif %}
 
             {% if session.get('user_role') in ['Shipper'] %}
                 <a href="{{ url_for('app_routes.quotes') }}" class="sidebar-link text-decoration-none p-3 text-white">
@@ -65,13 +68,13 @@
                     <span class="hide-on-collapse">Carrier Network</span>
                 </a>
             {% endif %}
-            {% if session.get('user_role') in ['Carrier'] %}
+            {% if session.get('user_role') in ['CarrierAdmin'] %}
                 <a href="{{ url_for('app_routes.carrier_network') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-network-wired me-3"></i>
                     <span class="hide-on-collapse">Shipper Network</span>
                 </a>
             {% endif %}
-            {% if session.get('user_role') in ['Admin'] %}
+            {% if session.get('user_role') in ['Admin', 'CarrierAdmin', 'ShipperAdmin', 'CompanyShipper'] %}
                 <a href={{ url_for('app_routes.admin_settings') }} class="sidebar-link text-decoration-none p-3 text-white">
                 <i class="fas fa-cog me-3"></i>
                 <span class="hide-on-collapse">Admin Settings</span>

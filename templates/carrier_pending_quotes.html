@@ -4,6 +4,9 @@
 
 {% block content %}
     <div class="container-fluid p-4">
+        <div id="rate-alert" class="alert alert-success d-none" role="alert">
+            Rate Updated
+        </div>
 
         <!-- Carrier User Pending Quotes Table -->
         <div class="card mt-4">
@@ -93,7 +96,7 @@
                                         hx-swap="outerHTML"
                                         hx-trigger="submit">
 
-                                    <input type="hidden" name="carrier_id" value="{{ quote.carriers[0].id }}">
+                                    <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
                                     <input type="hidden" name="quote_id" value="{{ quote.id }}">
 
                                     <div class="input-group input-group-sm" style="max-width: 180px;">
@@ -206,4 +209,21 @@
         .time-remaining.warning { color: orange; font-weight: bold; }
         .time-remaining.expired { color: red; font-weight: bold; }
     </style>
+
+    <script>
+    document.body.addEventListener("htmx:afterRequest", function (event) {
+        const xhr = event.detail.xhr;
+        const path = new URL(xhr.responseURL).pathname;
+
+        if (path.includes("/api/update_rate")) {
+            const alertBox = document.getElementById("rate-alert");
+            alertBox.classList.remove("d-none");
+            alertBox.textContent = "Rate Updated";
+
+            setTimeout(() => {
+                alertBox.classList.add("d-none");
+            }, 2000);
+        }
+    });
+</script>
 {% endblock %}
