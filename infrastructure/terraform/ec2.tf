@@ -120,7 +120,7 @@ resource "aws_instance" "flask_ec2_quotezen" {
       "Environment=\"SES_SENDER_EMAIL=${var.sender_email}\"",
       "Environment=\"CLIENT_ID=${aws_cognito_user_pool_client.user_pool_client_quotezen.id}\"",
       "Environment=\"USER_POOL_ID=${aws_cognito_user_pool.user_pool_quotezen.id}\"",
-      "ExecStart=/home/ubuntu/flask_app/venv/bin/gunicorn -w 2 -b 0.0.0.0:5000 app.run:app",
+      "ExecStart=/home/ubuntu/flask_app/venv/bin/gunicorn -w 2 -b 0.0.0.0:5000 run:app",
       "Restart=always",
 
       "[Install]",
@@ -142,7 +142,7 @@ resource "aws_instance" "flask_ec2_quotezen" {
   }
 
   tags = {
-    Name = "quotezen_ec2"
+    Name = "quotezen"
   }
 
   vpc_security_group_ids = [aws_security_group.security_group_ec2_quotezen.id]
