@@ -1,5 +1,5 @@
 from datetime import datetime
-from config import Config
+from app.config import Config
 from flask import jsonify, request, session, render_template
 from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
