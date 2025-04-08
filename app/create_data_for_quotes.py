@@ -100,13 +100,13 @@ with app.app_context():
 
     print(f"✅ Importadas {len(cities)} ciudades correctamente.")
 
-    existing_user = User.query.filter_by(email='kevin@kanalyticstech.com').first()
+    existing_user = User.query.filter_by(email='admin@quotezen.com').first()
 
     if not existing_user:
         new_user = User(
-            first_name='Kevin',
-            last_name='Rosales',
-            email='kevin@kanalyticstech.com',
+            first_name='Admin',
+            last_name='Quotezen',
+            email='admin@quotezen.com',
             phone='1234567890',
             address='123 Test Street',
             role='Admin'  # or 'Carrier', 'Shipper', etc.
