@@ -1,9 +1,9 @@
 from datetime import datetime
 from config import Config
 from flask import jsonify, request, session, render_template
-from utils.send_email import send_email
+from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
-from models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote
+from app.models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote
 
 
 def create_carrier_user(data, user_id, db):

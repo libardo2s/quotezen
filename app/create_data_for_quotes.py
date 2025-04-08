@@ -1,13 +1,13 @@
 from flask import Flask
-from config import Config
-from database import db
-from models.rate_type import RateType
-from models.mode import Mode
-from models.equipment_type import EquipmentType
-from models.accessorial import Accessorial
+from app.config import Config
+from app.database import db
+from app.models.rate_type import RateType
+from app.models.mode import Mode
+from app.models.equipment_type import EquipmentType
+from app.models.accessorial import Accessorial
 import pandas as pd
-from models.city import City
-from models.user import User
+from app.models.city import City
+from app.models.user import User
 
 
 # Initialize Flask App
