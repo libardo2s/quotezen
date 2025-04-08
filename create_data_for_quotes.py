@@ -43,7 +43,18 @@ with app.app_context():
         db.session.commit()
         print("Equipment Type added")
 
-    for accesorial in ["Accesorial1", "Accesorial2", "Accesorial3"]:
+    accesorials = [
+        "Drop Trailer ", "Non-reimbursed Lumper", "Pallet Exchange",
+        "E - track and Straps", "Additional Load Locks",  "Dunnage",
+        "Hazmat", "TWIC", "Liftgate",
+        "Pallet Jack", "Inside Delivery", "Residential",
+        "Driver Assist", "Bulkhead", "Wood Floors",
+        "Mesh Air - chute", "Blind Shipment", "Empty Scale Ticket",
+        "Team Drivers", "Top Ice", "Cycle Reefer",
+        "Continuous Reefer"
+    ]
+
+    for accesorial in accesorials:
         accesorial_item = Accessorial(
             name=accesorial
         )
