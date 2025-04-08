@@ -46,7 +46,7 @@ resource "aws_iam_role_policy_attachment" "lambda_attachment" {
 resource "aws_db_instance" "posgtres_rds" {
   engine                 = "postgres"
   db_name                = var.db_name
-  identifier             = "cfo"
+  identifier             = "quotezen"
   instance_class         = "db.t3.micro"
   engine_version         = "12"
   allocated_storage      = 20
