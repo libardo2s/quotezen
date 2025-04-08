@@ -4,5 +4,5 @@ from flask import Blueprint
 app_routes = Blueprint("app_routes", __name__)
 
 # Import individual route modules to register them
-from routes.routes import *
-from routes.api import *
+from app.routes.routes import *
+from app.routes.api import *
