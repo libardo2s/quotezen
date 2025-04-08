@@ -1,9 +1,9 @@
 import csv
 import os
 from flask import Flask
-from config import Config
-from database import db
-from models.city import City  # adjust this import if needed
+from app.config import Config
+from app.database import db
+from app.models.city import City  # adjust this import if needed
 
 # Init app
 app = Flask(__name__)
