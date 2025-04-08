@@ -1,5 +1,5 @@
 from sqlalchemy import Table, Column, Integer, ForeignKey, Numeric, Text
-from database import db
+from app.database import db
 
 carrier_shipper = Table(
     'carrier_shipper',

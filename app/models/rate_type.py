@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
-from database import db  # Import db from database.py
+from app.database import db  # Import db from database.py
 
 class RateType(db.Model):
     __tablename__ = 'rate_types'

@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String
-from database import db
+from app.database import db
 from sqlalchemy.orm import relationship
-from models.lane import lane_accessorials
+from app.models.lane import lane_accessorials
 
 
 class Accessorial(db.Model):

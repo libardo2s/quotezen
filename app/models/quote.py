@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from database import db  # Import db from database.py
+from app.database import db  # Import db from database.py
 from sqlalchemy.dialects.postgresql import JSON
 from .association import quote_carrier
 

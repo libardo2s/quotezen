@@ -2,14 +2,14 @@ import os
 import boto3
 import pandas as pd
 from flask import jsonify, request
-from routes import app_routes
+from app.routes import app_routes
 from cryptography.fernet import Fernet
-from config import Config
-from models import User, Mode, EquipmentType, RateType, Accessorial, Carrier
+from app.config import Config
+from app.models import User, Mode, EquipmentType, RateType, Accessorial, Carrier
 from flask import render_template, session, redirect, url_for
 from datetime import timedelta
-from models import Quote, QuoteCarrierRate, Shipper
-from database import db
+from app.models import Quote, QuoteCarrierRate, Shipper
+from app.database import db
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 

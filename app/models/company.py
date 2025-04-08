@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from database import db
+from app.database import db
 
 class Company(db.Model):
     __tablename__ = 'companies'

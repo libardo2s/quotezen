@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from database import db
+from app.database import db
 
 lane_accessorials = db.Table(
     'lane_accessorials',

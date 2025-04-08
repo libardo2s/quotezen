@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, Float
-from database import db
+from app.database import db
 
 
 class City(db.Model):

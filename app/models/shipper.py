@@ -2,7 +2,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from .association import carrier_shipper
-from database import db
+from app.database import db
 
 class Shipper(db.Model):
     __tablename__ = 'shippers'

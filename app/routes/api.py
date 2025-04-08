@@ -2,19 +2,19 @@ from decimal import Decimal
 
 import boto3
 
-from controller import create_carrier_user, create_carrier_admin
-from database import db
+from app.controller import create_carrier_user, create_carrier_admin
+from app.database import db
 from flask import jsonify, request, session, render_template
-from routes import app_routes
-from config import Config
-from models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
+from app.routes import app_routes
+from app.config import Config
+from app.models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
                     QuoteCarrierRate)
-from models.association import carrier_shipper
+from app.models.association import carrier_shipper
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
-from utils.send_email import send_email
+from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
-from config import Config
+from app.config import Config
 from datetime import datetime
 
 @app_routes.route("/api/status", methods=["GET"])
