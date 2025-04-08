@@ -1,6 +1,6 @@
 from flask import current_app
 import boto3
-from config import Config
+from app.config import Config
 
 def send_email(recipient, subject, body_text, body_html=None):
     config = current_app.config
