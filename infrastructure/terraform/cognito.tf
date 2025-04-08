@@ -1,7 +1,7 @@
 resource "aws_cognito_user_pool" "user_pool_quotezen" {
-  name = "${var.app_name}_user_pool"
+  name = "${var.project_name}_${var.environment}_user_pool"
 
-  # Configurar la autenticación por correo y contraseña
+  # 📜 Configurar la autenticación por correo y contraseña
   username_attributes      = ["email"]
   auto_verified_attributes = ["email"]
 
@@ -25,21 +25,21 @@ resource "aws_cognito_user_pool" "user_pool_quotezen" {
 }
 
 resource "aws_cognito_user_pool_client" "user_pool_client_quotezen" {
-  name                                 = "${var.app_name}_client"
+  name                                 = "${var.project_name}_${var.environment}_client"
   user_pool_id                         = aws_cognito_user_pool.user_pool_quotezen.id
-  explicit_auth_flows                  = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_PASSWORD_AUTH"]
-  generate_secret                      = false
-  prevent_user_existence_errors        = "ENABLED"
-  allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["implicit", "code"]
-  allowed_oauth_scopes                 = ["email", "openid", "profile"]
-  callback_urls                        = ["https://yourfrontend.com/auth/callback"]
-  logout_urls                          = ["https://yourfrontend.com/logout"]
-  supported_identity_providers         = ["COGNITO"]
+  explicit_auth_flows                   = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_USER_PASSWORD_AUTH"]
+  generate_secret                       = false
+  prevent_user_existence_errors         = "ENABLED"
+  allowed_oauth_flows_user_pool_client  = true
+  allowed_oauth_flows                   = ["implicit", "code"]
+  allowed_oauth_scopes                  = ["email", "openid", "profile"]
+  callback_urls                         = ["https://yourfrontend.com/auth/callback"]
+  logout_urls                           = ["https://yourfrontend.com/logout"]
+  supported_identity_providers          = ["COGNITO"]
 }
 
 # Cognito domain configuration
 resource "aws_cognito_user_pool_domain" "cognito_domain_quotezen" {
-  domain       = "${var.app_name}"
+  domain       = "${var.project_name}-${var.environment}"
   user_pool_id = aws_cognito_user_pool.user_pool_quotezen.id
 }

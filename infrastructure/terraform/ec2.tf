@@ -1,109 +1,203 @@
-resource "aws_instance" "bizagi_app" {
-  ami                    = var.ec2_ami
-  instance_type          = var.ec2_instance_type
-  subnet_id              = aws_subnet.public_a.id
-  vpc_security_group_ids = [aws_security_group.app_server.id]
-  iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
+resource "aws_iam_role" "lambda_role_quotezen" {
+  name = "lambda-role-quotezen"
 
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-  }
+  assume_role_policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "Service" : "lambda.amazonaws.com"
+        },
+        "Action" : "sts:AssumeRole"
+      }
+    ]
+  })
+}
 
-  user_data = <<-EOF
-              #!/bin/bash
-              set -e  # Exit immediately on error
-              exec > >(tee /var/log/user-data.log) 2>&1  # Log all output
-              
-              # Update system
-              apt-get update -y
-              apt-get upgrade -y
-              
-              # Install specific Python version and venv package
-              PYTHON_VERSION=$(python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2)
-              apt-get install -y python${PYTHON_VERSION}-venv python3-pip python3-dev libpq-dev postgresql-client nginx git
-              
-              # Clone your application
-              git clone https://github.com/libardo2s/quotezen.git /opt/bizagi
-              cd /opt/bizagi
-              
-              # Create virtual environment with explicit Python path
-              python3 -m venv --system-site-packages venv || {
-                echo "Virtual environment creation failed"
-                python3 -m pip install virtualenv
-                virtualenv venv
-              }
-              source venv/bin/activate
-              
-              # Install Python requirements
-              pip install --upgrade pip
-              pip install -r requirements.txt
-              
-              # Create .env file with database connection
-              cat <<EOT > /opt/bizagi/.env
-              DB_HOST=${aws_db_instance.postgresql.endpoint}
-              DB_PORT=5432
-              DB_NAME=${var.db_name}
-              DB_USER=${var.db_username}
-              DB_PASSWORD=${var.db_password}
-              FLASK_ENV=production
-              SECRET_KEY=your-secret-key-here
-              EOT
-              
-              # Set proper permissions
-              chmod 600 /opt/bizagi/.env
-              chown -R ubuntu:ubuntu /opt/bizagi
-              
-              # Initialize database with retries
-              for i in {1..5}; do
-                python database.py create_all && break || sleep 10
-              done
-              
-              # Configure nginx
-              cat <<EOT > /etc/nginx/sites-available/bizagi
-              server {
-                  listen 80;
-                  server_name _;
-                  
-                  location / {
-                      proxy_pass http://127.0.0.1:5000;
-                      proxy_set_header Host \$host;
-                      proxy_set_header X-Real-IP \$remote_addr;
-                  }
-              }
-              EOT
-              
-              ln -s /etc/nginx/sites-available/bizagi /etc/nginx/sites-enabled
-              rm -f /etc/nginx/sites-enabled/default
-              
-              # Start services
-              systemctl restart nginx
-              
-              # Create systemd service for better process management
-              cat <<EOT > /etc/systemd/system/bizagi.service
-              [Unit]
-              Description=Bizagi Flask Application
-              After=network.target
-              
-              [Service]
-              User=ubuntu
-              WorkingDirectory=/opt/bizagi
-              Environment="PATH=/opt/bizagi/venv/bin"
-              ExecStart=/opt/bizagi/venv/bin/python /opt/bizagi/app.py
-              Restart=always
-              
-              [Install]
-              WantedBy=multi-user.target
-              EOT
-              
-              systemctl daemon-reload
-              systemctl enable bizagi.service
-              systemctl start bizagi.service
-              EOF
+resource "aws_iam_policy" "cognito_list_users_policy" {
+  name        = "cognito-list-users-policy"
+  description = "Allows Lambda execution role to list users in Cognito User Pool"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "cognito-idp:ListUsers"
+        Resource = "arn:aws:cognito-idp:${var.aws_region}:${var.aws_account_number}:userpool/${aws_cognito_user_pool.user_pool_quotezen.id}"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cognito_list_users_policy_attachment" {
+  role       = aws_iam_role.lambda_role_quotezen.name
+  policy_arn = aws_iam_policy.cognito_list_users_policy.arn
+}
+
+
+# Attach IAM policy to Lambda role
+resource "aws_iam_role_policy_attachment" "lambda_attachment" {
+  role       = aws_iam_role.lambda_role_quotezen.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"  # Attach a read-only S3 access policy
+}
+
+resource "aws_db_instance" "posgtres_rds" {
+  engine                 = "postgres"
+  db_name                = var.db_name
+  identifier             = "cfo"
+  instance_class         = "db.t3.micro"
+  engine_version         = "12"
+  allocated_storage      = 20
+  publicly_accessible    = true
+  username               = var.db_username
+  password               = var.db_password
+  vpc_security_group_ids = [aws_security_group.security_group_ec2_quotezen.id]
+  skip_final_snapshot    = true
 
   tags = {
-    Name = "${var.app_name}-app-server"
+    Name = "quotezen-db"
+  }
+}
+
+output "endpoint" {
+  value = aws_db_instance.posgtres_rds.endpoint
+}
+
+resource "aws_instance" "flask_ec2_quotezen" {
+  ami                    = var.ami
+  instance_type          = var.instance_type
+  key_name               = var.ssh_key_pair_name
+  associate_public_ip_address = true
+
+
+  provisioner "remote-exec" {
+    inline = [
+      # Avoid unnecessary prompts
+      "export DEBIAN_FRONTEND=noninteractive",
+
+      # Update package list and install required packages
+      "sudo apt-get update -y",
+      "sudo apt-get install -y python3 python3-pip python3-venv git libpq-dev python3-dev",
+
+      # Clone Flask application from GitHub
+      "git clone ${var.github_repo} /home/ubuntu/flask_app",
+
+      # Create and activate a virtual environment
+      "python3 -m venv /home/ubuntu/flask_app/venv",
+
+      # Upgrade pip within the virtual environment
+      "/home/ubuntu/flask_app/venv/bin/pip install --upgrade pip",
+
+      # Install Flask application dependencies
+      "/home/ubuntu/flask_app/venv/bin/pip install -r /home/ubuntu/flask_app/app/requirements.txt",
+
+      "/home/ubuntu/flask_app/venv/bin/pip install --upgrade gevent",
+
+      # Allow traffic on port 5000
+      "sudo ufw allow 5000",
+
+      # Create a systemd service for Flask app
+      "sudo bash -c 'cat > /etc/systemd/system/flask_app.service <<EOF",
+      "[Unit]",
+      "Description=Gunicorn instance to serve Flask application",
+      "After=network.target",
+
+      "[Service]",
+      "User=ubuntu",
+      "Group=ubuntu",
+      "WorkingDirectory=/home/ubuntu/flask_app",
+      "Environment=\"PATH=/home/ubuntu/flask_app/venv/bin\"",
+      "Environment=\"AWS_ACCESS_KEY_ID=${var.accessKeyId}\"",
+      "Environment=\"AWS_SECRET_ACCESS_KEY=${var.secretAccessKey}\"",
+      "Environment=\"password_db=${var.db_password}\"",
+      "Environment=\"db_endpoint=${aws_db_instance.posgtres_rds.endpoint}\"",
+      "Environment=\"username_db=${var.db_username}\"",
+      "Environment=\"COGNITO_KEYS_URL=${var.cognito_url_keys}\"",
+      "Environment=\"HASH_KEY=${var.hash_key}\"",
+      "Environment=\"db_name=${var.db_name}\"",
+      "Environment=\"SES_SENDER_EMAIL=${var.sender_email}\"",
+      "Environment=\"CLIENT_ID=${aws_cognito_user_pool_client.user_pool_client_quotezen.id}\"",
+      "Environment=\"USER_POOL_ID=${aws_cognito_user_pool.user_pool_quotezen.id}\"",
+      "ExecStart=/home/ubuntu/flask_app/venv/bin/gunicorn -w 2 -b 0.0.0.0:5000 app.run:app",
+      "Restart=always",
+
+      "[Install]",
+      "WantedBy=multi-user.target",
+      "EOF'",
+
+      # Reload systemd, start and enable the Flask app service
+      "sudo systemctl daemon-reload",
+      "sudo systemctl start flask_app",
+      "sudo systemctl enable flask_app"
+    ]
+
+    connection {
+      type        = "ssh"
+      user        = "ubuntu"  # SSH username for Amazon Linux, CentOS, or Red Hat AMIs
+      private_key = file(var.private_key_ec2_path)  # Replace with the path to your SSH private key file
+      host        = self.public_ip
+    }
   }
 
-  depends_on = [aws_db_instance.postgresql]
+  tags = {
+    Name = "quotezen_ec2"
+  }
+
+  vpc_security_group_ids = [aws_security_group.security_group_ec2_quotezen.id]
+
+}
+
+# **🔹 IAM Role para evitar credenciales en la instancia**
+resource "aws_iam_role" "flask_role" {
+  name = "flask_ec2_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = { Service = "ec2.amazonaws.com" }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_instance_profile" "flask_profile" {
+  name = "flask_instance_profile"
+  role = aws_iam_role.flask_role.name
+}
+
+resource "aws_security_group" "security_group_ec2_quotezen" {
+  name        = "security_group_ec2_quotezen"
+  description = "Security group for Flask EC2 instance"
+
+  // Ingress rule to allow HTTP traffic from anywhere
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]  // Allow traffic from any IPv4 address
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"   // Allow all protocols
+    cidr_blocks     = ["0.0.0.0/0"]  // Allow traffic to any IPv4 address
+  }
 }
