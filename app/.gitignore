@@ -1,0 +1,80 @@
+# Byte-compiled / optimized / package files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+*.egg-info/
+.eggs/
+
+# Flask instance and logs
+instance/
+*.log
+logs/
+*.sqlite3
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.json
+config.py
+settings.py
+
+# Database files
+*.db
+*.sqlite
+
+# Pytest and coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+*.pyc
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Static & media files (optional)
+staticfiles/
+media/
+uploads/
+
+# MacOS system files
+.DS_Store
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker files (if using Docker)
+docker-compose.override.yml
+
+# Celery and task queues
+celerybeat-schedule
+celerybeat.pid
+
+# Gunicorn and uWSGI
+*.pid
+*.sock
+*.log
+*.err
+*.out
+*.db-journal
+
+# Build files
+dist/
+build/
+
+.terraform/
+*.terraform.lock.hcl
+terraform.tfstate

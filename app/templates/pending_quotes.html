@@ -1,0 +1,309 @@
+{% extends "layout.html" %}
+
+{% block title %}Pending Quotes | QuoteZen{% endblock %}
+
+{% block content %}
+    <div class="container-fluid p-4">
+        <div id="decision-alert" class="alert d-none" role="alert"></div>
+
+        <!-- Pending Quotes Table -->
+        <div class="card mt-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Pending Quotes</h5>
+            </div>
+            <div class="card-body table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                    <tr>
+                        <th>#</th>
+                        <th>Created At</th>
+                        <th>Lane</th>
+                        <th>Equipment Type</th>
+                        <th>Send At</th>
+                        <th>Open For</th>
+                        <th>Time Remaining</th>
+                        <th>Requester Form</th>
+                        <th>Rates Received</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for quote in pending_quotes %}
+                        <!-- Main row -->
+                        <tr>
+                            <td>{{ quote.id }}</td>
+                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
+                            <td>{{ quote.origin }} - {{ quote.destination }}</td>
+                            <td>{{ quote.equipment_type or 'R' }}</td>
+                            <td>
+                                {% if quote.pickup_date.date() == today %}
+                                    Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
+                                {% else %}
+                                    {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
+                                {% endif %}
+                            </td>
+                            <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
+                            <td class="time-remaining" data-unit="{{ quote.open_unit }}"
+                                data-created-at="{{ quote.created_at.isoformat() }}" data-value="{{ quote.open_value }}">
+                                <!-- Initial value will be set by JS -->
+                                00:00:00
+                            </td>
+                            <td>{{ quote.carriers|length }}</td>
+                            <td>{{ quote.filtered_quote_rates|length  }}</td>
+                            <td class="text-center">
+                                <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
+                                        aria-label="Toggle details">
+                                    <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Expandable row for details -->
+                        <tr id="quote-details-{{ quote.id }}" style="display: none;">
+                            <td colspan="8" class="p-0">
+                                <div class="p-3">
+                                    <table class="table table-sm table-bordered mb-0">
+                                        <thead class="table-light">
+                                        <tr>
+                                            <th>Carrier</th>
+                                            <th>Rate</th>
+                                            <th>Contact</th>
+                                            <th>Email</th>
+                                            <th>Carrier Comment</th>
+                                            <th>Accept/Decline</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for carrier in quote.filtered_quote_rates %}
+                                            <tr>
+                                                <td>{{ carrier.carrier.carrier_name }}</td>
+                                                <td>${{ carrier.rate }}</td>
+                                                <td>{{ carrier.contact_name or '—' }}</td>
+                                                <td>{{ carrier.carrier.user.email or '—' }}</td>
+                                                <td>{{ carrier.comment or '—' }}</td>
+                                                <td>
+                                                    {% if carrier.status == 'accepted' %}
+                                                        <span class="badge bg-success">Accepted</span>
+                                                    {% elif carrier.status == 'declined' %}
+                                                        <span class="badge bg-danger">Declined</span>
+                                                    {% else %}
+                                                        <button
+                                                                class="btn btn-sm btn-success me-1"
+                                                                onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'accepted')">
+                                                            Accept
+                                                        </button>
+                                                        <button
+                                                                class="btn btn-sm btn-danger me-1"
+                                                                onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'declined')">
+                                                            Decline
+                                                        </button>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">No carrier offers yet.</td>
+                                            </tr>
+                                        {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </td>
+                        </tr>
+
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No pending quotes found.</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Delete Modal -->
+        <div class="modal fade" id="confirmDeleteQuoteModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirm Delete Quote</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to delete this quote?
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button id="confirmDeleteQuoteBtn" class="btn btn-danger">Yes, Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let quoteToDeleteId = null;
+        function toggleDetails(quoteId) {
+            const detailsRow = document.getElementById(`quote-details-${quoteId}`);
+            const icon = document.getElementById(`icon-${quoteId}`);
+
+            if (detailsRow.style.display === 'none') {
+                detailsRow.style.display = 'table-row';
+                icon.classList.remove('bi-chevron-down');
+                icon.classList.add('bi-chevron-up');
+            } else {
+                detailsRow.style.display = 'none';
+                icon.classList.remove('bi-chevron-up');
+                icon.classList.add('bi-chevron-down');
+            }
+        }
+        document.body.addEventListener('click', function (event) {
+            const deleteBtn = event.target.closest('.delete-quote-btn');
+            if (deleteBtn) {
+                quoteToDeleteId = deleteBtn.dataset.id;
+                const modalEl = new bootstrap.Modal(document.getElementById('confirmDeleteQuoteModal'));
+                modalEl.show();
+            }
+        });
+
+        document.getElementById('confirmDeleteQuoteBtn').addEventListener('click', async function () {
+            if (!quoteToDeleteId) return;
+
+            try {
+                const response = await fetch(`/api/quote/${quoteToDeleteId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === "success") {
+                    location.reload();
+                } else {
+                    alert(result.message || "An error occurred while deleting.");
+                }
+            } catch (error) {
+                alert("An unexpected error occurred.");
+            } finally {
+                quoteToDeleteId = null;
+                const modal = bootstrap.Modal.getInstance(document.getElementById('confirmDeleteQuoteModal'));
+                modal.hide();
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const timeElements = document.querySelectorAll('.time-remaining');
+
+            timeElements.forEach(element => {
+                const createdAt = new Date(element.dataset.createdAt);
+                const unit = element.dataset.unit?.toLowerCase();
+                const value = parseFloat(element.dataset.value);
+
+                if (!createdAt.getTime() || isNaN(value) || !unit) {
+                    element.textContent = '00:00:00';
+                    return;
+                }
+
+                // Calcular la fecha de expiración sumando según unidad
+                let expiration = new Date(createdAt.getTime());
+                switch (unit) {
+                    case 'minutes':
+                        expiration.setMinutes(expiration.getMinutes() + value);
+                        break;
+                    case 'hours':
+                        expiration.setHours(expiration.getHours() + value);
+                        break;
+                    case 'days':
+                        expiration.setDate(expiration.getDate() + value);
+                        break;
+                    default:
+                        element.textContent = '00:00:00';
+                        return;
+                }
+
+                // Almacenar el temporizador
+                element.countdownTimer = setInterval(() => {
+                    updateCountdown(element, expiration);
+                }, 1000);
+
+                // Llamada inicial
+                updateCountdown(element, expiration);
+            });
+
+            function updateCountdown(element, expiration) {
+                const now = new Date();
+                const diff = expiration - now;
+
+                if (diff <= 0) {
+                    element.textContent = '00:00:00';
+                    element.classList.add('expired');
+                    element.classList.remove('warning');
+                    clearInterval(element.countdownTimer);
+                    return;
+                }
+
+                const totalSeconds = Math.floor(diff / 1000);
+                const hours = Math.floor(totalSeconds / 3600);
+                const minutes = Math.floor((totalSeconds % 3600) / 60);
+                const seconds = totalSeconds % 60;
+
+                element.textContent = `${String(hours).padStart(2, '0')}:` +
+                    `${String(minutes).padStart(2, '0')}:` +
+                    `${String(seconds).padStart(2, '0')}`;
+
+                if (diff < 30 * 60 * 1000) {
+                    element.classList.add('warning');
+                } else {
+                    element.classList.remove('warning');
+                }
+            }
+        });
+    </script>
+
+    <style>
+        .time-remaining.warning { color: orange; font-weight: bold; }
+        .time-remaining.expired { color: red; font-weight: bold; }
+    </style>
+
+    <script>
+        function submitDecision(quoteId, carrierAdminId, rate, decision) {
+            fetch("/api/quote/decision", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    quote_id: quoteId,
+                    carrier_admin_id: carrierAdminId,
+                    rate: rate,
+                    decision: decision
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const alertBox = document.getElementById("decision-alert");
+
+                    if (data.status === "success") {
+                        alertBox.className = "alert alert-success";
+                        alertBox.textContent = `Quote ${decision} successfully!`;
+                    } else {
+                        alertBox.className = "alert alert-danger";
+                        alertBox.textContent = data.message || "Something went wrong";
+                    }
+
+                    alertBox.classList.remove("d-none");
+
+                    setTimeout(() => {
+                        alertBox.classList.add("d-none");
+                        location.reload();
+                    }, 2000);  // 2 seconds before reload
+                })
+                .catch(err => {
+                    const alertBox = document.getElementById("decision-alert");
+                    alertBox.className = "alert alert-danger";
+                    alertBox.textContent = "Unexpected error occurred.";
+                    alertBox.classList.remove("d-none");
+                });
+        }
+    </script>
+{% endblock %}
