@@ -12,22 +12,31 @@ resource "aws_instance" "bizagi_app" {
 
   user_data = <<-EOF
               #!/bin/bash
+              set -e  # Exit immediately on error
+              exec > >(tee /var/log/user-data.log) 2>&1  # Log all output
+              
               # Update system
               apt-get update -y
               apt-get upgrade -y
               
-              # Install dependencies
-              apt-get install -y python3-pip python3-dev python3-venv libpq-dev postgresql-client nginx git
+              # Install specific Python version and venv package
+              PYTHON_VERSION=$(python3 --version | cut -d' ' -f2 | cut -d'.' -f1-2)
+              apt-get install -y python${PYTHON_VERSION}-venv python3-pip python3-dev libpq-dev postgresql-client nginx git
               
               # Clone your application
               git clone https://github.com/libardo2s/quotezen.git /opt/bizagi
               cd /opt/bizagi
               
-              # Create virtual environment
-              python3 -m venv venv
+              # Create virtual environment with explicit Python path
+              python3 -m venv --system-site-packages venv || {
+                echo "Virtual environment creation failed"
+                python3 -m pip install virtualenv
+                virtualenv venv
+              }
               source venv/bin/activate
               
               # Install Python requirements
+              pip install --upgrade pip
               pip install -r requirements.txt
               
               # Create .env file with database connection
@@ -45,8 +54,10 @@ resource "aws_instance" "bizagi_app" {
               chmod 600 /opt/bizagi/.env
               chown -R ubuntu:ubuntu /opt/bizagi
               
-              # Initialize database
-              python database.py create_all
+              # Initialize database with retries
+              for i in {1..5}; do
+                python database.py create_all && break || sleep 10
+              done
               
               # Configure nginx
               cat <<EOT > /etc/nginx/sites-available/bizagi
@@ -63,13 +74,31 @@ resource "aws_instance" "bizagi_app" {
               EOT
               
               ln -s /etc/nginx/sites-available/bizagi /etc/nginx/sites-enabled
-              rm /etc/nginx/sites-enabled/default
+              rm -f /etc/nginx/sites-enabled/default
               
               # Start services
               systemctl restart nginx
               
-              # Run application
-              sudo -u ubuntu nohup /opt/bizagi/venv/bin/python /opt/bizagi/app.py > /var/log/bizagi.log 2>&1 &
+              # Create systemd service for better process management
+              cat <<EOT > /etc/systemd/system/bizagi.service
+              [Unit]
+              Description=Bizagi Flask Application
+              After=network.target
+              
+              [Service]
+              User=ubuntu
+              WorkingDirectory=/opt/bizagi
+              Environment="PATH=/opt/bizagi/venv/bin"
+              ExecStart=/opt/bizagi/venv/bin/python /opt/bizagi/app.py
+              Restart=always
+              
+              [Install]
+              WantedBy=multi-user.target
+              EOT
+              
+              systemctl daemon-reload
+              systemctl enable bizagi.service
+              systemctl start bizagi.service
               EOF
 
   tags = {
