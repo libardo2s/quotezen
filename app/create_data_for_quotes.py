@@ -63,7 +63,7 @@ with app.app_context():
         print("Accessorial added")
 
     # 1. Leer el archivo CSV
-    df = pd.read_csv("/Users/kandreyrosales/Desktop/quotezen/static/address_info.csv")
+    df = pd.read_csv("/home/ubuntu/flask_app/app/static/address_info.csv")
 
     # 2. Limpiar los datos
     df = df.fillna("")
