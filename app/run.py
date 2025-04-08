@@ -4,7 +4,7 @@ from app.database import db
 from flask_migrate import Migrate
 
 # Import Blueprint for Routes
-from routes import app_routes
+from app.routes import app_routes
 
 # Initialize Flask App
 app = Flask(__name__)
