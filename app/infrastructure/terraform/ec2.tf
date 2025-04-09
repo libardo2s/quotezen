@@ -43,7 +43,24 @@ resource "aws_iam_role_policy_attachment" "lambda_attachment" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"  # Attach a read-only S3 access policy
 }
 
-resource "aws_db_instance" "posgtres_rds" {
+
+resource "aws_security_group" "rds_sg_quotezen" {
+  name_prefix = "rds_sg_quotezen"
+  ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    from_port       = 0
+    to_port         = 0
+    protocol        = "-1"   // Allow all protocols
+    cidr_blocks     = ["0.0.0.0/0"]  // Allow traffic to any IPv4 address
+  }
+}
+
+resource "aws_db_instance" "posgtres_rds_quotezen" {
   engine                 = "postgres"
   db_name                = var.db_name
   identifier             = "quotezen"
@@ -53,7 +70,7 @@ resource "aws_db_instance" "posgtres_rds" {
   publicly_accessible    = true
   username               = var.db_username
   password               = var.db_password
-  vpc_security_group_ids = [aws_security_group.security_group_ec2_quotezen.id]
+  vpc_security_group_ids = [aws_security_group.rds_sg_quotezen.id]
   skip_final_snapshot    = true
 
   tags = {
@@ -62,7 +79,7 @@ resource "aws_db_instance" "posgtres_rds" {
 }
 
 output "endpoint" {
-  value = aws_db_instance.posgtres_rds.endpoint
+  value = aws_db_instance.posgtres_rds_quotezen.endpoint
 }
 
 resource "aws_instance" "flask_ec2_quotezen" {
@@ -112,7 +129,7 @@ resource "aws_instance" "flask_ec2_quotezen" {
       "Environment=\"AWS_ACCESS_KEY_ID=${var.accessKeyId}\"",
       "Environment=\"AWS_SECRET_ACCESS_KEY=${var.secretAccessKey}\"",
       "Environment=\"password_db=${var.db_password}\"",
-      "Environment=\"db_endpoint=${aws_db_instance.posgtres_rds.endpoint}\"",
+      "Environment=\"db_endpoint=${aws_db_instance.posgtres_rds_quotezen.endpoint}\"",
       "Environment=\"username_db=${var.db_username}\"",
       "Environment=\"COGNITO_KEYS_URL=${var.cognito_url_keys}\"",
       "Environment=\"HASH_KEY=${var.hash_key}\"",
@@ -145,30 +162,11 @@ resource "aws_instance" "flask_ec2_quotezen" {
     Name = "quotezen"
   }
 
-  vpc_security_group_ids = [aws_security_group.security_group_ec2_quotezen.id]
+  vpc_security_group_ids = [aws_security_group.flask_sg_quotezen.id]
 
 }
 
-# **🔹 IAM Role para evitar credenciales en la instancia**
-resource "aws_iam_role" "flask_role" {
-  name = "flask_ec2_role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_instance_profile" "flask_profile" {
-  name = "flask_instance_profile"
-  role = aws_iam_role.flask_role.name
-}
-
-resource "aws_security_group" "security_group_ec2_quotezen" {
+resource "aws_security_group" "flask_sg_quotezen" {
   name        = "security_group_ec2_quotezen"
   description = "Security group for Flask EC2 instance"
 
