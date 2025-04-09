@@ -45,6 +45,31 @@ resource "aws_iam_instance_profile" "flask_profile" {
   role = aws_iam_role.flask_role.name
 }
 
+# Añadir política personalizada para cognito:AdminConfirmSignUp
+resource "aws_iam_policy" "cognito_admin_confirm_policy" {
+  name        = "cognito-admin-confirm-policy"
+  description = "Permite a EC2 confirmar usuarios en Cognito"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "cognito-idp:AdminConfirmSignUp"
+        ],
+        Resource = "arn:aws:cognito-idp:${var.aws_region}:${var.aws_account_number}:userpool/${aws_cognito_user_pool.user_pool_quotezen.id}"
+      }
+    ]
+  })
+}
+
+# Adjuntar política al rol EC2
+resource "aws_iam_role_policy_attachment" "flask_cognito_admin_confirm" {
+  role       = aws_iam_role.flask_role.name
+  policy_arn = aws_iam_policy.cognito_admin_confirm_policy.arn
+}
+
 
 resource "aws_iam_role" "lambda_role_quotezen" {
   name = "lambda-role-quotezen"
