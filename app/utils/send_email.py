@@ -13,7 +13,7 @@ def send_email(recipient, subject, body_text, body_html=None):
         body['Html'] = {'Data': body_html}
 
     response = ses.send_email(
-        Source="adrip@quotezen.com",
+        Source="adrip@quotezen.io",
         Destination={'ToAddresses': [recipient]},
         Message={
             'Subject': {'Data': subject},
