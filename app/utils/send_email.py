@@ -5,12 +5,7 @@ from app.config import Config
 def send_email(recipient, subject, body_text, body_html=None):
     config = current_app.config
 
-    ses = boto3.client(
-        'ses',
-        region_name=config['AWS_SES_REGION'],
-        aws_access_key_id=config['AWS_ACCESS_KEY_ID'],
-        aws_secret_access_key=config['AWS_SECRET_ACCESS_KEY']
-    )
+    ses = boto3.client('ses', region_name="us-east-1")
 
     body = {
         'Text': {'Data': body_text}
@@ -20,7 +15,7 @@ def send_email(recipient, subject, body_text, body_html=None):
         body['Html'] = {'Data': body_html}
 
     response = ses.send_email(
-        Source=config['SES_SENDER_EMAIL'],
+        Source="adrip@quotezen.com",
         Destination={'ToAddresses': [recipient]},
         Message={
             'Subject': {'Data': subject},
