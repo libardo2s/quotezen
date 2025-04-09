@@ -19,8 +19,8 @@ class Config:
 
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
-    AWS_SES_REGION = os.getenv("AWS_REGION", "us-east-1")
-    SES_SENDER_EMAIL = os.getenv("SES_SENDER_EMAIL", "")
+    AWS_SES_REGION = "us-east-1"
+    SES_SENDER_EMAIL = "adrip@quotezen.io"
     HASH_KEY = os.getenv("HASH_KEY", "")
     DOMAIN_URL = "http://54.162.187.81:5000"
 

@@ -27,5 +27,6 @@ def send_email(recipient, subject, body_text, body_html=None):
             'Body': body
         }
     )
+    print(response)
 
     return response
