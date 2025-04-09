@@ -1,9 +1,7 @@
 from flask import current_app
 import boto3
-from app.config import Config
 
 def send_email(recipient, subject, body_text, body_html=None):
-    config = current_app.config
 
     ses = boto3.client('ses', region_name="us-east-1")
 
