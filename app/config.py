@@ -9,8 +9,7 @@ db_password = os.getenv("password_db")
 class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_DATABASE_URI = (
-        f"postgresql://{db_user}:{db_password}"
-        f"@quotezen.cizaqa88qbef.us-east-1.rds.amazonaws.com:5432/{db_name}"
+        f"postgresql://{db_user}:{db_password}@quotezen.cizaqa88qbef.us-east-1.rds.amazonaws.com:5432/{db_name}"
     )
     COGNITO_REGION = os.getenv("AWS_REGION", "us-east-1")
     USER_POOL_ID = os.getenv("USER_POOL_ID", "")
