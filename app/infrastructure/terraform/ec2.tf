@@ -175,8 +175,6 @@ resource "aws_instance" "flask_ec2_quotezen" {
       "Group=ubuntu",
       "WorkingDirectory=/home/ubuntu/flask_app",
       "Environment=\"PATH=/home/ubuntu/flask_app/venv/bin\"",
-      "Environment=\"AWS_ACCESS_KEY_ID=${var.accessKeyId}\"",
-      "Environment=\"AWS_SECRET_ACCESS_KEY=${var.secretAccessKey}\"",
       "Environment=\"password_db=${var.db_password}\"",
       "Environment=\"db_endpoint=${aws_db_instance.posgtres_rds_quotezen.endpoint}\"",
       "Environment=\"username_db=${var.db_username}\"",
