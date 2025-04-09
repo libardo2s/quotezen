@@ -30,17 +30,3 @@ def send_email(recipient, subject, body_text, body_html=None):
     print(response)
 
     return response
-
-
-
-import boto3
-
-ses = boto3.client("ses", region_name="us-east-1")
-ses.send_email(
-    Source="adrip@quotezen.io",
-    Destination={"ToAddresses": ["kandreyrosales@gmail.com"]},
-    Message={
-        "Subject": {"Data": "Hello"},
-        "Body": {"Text": {"Data": "Welcome to QuoteZen!"}}
-    }
-)
