@@ -1,5 +1,5 @@
-from flask import current_app
 import boto3
+
 
 def send_email(recipient, subject, body_text, body_html=None):
 
