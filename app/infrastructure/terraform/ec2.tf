@@ -1,3 +1,51 @@
+# 1. IAM Role para EC2
+resource "aws_iam_role" "flask_role" {
+  name = "flask_ec2_role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect = "Allow",
+      Principal = { Service = "ec2.amazonaws.com" },
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+# 2. Política personalizada para SES
+resource "aws_iam_policy" "ses_full_access_policy" {
+  name        = "ses-full-access-policy"
+  description = "Permite acceso completo a Amazon SES"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "ses:SendEmail",
+          "ses:SendRawEmail",
+          "ses:SendTemplatedEmail"
+        ],
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# 3. Adjuntar política al rol
+resource "aws_iam_role_policy_attachment" "flask_ses_access" {
+  role       = aws_iam_role.flask_role.name
+  policy_arn = aws_iam_policy.ses_full_access_policy.arn
+}
+
+# 4. Instance Profile para EC2
+resource "aws_iam_instance_profile" "flask_profile" {
+  name = "flask_instance_profile"
+  role = aws_iam_role.flask_role.name
+}
+
+
 resource "aws_iam_role" "lambda_role_quotezen" {
   name = "lambda-role-quotezen"
 
@@ -87,6 +135,7 @@ resource "aws_instance" "flask_ec2_quotezen" {
   instance_type          = var.instance_type
   key_name               = var.ssh_key_pair_name
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.flask_profile.name
 
 
   provisioner "remote-exec" {
