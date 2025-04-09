@@ -1,4 +1,5 @@
 from decimal import Decimal
+import json
 
 import boto3
 
@@ -16,6 +17,12 @@ from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
 from app.config import Config
 from datetime import datetime
+
+from datetime import datetime
+from decimal import Decimal
+from app.routes import app_routes
+from app.database import db
+from app.models import Lane, Accessorial
 
 @app_routes.route("/api/status", methods=["GET"])
 def api_status():
@@ -979,3 +986,273 @@ def quote_decision():
     except Exception as e:
         print("[ERROR] quote_decision:", str(e))
         return jsonify({"status": "error", "message": "Internal server error"}), 500
+
+@app_routes.route("/api/lanes", methods=["GET"])
+def get_lanes():
+    """Get all frequent lanes for the current shipper"""
+    try:
+        # Get shipper ID from session
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+        if not shipper:
+            return jsonify({"error": "Shipper not found"}), 404
+
+        # Get lanes for this shipper only
+        lanes = Lane.query.filter_by(shipper_id=shipper.id).order_by(Lane.created_at.desc()).all()
+        
+        lanes_data = []
+        for lane in lanes:
+            # Count carriers associated with this lane
+            #carrier_count = len(lane.carriers) if lane.carriers else 0
+            
+            # Get last sent date (you might need to add this field to your model)
+            #last_sent = lane.last_sent.strftime('%m/%d/%Y') if lane.last_sent else "Never"
+            
+            lanes_data.append({
+                "id": lane.id,
+                "nickname": lane.nickname,
+                "origin": lane.origin,
+                "destination": lane.destination,
+                "equipment_type": lane.equipment_type,
+                "carrier_count": 0,
+                "last_sent": "",
+                "created_at": lane.created_at.strftime('%m/%d/%Y') if lane.created_at else None
+            })
+            
+        return jsonify({
+            "status": "success", 
+            "data": lanes_data,
+            "total": len(lanes_data)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/lanes/<int:lane_id>", methods=["GET"])
+def get_lane(lane_id):
+    """Get a specific frequent lane"""
+    try:
+        lane = Lane.query.get_or_404(lane_id)
+        
+        # Verify ownership (optional security check)
+        shipper_id = session.get("shipper_id")
+        if lane.shipper_id != shipper_id:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+            
+        lane_data = {
+            "id": lane.id,
+            "nickname": lane.nickname,
+            "mode": lane.mode,
+            "equipment_type": lane.equipment_type,
+            "rate_type": lane.rate_type,
+            "origin": lane.origin,
+            "destination": lane.destination,
+            "pickup_date": lane.pickup_date.isoformat() if lane.pickup_date else None,
+            "delivery_date": lane.delivery_date.isoformat() if lane.delivery_date else None,
+            "commodity": lane.commodity,
+            "weight": float(lane.weight) if lane.weight else None,
+            "declared_value": float(lane.declared_value) if lane.declared_value else None,
+            "additional_stops": lane.additional_stops,
+            "accessorials": [a.name for a in lane.accessorials],
+            "comments": lane.comments,
+            "created_at": lane.created_at.isoformat() if lane.created_at else None,
+            "updated_at": lane.updated_at.isoformat() if lane.updated_at else None
+        }
+        
+        return jsonify({"status": "success", "data": lane_data}), 200
+        
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/lanes", methods=["POST"])
+def create_lane():
+    """Create a new frequent lane"""
+    try:
+        # Get form data from request
+        data = request.form.to_dict()
+        
+        # Get user info from session
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+        
+        # Parse multi-select fields
+        accessorials = request.form.getlist('accessorials[]')
+        carrier_ids = request.form.getlist('carrier_ids[]')
+        
+        # Validate required fields
+        required_fields = [
+            'nickname', 'mode', 'equipment_type', 'rate_type',
+            'origin', 'destination'
+        ]
+        
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return jsonify({
+                "status": "error",
+                "message": f"Missing required fields: {', '.join(missing_fields)}"
+            }), 400
+            
+        # Convert dates
+        pickup_date = None
+        if data.get('pickup_date'):
+            pickup_date = datetime.strptime(data['pickup_date'], '%Y-%m-%d').date()
+            
+        delivery_date = None
+        if data.get('delivery_date'):
+            delivery_date = datetime.strptime(data['delivery_date'], '%Y-%m-%d').date()
+        
+        # Create new lane
+        new_lane = Lane(
+            shipper_id=shipper.id,
+            nickname=data['nickname'],
+            mode=data['mode'],
+            equipment_type=data['equipment_type'],
+            rate_type=data['rate_type'],
+            origin=data['origin'],
+            destination=data['destination'],
+            pickup_date=pickup_date,
+            delivery_date=delivery_date,
+            commodity=data.get('commodity', ''),
+            weight=Decimal(str(data.get('weight', 0))),
+            declared_value=Decimal(str(data.get('declared_value', 0))),
+            comments=data.get('comments', ''),
+            leave_open_for_option=data.get('leave_open_for_select', 'hours'),
+            leave_open_for_number=int(data.get('number_leave_open_for', 24))
+        )
+        
+        # Handle additional stops if provided
+        if 'stops' in data:
+            stops = []
+            for stop_data in data['stops']:
+                stops.append({
+                    'location': stop_data['location'],
+                    'type': stop_data['type']
+                })
+            new_lane.additional_stops = json.dumps(stops)
+        
+        # Handle accessorials if provided
+        if accessorials:
+            accessorial_objs = Accessorial.query.filter(
+                Accessorial.name.in_(accessorials)
+            ).all()
+            new_lane.accessorials = accessorial_objs
+            
+        # Handle carriers if provided
+        if carrier_ids and 'select_all' not in carrier_ids:
+            carriers = Carrier.query.filter(
+                Carrier.id.in_([int(id) for id in carrier_ids])
+            ).all()
+            new_lane.carriers = carriers
+            
+        db.session.add(new_lane)
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Lane created successfully",
+            "lane_id": new_lane.id
+        }), 201
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "Database integrity error"}), 400
+    except ValueError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Invalid data format: {str(e)}"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/lanes/<int:lane_id>", methods=["PUT"])
+def update_lane(lane_id):
+    """Update an existing frequent lane"""
+    try:
+        data = request.get_json()
+        lane = Lane.query.get_or_404(lane_id)
+        
+        # Verify ownership
+        shipper_id = session.get("shipper_id")
+        if lane.shipper_id != shipper_id:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+            
+        # Update fields
+        if 'nickname' in data:
+            lane.nickname = data['nickname']
+        if 'mode' in data:
+            lane.mode = data['mode']
+        if 'equipment_type' in data:
+            lane.equipment_type = data['equipment_type']
+        if 'rate_type' in data:
+            lane.rate_type = data['rate_type']
+        if 'origin' in data:
+            lane.origin = data['origin']
+        if 'destination' in data:
+            lane.destination = data['destination']
+        if 'pickup_date' in data:
+            lane.pickup_date = datetime.fromisoformat(data['pickup_date'])
+        if 'delivery_date' in data:
+            lane.delivery_date = datetime.fromisoformat(data['delivery_date'])
+        if 'commodity' in data:
+            lane.commodity = data['commodity']
+        if 'weight' in data:
+            lane.weight = Decimal(str(data['weight']))
+        if 'declared_value' in data:
+            lane.declared_value = Decimal(str(data['declared_value']))
+        if 'additional_stops' in data:
+            lane.additional_stops = data['additional_stops']
+        if 'comments' in data:
+            lane.comments = data['comments']
+        if 'leave_open_for_option' in data:
+            lane.leave_open_for_option = data['leave_open_for_option']
+        if 'leave_open_for_number' in data:
+            lane.leave_open_for_number = data['leave_open_for_number']
+            
+        # Update accessorials if provided
+        if 'accessorials' in data:
+            accessorials = Accessorial.query.filter(
+                Accessorial.name.in_(data['accessorials'])
+            ).all()
+            lane.accessorials = accessorials
+            
+        lane.updated_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Lane updated successfully"
+        }), 200
+        
+    except IntegrityError as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": "Database integrity error"}), 400
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/lanes/<int:lane_id>", methods=["DELETE"])
+def delete_lane(lane_id):
+    """Delete a frequent lane"""
+    try:
+        lane = Lane.query.get_or_404(lane_id)
+        
+        # Verify ownership
+        shipper_id = session.get("shipper_id")
+        if lane.shipper_id != shipper_id:
+            return jsonify({"status": "error", "message": "Unauthorized"}), 403
+            
+        db.session.delete(lane)
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": "Lane deleted successfully"
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
