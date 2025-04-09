@@ -4,7 +4,6 @@ from app.config import Config
 
 def send_email(recipient, subject, body_text, body_html=None):
     config = current_app.config
-    recipient="libardoii@hotmail.com" ### only for testing
 
     ses = boto3.client(
         'ses',
@@ -22,7 +21,7 @@ def send_email(recipient, subject, body_text, body_html=None):
 
     response = ses.send_email(
         Source=config['SES_SENDER_EMAIL'],
-        Destination={'ToAddresses': [Config.TEST_EMAIL]},
+        Destination={'ToAddresses': [recipient]},
         Message={
             'Subject': {'Data': subject},
             'Body': body
