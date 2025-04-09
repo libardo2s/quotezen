@@ -22,6 +22,6 @@ class Config:
     AWS_SES_REGION = os.getenv("AWS_REGION", "us-east-1")
     SES_SENDER_EMAIL = os.getenv("SES_SENDER_EMAIL", "")
     HASH_KEY = os.getenv("HASH_KEY", "")
-    DOMAIN_URL = os.getenv("DOMAIN_URL", "")
+    DOMAIN_URL = "http://54.162.187.81:5000"
 
 
