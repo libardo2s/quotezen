@@ -10,7 +10,7 @@ from app.routes import app_routes
 from app.config import Config
 from app.models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
                     QuoteCarrierRate)
-from app.models.association import carrier_shipper
+from app.models.association import carrier_shipper,  quote_carrier  # si lo tienes separado
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
 from app.utils.send_email import send_email
@@ -50,6 +50,7 @@ def api_sign_in():
             },
             ClientId=Config.CLIENT_ID
         )
+        
 
         tokens = response.get("AuthenticationResult", {})
         session["access_token"] = tokens.get("AccessToken")
@@ -75,7 +76,9 @@ def api_sign_in():
             }
         })
 
-    except client.exceptions.NotAuthorizedException:
+    except client.exceptions.NotAuthorizedException as e:
+        print(Config.CLIENT_ID)
+        print(f"Login error: {str(e)}")
         return jsonify({
             "status": "error",
             "message": "Invalid username or password."
@@ -892,7 +895,7 @@ def api_update_rate():
             db.session.add(quote_rate)
 
         # También actualizamos la tabla quote_carrier
-        from models.association import quote_carrier  # si lo tienes separado
+        
         db.session.execute(
             quote_carrier.update()
             .where(quote_carrier.c.quote_id == quote_id)
@@ -1253,6 +1256,43 @@ def delete_lane(lane_id):
             "message": "Lane deleted successfully"
         }), 200
         
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app_routes.route("/api/quote/decline_all", methods=["POST"])
+def decline_all_quote_carriers():
+    try:
+        data = request.get_json()
+        quote_id = data.get("quote_id")
+
+        if not quote_id:
+            return jsonify({"status": "error", "message": "Quote ID is required"}), 400
+
+        # Get all quote carrier rates for this quote
+        quote_rates = QuoteCarrierRate.query.filter_by(
+            quote_id=quote_id
+        ).all()
+
+        if not quote_rates:
+            return jsonify({"status": "error", "message": "No carriers found for this quote"}), 404
+
+        # Update all rates to declined status
+        for rate in quote_rates:
+            rate.status = "declined"
+
+        # Also update the quote status if you have one
+        quote = Quote.query.get(quote_id)
+        if quote:
+            quote.status = "declined"  # Add this field to your Quote model if needed
+
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "message": f"Declined all {len(quote_rates)} carriers for quote {quote_id}"
+        }), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
