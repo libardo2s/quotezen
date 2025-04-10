@@ -1041,8 +1041,11 @@ def get_lane(lane_id):
         lane = Lane.query.get_or_404(lane_id)
         
         # Verify ownership (optional security check)
-        shipper_id = session.get("shipper_id")
-        if lane.shipper_id != shipper_id:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+        if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
             
         lane_data = {
@@ -1171,63 +1174,89 @@ def create_lane():
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-@app_routes.route("/api/lanes/<int:lane_id>", methods=["PUT"])
+@app_routes.route("/api/lanes/<int:lane_id>", methods=["PUT", "POST"])
 def update_lane(lane_id):
     """Update an existing frequent lane"""
     try:
-        data = request.get_json()
+        # Check if this is a PUT with form data (from our frontend)
+        if request.method == "POST" and request.headers.get('X-HTTP-Method-Override') == 'PUT':
+            data = request.form.to_dict()
+            # Handle multi-value fields
+            data['accessorials'] = request.form.getlist('accessorials[]')
+            data['carrier_ids'] = request.form.getlist('carrier_ids[]')
+        else:
+            # Regular PUT with JSON
+            data = request.get_json()
+
         lane = Lane.query.get_or_404(lane_id)
         
         # Verify ownership
-        shipper_id = session.get("shipper_id")
-        if lane.shipper_id != shipper_id:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+
+        if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
             
-        # Update fields
-        if 'nickname' in data:
-            lane.nickname = data['nickname']
-        if 'mode' in data:
-            lane.mode = data['mode']
-        if 'equipment_type' in data:
-            lane.equipment_type = data['equipment_type']
-        if 'rate_type' in data:
-            lane.rate_type = data['rate_type']
-        if 'origin' in data:
-            lane.origin = data['origin']
-        if 'destination' in data:
-            lane.destination = data['destination']
-        if 'pickup_date' in data:
+        # Update basic fields
+        update_fields = [
+            'nickname', 'mode', 'equipment_type', 'rate_type',
+            'origin', 'destination', 'commodity', 'comments'
+        ]
+        
+        for field in update_fields:
+            if field in data:
+                setattr(lane, field, data[field])
+                
+        # Handle dates
+        if 'pickup_date' in data and data['pickup_date']:
             lane.pickup_date = datetime.fromisoformat(data['pickup_date'])
-        if 'delivery_date' in data:
+        if 'delivery_date' in data and data['delivery_date']:
             lane.delivery_date = datetime.fromisoformat(data['delivery_date'])
-        if 'commodity' in data:
-            lane.commodity = data['commodity']
-        if 'weight' in data:
-            lane.weight = Decimal(str(data['weight']))
-        if 'declared_value' in data:
-            lane.declared_value = Decimal(str(data['declared_value']))
-        if 'additional_stops' in data:
-            lane.additional_stops = data['additional_stops']
-        if 'comments' in data:
-            lane.comments = data['comments']
-        if 'leave_open_for_option' in data:
-            lane.leave_open_for_option = data['leave_open_for_option']
-        if 'leave_open_for_number' in data:
-            lane.leave_open_for_number = data['leave_open_for_number']
             
-        # Update accessorials if provided
+        # Handle numeric fields
+        if 'weight' in data:
+            lane.weight = Decimal(str(data['weight'])) if data['weight'] else None
+        if 'declared_value' in data:
+            lane.declared_value = Decimal(str(data['declared_value'])) if data['declared_value'] else None
+            
+        # Handle additional stops
+        if 'additional_stops' in data:
+            if isinstance(data['additional_stops'], str):
+                # If it's a string, parse it as JSON
+                lane.additional_stops = json.loads(data['additional_stops'])
+            else:
+                lane.additional_stops = data['additional_stops']
+            
+        # Update accessorials
         if 'accessorials' in data:
-            accessorials = Accessorial.query.filter(
+            lane.accessorials = Accessorial.query.filter(
                 Accessorial.name.in_(data['accessorials'])
             ).all()
-            lane.accessorials = accessorials
+            
+        # Update carriers
+        if 'carrier_ids' in data:
+            # Remove existing carrier associations
+            lane.carriers = []
+            # Add new carriers
+            carriers = Carrier.query.filter(Carrier.id.in_([int(id) for id in data['carrier_ids']])).all()
+            lane.carriers.extend(carriers)
             
         lane.updated_at = datetime.utcnow()
         db.session.commit()
         
         return jsonify({
             "status": "success",
-            "message": "Lane updated successfully"
+            "message": "Lane updated successfully",
+            "data": {
+                "id": lane.id,
+                "nickname": lane.nickname,
+                "origin": lane.origin,
+                "destination": lane.destination,
+                "equipment_type": lane.equipment_type,
+                "carrier_count": len(lane.carriers),
+            }
         }), 200
         
     except IntegrityError as e:
@@ -1244,8 +1273,11 @@ def delete_lane(lane_id):
         lane = Lane.query.get_or_404(lane_id)
         
         # Verify ownership
-        shipper_id = session.get("shipper_id")
-        if lane.shipper_id != shipper_id:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+        if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
             
         db.session.delete(lane)
@@ -1296,3 +1328,4 @@ def decline_all_quote_carriers():
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+    

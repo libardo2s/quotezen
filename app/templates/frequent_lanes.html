@@ -248,306 +248,404 @@
         </div>
     </div>
 
-    <!-- Frequent Lane Detail (Collapsible form, hidden by default) -->
-    <div id="laneDetailContainer" class="card mt-4 d-none">
-        <div class="card-header bg-white">
-            <h5>Lane Detail</h5>
-        </div>
-        <div class="card-body">
-            <form id="laneForm" class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Mode</label>
-                    <select class="form-select" name="mode">
-                        <option>FTL</option>
-                        <option>LTL</option>
-                    </select>
+    <div class="modal fade" id="editLaneModal" tabindex="-1" aria-labelledby="editLaneModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editLaneModalLabel">Edit Frequent Lane</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Equipment Type</label>
-                    <select class="form-select" name="equipment_type">
-                        <option>Reefer</option>
-                        <option>Dry Van</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Pickup Date</label>
-                    <input type="date" class="form-control" name="pickup_date">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Delivery Date</label>
-                    <input type="date" class="form-control" name="delivery_date">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Commodity</label>
-                    <input type="text" class="form-control" name="commodity">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Weight</label>
-                    <input type="text" class="form-control" name="weight">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Rate Type</label>
-                    <select class="form-select" name="rate_type">
-                        <option>All-in</option>
-                        <option>Per Mile</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Declared Value</label>
-                    <input type="text" class="form-control" name="declared_value">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label">Additional Stops</label>
-                    <input type="text" class="form-control" name="additional_stops">
-                </div>
-                <div class="col-md-12">
-                    <label class="form-label">Comments</label>
-                    <textarea class="form-control" rows="3" name="comments"></textarea>
-                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-7">
+                            <!-- Edit Form -->
+                            <div class="card">
+                                <div class="card-body">
+                                    <form method="PUT" id="editLaneForm">
+                                        <input type="hidden" id="editLaneId" name="lane_id">
+                                        <div class="row g-3">
+                                            <div class="col-md-12">
+                                                <label class="form-label">Lane Nickname</label>
+                                                <input type="text" class="form-control" id="editNickname"
+                                                    name="nickname" placeholder="e.g. Chicago to Dallas Dry Van"
+                                                    required>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Mode</label>
+                                                <select class="form-select" id="editMode" name="mode">
+                                                    <option value="Select">Select</option>
+                                                    {% for mode in modes %}
+                                                    <option value="{{ mode.name }}">{{ mode.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Equipment Type</label>
+                                                <select class="form-select" id="editEquipmentType"
+                                                    name="equipment_type">
+                                                    <option value="Select">Select</option>
+                                                    {% for equipment in equipment_types %}
+                                                    <option value="{{ equipment.name }}">{{ equipment.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Rate Type</label>
+                                                <select class="form-select" id="editRateType" name="rate_type">
+                                                    <option value="Select">Select</option>
+                                                    {% for rate_type in rate_types %}
+                                                    <option value="{{ rate_type.name }}">{{ rate_type.name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
 
-                <!-- Send Request To (Sidebar-like selection) -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Send Request To:</label>
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="selectAll">
-                        <label for="selectAll" class="form-check-label">Select All</label>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Origin</label>
+                                                <input type="text" id="editOrigin" name="origin" class="form-control"
+                                                    placeholder="City, St / Zip" autocomplete="off">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label">Destination</label>
+                                                <input type="text" id="editDestination" name="destination"
+                                                    class="form-control" placeholder="City, St / Zip"
+                                                    autocomplete="off">
+                                            </div>
+
+                                            <div class="col-md-3">
+                                                <label class="form-label">Pickup Date</label>
+                                                <input type="date" class="form-control" id="editPickupDate"
+                                                    name="pickup_date">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label">Delivery Date</label>
+                                                <input type="date" class="form-control" id="editDeliveryDate"
+                                                    name="delivery_date">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label d-block">Additional Stops</label>
+                                                <button type="button" class="btn btn-outline-secondary"
+                                                    data-bs-toggle="modal" data-bs-target="#additionalStopsModal">
+                                                    Manage Additional Stops
+                                                </button>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Commodity</label>
+                                                <input type="text" class="form-control" id="editCommodity"
+                                                    name="commodity">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Weight</label>
+                                                <input type="text" class="form-control" id="editWeight" name="weight">
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label class="form-label">Declared Value (USD)</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text">$</span>
+                                                    <input type="number" class="form-control" id="editDeclaredValue"
+                                                        name="declared_value" placeholder="0.00">
+                                                </div>
+                                            </div>
+
+                                            <div class="col-md-12">
+                                                <label class="form-label">Accessorial</label>
+                                                <select id="editAccessorialSelect" name="accessorials[]" multiple
+                                                    placeholder="Select Accessorials...">
+                                                    {% for accessorial in accessorials %}
+                                                    <option value="{{ accessorial.name }}">{{ accessorial.name }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+
+                                            <div class="col-md-12">
+                                                <label class="form-label">Comments</label>
+                                                <textarea class="form-control" rows="4" id="editComments"
+                                                    name="comments"></textarea>
+                                            </div>
+
+                                            <div class="col-md-12 d-flex justify-content-end mt-3">
+                                                <button type="submit" class="btn btn-primary">Update Lane</button>
+                                            </div>
+                                        </div>
+                                        <div id="editLaneFeedback" class="mt-3"></div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Request Send To Sidebar -->
+                        <div class="col-md-4">
+                            <div class="card p-3">
+                                <div class="col-md-12">
+                                    <label class="form-label fw-bold">Send Request To:</label>
+
+                                    <div class="d-flex flex-row align-items-start gap-3">
+                                        <!-- Select Box -->
+                                        <div class="col-md-6">
+                                            <select id="editCarrierSelect" name="carrier_ids" multiple
+                                                placeholder="Select Carriers...">
+                                                <option value="select_all">— Select All —</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Selected Tags -->
+                                        <div id="editSelectedCarrierTags" class="d-flex flex-column flex-wrap gap-2">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-12">
+                                    <label class="form-label"><strong>Leave Open For:</strong></label>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <select class="form-select" id="editLeaveOpenForSelect">
+                                                <option>Hours</option>
+                                                <option>Minutes</option>
+                                                <option>Days</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <input type="number" class="form-control" id="editNumberLeaveOpenFor">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    {% for carrier in carriers %}
-                    <div class="form-check">
-                        <input class="form-check-input carrier-checkbox" type="checkbox" id="carrier{{ carrier.id }}">
-                        <label class="form-check-label" for="carrier{{ carrier.id }}">{{ carrier.name }}</label>
-                    </div>
-                    {% endfor %}
                 </div>
-
-                <!-- Leave Open For -->
-                <div class="col-md-4">
-                    <label class="form-label fw-bold">Leave Open For:</label>
-                    <select class="form-select">
-                        <option>1 Hour</option>
-                        <option>3 Hours</option>
-                        <option>24 Hours</option>
-                    </select>
-                </div>
-
-                <!-- Submit -->
-                <div class="col-12 text-end">
-                    <button type="submit" class="btn btn-success">Send Quote</button>
-                </div>
-            </form>
+            </div>
         </div>
+
     </div>
 
-</div>
+    <script>
+        document.body.addEventListener("click", function (e) {
+            const viewBtn = e.target.closest(".view-lane-btn");
+            if (viewBtn) {
+                const laneDetail = document.getElementById("laneDetailContainer");
+                laneDetail.classList.remove('d-none');
+                laneDetail.scrollIntoView({ behavior: 'smooth' });
+                // Fetch lane details with lane ID (viewBtn.dataset.id) if necessary.
+            }
 
-<script>
-    document.body.addEventListener("click", function (e) {
-        const viewBtn = e.target.closest(".view-lane-btn");
-        if (viewBtn) {
-            const laneDetail = document.getElementById("laneDetailContainer");
-            laneDetail.classList.remove('d-none');
-            laneDetail.scrollIntoView({ behavior: 'smooth' });
-            // Fetch lane details with lane ID (viewBtn.dataset.id) if necessary.
-        }
-    });
-</script>
-<script>
-    let carrierSelectInstance = null;
-    let stopIndex = 0;
-    let accessorialSelectInstance = null;
+            const editBtn = e.target.closest(".edit-lane-btn");
+            if (editBtn) {
+                const laneId = editBtn.dataset.id;
+                fetchLaneDetails(laneId);
+            }
 
-    document.body.addEventListener("htmx:afterRequest", function (event) {
-        const xhr = event.detail.xhr;
+            const deleteBtn = e.target.closest(".delete-lane-btn");
+            if (deleteBtn) {
+                const laneId = deleteBtn.dataset.id;
+                deleteLane(laneId);
+            }
+        });
+    </script>
+    <script>
+        let carrierSelectInstance = null;
+        let stopIndex = 0;
+        let accessorialSelectInstance = null;
 
-        // Only trigger for the quote form
-        if (event.target.id === "quoteForm") {
-            try {
-                const data = JSON.parse(xhr.responseText);
+        document.body.addEventListener("htmx:afterRequest", function (event) {
+            const xhr = event.detail.xhr;
 
-                if (data.status === "success") {
-                    Swal.fire({
-                        icon: "success",
-                        title: "Quote Created!",
-                        text: "Quote ID: " + data.quote_id,
-                        timer: 2500,
-                        showConfirmButton: false
-                    });
+            // Only trigger for the quote form
+            if (event.target.id === "quoteForm") {
+                try {
+                    const data = JSON.parse(xhr.responseText);
 
-                    // Optionally reset the form
-                    document.getElementById("quoteForm").reset();
-                } else {
+                    if (data.status === "success") {
+                        Swal.fire({
+                            icon: "success",
+                            title: "Quote Created!",
+                            text: "Quote ID: " + data.quote_id,
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+
+                        // Optionally reset the form
+                        document.getElementById("quoteForm").reset();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Oops...",
+                            text: data.message || "Something went wrong!"
+                        });
+                    }
+                } catch (e) {
                     Swal.fire({
                         icon: "error",
-                        title: "Oops...",
-                        text: data.message || "Something went wrong!"
+                        title: "Invalid Response",
+                        text: "Could not parse the server response."
                     });
                 }
-            } catch (e) {
-                Swal.fire({
-                    icon: "error",
-                    title: "Invalid Response",
-                    text: "Could not parse the server response."
-                });
             }
-        }
-    });
-
-    document.addEventListener("DOMContentLoaded", function () {
-        if (accessorialSelectInstance) {
-            accessorialSelectInstance.destroy();
-        }
-
-        accessorialSelectInstance = new TomSelect('#accessorialSelect', {
-            plugins: ['remove_button'],
-            placeholder: 'Select Accessorials...'
         });
 
-        fetchLanes();
-
-        const quoteForm = document.getElementById("quoteForm");
-        if (quoteForm) {
-            quoteForm.addEventListener("submit", function (e) {
-                e.preventDefault();
-                createLane(this);
-            });
-        }
-    });
-
-    document.addEventListener("htmx:afterOnLoad", function (evt) {
-        const target = evt.detail.target;
-
-        let inputId = null;
-        let inputEl = null;
-
-        if (target.id === "originSuggestions") {
-            inputId = "originInput";
-            inputEl = document.getElementById(inputId);
-        } else if (target.id === "destinationSuggestions") {
-            inputId = "destinationInput";
-            inputEl = document.getElementById(inputId);
-        } else if (target.classList.contains("autocomplete-dropdown") && target.id.startsWith("stopSuggestions-")) {
-            // For dynamic stop input autocomplete
-            inputEl = target.previousElementSibling;
-        }
-
-        if (!inputEl) return;
-
-        try {
-            const suggestions = JSON.parse(target.innerText);
-            target.innerHTML = "";
-
-            if (suggestions.length > 0) {
-                target.classList.add("showing");
-            } else {
-                target.classList.remove("showing");
+        document.addEventListener("DOMContentLoaded", function () {
+            if (accessorialSelectInstance) {
+                accessorialSelectInstance.destroy();
             }
 
-            suggestions.forEach(item => {
-                const el = document.createElement("button");
-                el.type = "button";
-                el.className = "list-group-item list-group-item-action";
-                el.textContent = item.label;
-                el.dataset.value = item.value;
-
-                el.addEventListener("click", () => {
-                    inputEl.value = el.dataset.value;
-                    target.innerHTML = "";
-                    target.classList.remove("showing");
-                });
-
-                target.appendChild(el);
+            accessorialSelectInstance = new TomSelect('#accessorialSelect', {
+                plugins: ['remove_button'],
+                placeholder: 'Select Accessorials...'
             });
-        } catch (err) {
-            console.error("Invalid JSON from autocomplete API", err);
-        }
-    });
 
-    document.addEventListener("htmx:afterSwap", function (event) {
-        if (event.target.id === "carrierJsonLoader") {
-            try {
-                const jsonText = event.target.innerText;
-                const carriers = JSON.parse(jsonText);
-                const select = document.getElementById("carrierSelect");
-                const selectedTags = document.getElementById("selectedCarrierTags");
+            fetchLanes();
 
-                // Reset select
-                select.innerHTML = '<option value="select_all">— Select All —</option>';
-                carriers.forEach(carrier => {
-                    const option = document.createElement("option");
-                    option.value = carrier.id;
-                    option.textContent = `${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}`;
-                    select.appendChild(option);
+            const quoteForm = document.getElementById("quoteForm");
+            if (quoteForm) {
+                quoteForm.addEventListener("submit", function (e) {
+                    e.preventDefault();
+                    createLane(this);
                 });
+            }
 
-                if (carrierSelectInstance) {
-                    carrierSelectInstance.destroy();
+            const editForm = document.getElementById('editLaneForm');
+            if (editForm) {
+                editForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    updateLane(this);
+                });
+            }
+        });
+
+        document.addEventListener("htmx:afterOnLoad", function (evt) {
+            const target = evt.detail.target;
+
+            let inputId = null;
+            let inputEl = null;
+
+            if (target.id === "originSuggestions") {
+                inputId = "originInput";
+                inputEl = document.getElementById(inputId);
+            } else if (target.id === "destinationSuggestions") {
+                inputId = "destinationInput";
+                inputEl = document.getElementById(inputId);
+            } else if (target.classList.contains("autocomplete-dropdown") && target.id.startsWith("stopSuggestions-")) {
+                // For dynamic stop input autocomplete
+                inputEl = target.previousElementSibling;
+            }
+
+            if (!inputEl) return;
+
+            try {
+                const suggestions = JSON.parse(target.innerText);
+                target.innerHTML = "";
+
+                if (suggestions.length > 0) {
+                    target.classList.add("showing");
+                } else {
+                    target.classList.remove("showing");
                 }
 
-                carrierSelectInstance = new TomSelect('#carrierSelect', {
-                    plugins: ['remove_button'],
-                    placeholder: 'Select Carriers...',
-                    onChange(values) {
-                        // Select All logic
-                        if (values.includes("select_all")) {
-                            const allIds = carriers.map(c => c.id.toString());
-                            carrierSelectInstance.setValue(allIds);
-                            return;
-                        }
+                suggestions.forEach(item => {
+                    const el = document.createElement("button");
+                    el.type = "button";
+                    el.className = "list-group-item list-group-item-action";
+                    el.textContent = item.label;
+                    el.dataset.value = item.value;
 
-                        renderSelectedTags(values, carriers);
-                    }
+                    el.addEventListener("click", () => {
+                        inputEl.value = el.dataset.value;
+                        target.innerHTML = "";
+                        target.classList.remove("showing");
+                    });
+
+                    target.appendChild(el);
                 });
+            } catch (err) {
+                console.error("Invalid JSON from autocomplete API", err);
+            }
+        });
 
-                function renderSelectedTags(selectedIds, carriersList) {
-                    selectedTags.innerHTML = '';
+        document.addEventListener("htmx:afterSwap", function (event) {
+            if (event.target.id === "carrierJsonLoader") {
+                try {
+                    const jsonText = event.target.innerText;
+                    const carriers = JSON.parse(jsonText);
+                    const select = document.getElementById("carrierSelect");
+                    const selectedTags = document.getElementById("selectedCarrierTags");
 
-                    selectedIds.forEach(id => {
-                        const carrier = carriersList.find(c => c.id.toString() === id);
-                        if (!carrier) return;
+                    // Reset select
+                    select.innerHTML = '<option value="select_all">— Select All —</option>';
+                    carriers.forEach(carrier => {
+                        const option = document.createElement("option");
+                        option.value = carrier.id;
+                        option.textContent = `${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}`;
+                        select.appendChild(option);
+                    });
 
-                        const tag = document.createElement("span");
-                        tag.className = "badge bg-primary d-inline-flex align-items-center px-2 py-1";
-                        tag.innerHTML = `
+                    if (carrierSelectInstance) {
+                        carrierSelectInstance.destroy();
+                    }
+
+                    carrierSelectInstance = new TomSelect('#carrierSelect', {
+                        plugins: ['remove_button'],
+                        placeholder: 'Select Carriers...',
+                        onChange(values) {
+                            // Select All logic
+                            if (values.includes("select_all")) {
+                                const allIds = carriers.map(c => c.id.toString());
+                                carrierSelectInstance.setValue(allIds);
+                                return;
+                            }
+
+                            renderSelectedTags(values, carriers);
+                        }
+                    });
+
+                    function renderSelectedTags(selectedIds, carriersList) {
+                        selectedTags.innerHTML = '';
+
+                        selectedIds.forEach(id => {
+                            const carrier = carriersList.find(c => c.id.toString() === id);
+                            if (!carrier) return;
+
+                            const tag = document.createElement("span");
+                            tag.className = "badge bg-primary d-inline-flex align-items-center px-2 py-1";
+                            tag.innerHTML = `
                             ${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}
                             <button type="button" class="btn-close btn-close-white btn-sm ms-2" style="font-size: 0.6rem" aria-label="Remove"></button>
                         `;
 
-                        tag.querySelector("button").addEventListener("click", () => {
-                            carrierSelectInstance.removeItem(id, true);
-                            renderSelectedTags(carrierSelectInstance.getValue(), carriersList);
+                            tag.querySelector("button").addEventListener("click", () => {
+                                carrierSelectInstance.removeItem(id, true);
+                                renderSelectedTags(carrierSelectInstance.getValue(), carriersList);
+                            });
+
+                            selectedTags.appendChild(tag);
                         });
+                    }
 
-                        selectedTags.appendChild(tag);
-                    });
+                } catch (err) {
+                    console.error("Error parsing carrier JSON:", err);
                 }
-
-            } catch (err) {
-                console.error("Error parsing carrier JSON:", err);
             }
-        }
-    });
+        });
 
-    document.addEventListener("click", function (e) {
-        const originBox = document.getElementById("originSuggestions");
-        const destBox = document.getElementById("destinationSuggestions");
+        document.addEventListener("click", function (e) {
+            const originBox = document.getElementById("originSuggestions");
+            const destBox = document.getElementById("destinationSuggestions");
 
-        if (!originBox.contains(e.target) && !document.getElementById("originInput").contains(e.target)) {
-            originBox.innerHTML = "";
-            originBox.classList.remove("showing");
-        }
+            if (!originBox.contains(e.target) && !document.getElementById("originInput").contains(e.target)) {
+                originBox.innerHTML = "";
+                originBox.classList.remove("showing");
+            }
 
-        if (!destBox.contains(e.target) && !document.getElementById("destinationInput").contains(e.target)) {
-            destBox.innerHTML = "";
-            destBox.classList.remove("showing");
-        }
-    });
+            if (!destBox.contains(e.target) && !document.getElementById("destinationInput").contains(e.target)) {
+                destBox.innerHTML = "";
+                destBox.classList.remove("showing");
+            }
+        });
 
-    document.getElementById('addStopBtn').addEventListener('click', () => {
-        const container = document.getElementById('additionalStopsContainer');
+        document.getElementById('addStopBtn').addEventListener('click', () => {
+            const container = document.getElementById('additionalStopsContainer');
 
-        const stopRow = document.createElement('div');
-        stopRow.className = 'row g-2 align-items-end mb-2 position-relative';
-        stopRow.innerHTML = `
+            const stopRow = document.createElement('div');
+            stopRow.className = 'row g-2 align-items-end mb-2 position-relative';
+            stopRow.innerHTML = `
         <div class="col-md-6 position-relative">
             <label class="form-label">City, St or Zip</label>
             <input type="text"
@@ -573,187 +671,429 @@
         </div>
     `;
 
-        container.appendChild(stopRow);
-        stopIndex++;
+            container.appendChild(stopRow);
+            stopIndex++;
 
-        // Reprocess new HTMX content
-        htmx.process(stopRow);
+            // Reprocess new HTMX content
+            htmx.process(stopRow);
 
-        // Remove logic
-        stopRow.querySelector('.remove-stop').addEventListener('click', () => {
-            stopRow.remove();
-        });
-    });
-
-    document.getElementById('additionalStopsForm').addEventListener('submit', function (e) {
-        e.preventDefault();
-        const modal = bootstrap.Modal.getInstance(document.getElementById('additionalStopsModal'));
-        modal.hide();
-
-        // Optionally store data or send to server
-        console.log('Additional stops saved');
-    });
-
-    document.getElementById("additionalStopsContainer").addEventListener("click", function (e) {
-        if (e.target.classList.contains("remove-stop-btn")) {
-            e.target.closest(".row").remove();
-        }
-    });
-
-    function fetchLanes() {
-        fetch("/api/lanes")
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    renderLanesTable(data.data);
-                } else {
-                    showError("Failed to load lanes: " + data.message);
-                }
-            })
-            .catch(error => {
-                showError("Error fetching lanes: " + error);
+            // Remove logic
+            stopRow.querySelector('.remove-stop').addEventListener('click', () => {
+                stopRow.remove();
             });
-    }
+        });
 
-    function renderLanesTable(lanes) {
-        const tbody = document.querySelector("table tbody");
-        tbody.innerHTML = ""; // Clear existing rows
+        document.getElementById('additionalStopsForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const modal = bootstrap.Modal.getInstance(document.getElementById('additionalStopsModal'));
+            modal.hide();
 
-        if (lanes.length === 0) {
-            tbody.innerHTML = `
+            // Optionally store data or send to server
+            console.log('Additional stops saved');
+        });
+
+        document.getElementById("additionalStopsContainer").addEventListener("click", function (e) {
+            if (e.target.classList.contains("remove-stop-btn")) {
+                e.target.closest(".row").remove();
+            }
+        });
+
+        function fetchLanes() {
+            fetch("/api/lanes")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        renderLanesTable(data.data);
+                    } else {
+                        showError("Failed to load lanes: " + data.message);
+                    }
+                })
+                .catch(error => {
+                    showError("Error fetching lanes: " + error);
+                });
+        }
+
+        function renderLanesTable(lanes) {
+            const tbody = document.querySelector("table tbody");
+            tbody.innerHTML = ""; // Clear existing rows
+
+            if (lanes.length === 0) {
+                tbody.innerHTML = `
             <tr>
                 <td colspan="6" class="text-center text-muted">No frequent lanes found.</td>
             </tr>
         `;
-            return;
-        }
+                return;
+            }
 
-        lanes.forEach(lane => {
-            const row = document.createElement("tr");
-            row.innerHTML = `
+            lanes.forEach(lane => {
+                const row = document.createElement("tr");
+                row.innerHTML = `
             <td>${lane.nickname}</td>
             <td>${lane.origin} &rarr; ${lane.destination}</td>
             <td>${lane.equipment_type}</td>
             <td>${lane.carrier_count}</td>
             <td>${lane.last_sent}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-primary view-lane-btn" data-id="${lane.id}">
-                    View
+                <button class="btn btn-sm btn-outline-secondary edit-lane-btn" data-id="${lane.id}">
+                    Edit
                 </button>
                 <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="${lane.id}">
                     Delete
                 </button>
             </td>
         `;
-            tbody.appendChild(row);
-        });
-    }
-
-    function createLane(form) {
-        const formData = new FormData(form);
-
-        // Add additional stops data if exists
-        const stops = [];
-        document.querySelectorAll("#additionalStopsContainer .stop-row").forEach(row => {
-            const location = row.querySelector(".stop-location").value;
-            const type = row.querySelector(".stop-type").value;
-            if (location) {
-                stops.push({ location, type });
-            }
-        });
-
-        if (stops.length > 0) {
-            stops.forEach((stop, index) => {
-                formData.append(`stops[${index}][location]`, stop.location);
-                formData.append(`stops[${index}][type]`, stop.type);
+                tbody.appendChild(row);
             });
         }
 
-        fetch("/api/lanes", {
-            method: "POST",
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    // Close the modal
-                    const modal = bootstrap.Modal.getInstance(document.getElementById("quoteModal"));
-                    modal.hide();
+        function createLane(form) {
+            const formData = new FormData(form);
 
-                    // Show success message
-                    Swal.fire({
-                        icon: "success",
-                        title: "Lane Created!",
-                        text: "Your frequent lane has been saved successfully.",
-                        timer: 2500,
-                        showConfirmButton: false
-                    });
+            // Add additional stops data if exists
+            const stops = [];
+            document.querySelectorAll("#additionalStopsContainer .stop-row").forEach(row => {
+                const location = row.querySelector(".stop-location").value;
+                const type = row.querySelector(".stop-type").value;
+                if (location) {
+                    stops.push({ location, type });
+                }
+            });
 
-                    // Refresh the lanes table
-                    fetchLanes();
+            if (stops.length > 0) {
+                stops.forEach((stop, index) => {
+                    formData.append(`stops[${index}][location]`, stop.location);
+                    formData.append(`stops[${index}][type]`, stop.type);
+                });
+            }
 
-                    // Reset the form
-                    form.reset();
-                } else {
+            fetch("/api/lanes", {
+                method: "POST",
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Close the modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById("quoteModal"));
+                        modal.hide();
+
+                        // Show success message
+                        Swal.fire({
+                            icon: "success",
+                            title: "Lane Created!",
+                            text: "Your frequent lane has been saved successfully.",
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
+
+                        // Refresh the lanes table
+                        fetchLanes();
+
+                        // Reset the form
+                        form.reset();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: data.message || "Failed to create lane"
+                        });
+                    }
+                })
+                .catch(error => {
                     Swal.fire({
                         icon: "error",
                         title: "Error",
-                        text: data.message || "Failed to create lane"
+                        text: "An error occurred while creating the lane"
                     });
-                }
-            })
-            .catch(error => {
-                Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "An error occurred while creating the lane"
+                    console.error("Error:", error);
                 });
-                console.error("Error:", error);
+        }
+
+        function fetchLaneDetails(laneId) {
+            fetch(`/api/lanes/${laneId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        populateEditForm(data.data);
+
+                        // Show the modal
+                        const editModal = new bootstrap.Modal(document.getElementById('editLaneModal'));
+                        editModal.show();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: data.message || "Failed to load lane details"
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "An error occurred while fetching lane details"
+                    });
+                    console.error("Error:", error);
+                });
+        }
+
+        function populateEditForm(laneData) {
+            document.getElementById('editLaneId').value = laneData.id;
+            document.getElementById('editNickname').value = laneData.nickname || '';
+            document.getElementById('editMode').value = laneData.mode || 'Select';
+            document.getElementById('editEquipmentType').value = laneData.equipment_type || 'Select';
+            document.getElementById('editRateType').value = laneData.rate_type || 'Select';
+            document.getElementById('editOrigin').value = laneData.origin || '';
+            document.getElementById('editDestination').value = laneData.destination || '';
+            document.getElementById('editPickupDate').value = laneData.pickup_date || '';
+            document.getElementById('editDeliveryDate').value = laneData.delivery_date || '';
+            document.getElementById('editCommodity').value = laneData.commodity || '';
+            document.getElementById('editWeight').value = laneData.weight || '';
+            document.getElementById('editDeclaredValue').value = laneData.declared_value || '';
+            document.getElementById('editComments').value = laneData.comments || '';
+
+            // Initialize TomSelect for accessorials if not already done
+            if (!window.editAccessorialSelectInstance) {
+                window.editAccessorialSelectInstance = new TomSelect('#editAccessorialSelect', {
+                    plugins: ['remove_button'],
+                    placeholder: 'Select Accessorials...'
+                });
+            }
+
+            // Set selected accessorials
+            if (laneData.accessorials && laneData.accessorials.length > 0) {
+                window.editAccessorialSelectInstance.setValue(laneData.accessorials);
+            } else {
+                window.editAccessorialSelectInstance.clear();
+            }
+
+            // Initialize TomSelect for carriers if not already done
+            if (!window.editCarrierSelectInstance) {
+                window.editCarrierSelectInstance = new TomSelect('#editCarrierSelect', {
+                    plugins: ['remove_button'],
+                    placeholder: 'Select Carriers...',
+                    onChange(values) {
+                        if (values.includes("select_all")) {
+                            const allIds = carriers.map(c => c.id.toString());
+                            window.editCarrierSelectInstance.setValue(allIds);
+                            return;
+                        }
+                        renderSelectedTags(values, carriers, 'editSelectedCarrierTags');
+                    }
+                });
+            }
+
+            // Fetch and set carriers
+            fetchCarriersForEdit(laneData.carrier_ids || []);
+        }
+
+        function fetchCarriersForEdit(selectedCarrierIds) {
+            fetch("/api/carriers")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        const select = document.getElementById("editCarrierSelect");
+                        select.innerHTML = '<option value="select_all">— Select All —</option>';
+
+                        data.data.forEach(carrier => {
+                            const option = document.createElement("option");
+                            option.value = carrier.id;
+                            option.textContent = `${carrier.id} - ${carrier.carrier_name} ${carrier.mc_number ? ` (MC#${carrier.mc_number})` : ""}`;
+                            select.appendChild(option);
+                        });
+
+                        // Set selected carriers
+                        if (selectedCarrierIds.length > 0) {
+                            window.editCarrierSelectInstance.setValue(selectedCarrierIds);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching carriers:", error);
+                });
+        }
+
+        function updateLane(form) {
+            const formData = new FormData(form);
+            const laneId = document.getElementById('editLaneId').value;
+
+            // Get selected carriers
+            const selectedCarriers = window.editCarrierSelectInstance?.getValue() || [];
+            selectedCarriers.forEach(id => {
+                if (id !== "select_all") {
+                    formData.append('carrier_ids[]', id);
+                }
             });
-    }
-</script>
 
-<style>
-    /* Align select size */
-    #carrierSelect {
-        width: 100%;
-    }
+            // Get selected accessorials
+            const selectedAccessorials = window.editAccessorialSelectInstance?.getValue() || [];
+            selectedAccessorials.forEach(accessorial => {
+                formData.append('accessorials[]', accessorial);
+            });
 
-    /* Optional: Improve dropdown scroll */
-    .ts-dropdown {
-        max-height: 250px;
-        overflow-y: auto;
-    }
+            // Add additional stops data if exists
+            const stops = [];
+            document.querySelectorAll("#additionalStopsContainer .stop-row").forEach(row => {
+                const location = row.querySelector(".stop-location").value;
+                const type = row.querySelector(".stop-type").value;
+                if (location) {
+                    stops.push({ location, type });
+                }
+            });
 
-    #selectedCarrierTags .badge {
-        white-space: nowrap;
-    }
+            if (stops.length > 0) {
+                formData.append('additional_stops', JSON.stringify(stops));
+            }
 
-    .list-group-item {
-        cursor: pointer;
-    }
+            // Using POST with method override for broader compatibility
+            fetch(`/api/lanes/${laneId}`, {
+                method: "POST",
+                headers: {
+                    'X-HTTP-Method-Override': 'PUT'
+                },
+                body: formData
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => {
+                            throw new Error(err.message || 'Failed to update lane');
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.status === "success") {
+                        // Close the modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById("editLaneModal"));
+                        modal.hide();
 
-    /* Fade & slide in animation */
-    .autocomplete-dropdown.showing {
-        animation: fadeSlideDown 0.2s ease-in-out;
-    }
+                        // Show success message
+                        Swal.fire({
+                            icon: "success",
+                            title: "Lane Updated!",
+                            text: "Your frequent lane has been updated successfully.",
+                            timer: 2500,
+                            showConfirmButton: false
+                        });
 
-    @keyframes fadeSlideDown {
-        from {
-            opacity: 0;
-            transform: translateY(-8px);
+                        // Refresh the lanes table
+                        fetchLanes();
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: data.message || "Failed to update lane"
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: error.message || "An error occurred while updating the lane"
+                    });
+                    console.error("Error:", error);
+                });
         }
 
-        to {
-            opacity: 1;
-            transform: translateY(0);
+        function deleteLane(laneId) {
+            Swal.fire({
+                title: 'Are you sure?',
+                text: "You won't be able to revert this!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    fetch(`/api/lanes/${laneId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(err => {
+                                    throw new Error(err.message || 'Failed to delete lane');
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.status === "success") {
+                                Swal.fire(
+                                    'Deleted!',
+                                    'Your lane has been deleted.',
+                                    'success'
+                                );
+                                // Refresh the lanes table
+                                fetchLanes();
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: data.message || 'Failed to delete lane'
+                                });
+                            }
+                        })
+                        .catch(error => {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: error.message || 'An error occurred while deleting the lane'
+                            });
+                            console.error("Error:", error);
+                        });
+                }
+            });
         }
-    }
 
-    /* Make sure dropdown appears above other elements */
-    .z-3 {
-        z-index: 1030;
-    }
-</style>
+    </script>
 
-{% endblock %}
+    <style>
+        /* Align select size */
+        #carrierSelect {
+            width: 100%;
+        }
+
+        /* Optional: Improve dropdown scroll */
+        .ts-dropdown {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        #selectedCarrierTags .badge {
+            white-space: nowrap;
+        }
+
+        .list-group-item {
+            cursor: pointer;
+        }
+
+        /* Fade & slide in animation */
+        .autocomplete-dropdown.showing {
+            animation: fadeSlideDown 0.2s ease-in-out;
+        }
+
+        @keyframes fadeSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Make sure dropdown appears above other elements */
+        .z-3 {
+            z-index: 1030;
+        }
+    </style>
+
+    {% endblock %}
