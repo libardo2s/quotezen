@@ -2,6 +2,7 @@ from decimal import Decimal
 import json
 
 import boto3
+from sqlalchemy import or_
 
 from app.controller import create_carrier_user, create_carrier_admin
 from app.database import db
@@ -299,7 +300,7 @@ def api_shipper():
     if request.method == "GET":
         role_user = session.get("user_role")
         if role_user == 'Admin':
-            shippers = Shipper.query.filter_by(active=True).all()
+            shippers = Shipper.query.filter_by(deleted=False).all()
             return jsonify([
                 {
                     "id": shipper.id,
@@ -321,13 +322,14 @@ def api_shipper():
         if not company:
             return jsonify([])
 
-        shippers = Shipper.query.filter_by(company_id=company.id, active=True).all()
+        shippers = Shipper.query.filter_by(company_id=company.id).all()
 
         return jsonify([
             {
                 "id": shipper.id,
                 "company_id": shipper.company_id,
                 "active": shipper.active,
+                "deleted": shipper.deleted,
                 "user": {
                     "first_name": shipper.user.first_name,
                     "last_name": shipper.user.last_name,
@@ -1329,3 +1331,13 @@ def decline_all_quote_carriers():
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
     
+@app_routes.route('/api/shipper/<int:id>/toggle_active', methods=['PUT'])
+def toggle_shipper_active(id):
+    shipper = Shipper.query.get_or_404(id)
+    shipper.active = not shipper.active
+    shipper.user.active = shipper.active
+    db.session.commit()
+    return jsonify({
+        "status": "success",
+        "active": shipper.active
+    })

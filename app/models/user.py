@@ -12,6 +12,7 @@ class User(db.Model):
     phone = Column(String(20), nullable=True)
     address = Column(String(200), nullable=True)
     active = Column(Boolean, default=True, nullable=True)
+    deleted = Column(Boolean, default=False, nullable=True)
 
     # Role field with Enum restriction (only 'Admin', 'Shipper', or 'Carrier')
     role = Column(

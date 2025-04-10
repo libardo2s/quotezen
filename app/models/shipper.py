@@ -8,7 +8,8 @@ class Shipper(db.Model):
     __tablename__ = 'shippers'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    active = Column(Boolean, default=True, nullable=True)
+    active = Column(Boolean, default=True)
+    deleted = Column(Boolean, default=False)
 
     company_id = Column(Integer, ForeignKey('companies.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
