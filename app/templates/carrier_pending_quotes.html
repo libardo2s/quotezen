@@ -95,13 +95,13 @@
                         <td>
                             <form hx-post="{{ url_for('app_routes.api_update_rate') }}" hx-target="this"
                                 hx-swap="outerHTML" hx-trigger="submit">
-
                                 <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
                                 <input type="hidden" name="quote_id" value="{{ quote.id }}">
-
+                        
                                 <div class="input-group input-group-sm" style="max-width: 180px;">
-                                    <input type="number" required name="rate" value="{{ quote.submitted_rate or '' }}"
-                                        class="form-control" step="0.01" min="0">
+                                    <input type="number" required name="rate" 
+                                           value="{{ quote.submitted_rate if quote.submitted_rate is not none else '' }}"
+                                           class="form-control" step="0.01" min="0">
                                     <button class="btn btn-outline-primary" type="submit">
                                         <i class="bi bi-check2-circle"></i> Save
                                     </button>

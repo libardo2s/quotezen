@@ -196,13 +196,9 @@ def carrier_pending_quotes():
 
     user_id = session.get("user_id")
     carrier_user = Carrier.query.filter_by(user_id=user_id).first()
-    #print("Carrier user:", carrier_user.carrier_name)
 
     if not carrier_user:
         return redirect(url_for("app_routes.signin"))
-
-    # carrier_user.created_by is the ID of User table
-    carrier_company_id = carrier_user.created_by
 
     # Recoger filtros de la query
     filters = {
@@ -213,10 +209,8 @@ def carrier_pending_quotes():
         "destination": request.args.get("destination"),
     }
 
-    # Base query
-    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == user_id)
-    #print("Query:", len(query.all()))
-    # Aplicar filtros por defecto
+    # Base query - get quotes where current carrier is one of the invited carriers
+    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.id == carrier_user.id)
 
     # Aplicar filtros si existen
     if filters["equipment_type"]:
@@ -232,15 +226,16 @@ def carrier_pending_quotes():
 
     carrier_quotes = query.all()
 
-    # Obtener rates enviados por este usuario
+    # Obtener rates enviados por este usuario específico
     for quote in carrier_quotes:
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
-            carrier_admin_id=carrier_company_id
+            carrier_id=carrier_user.id  # Filter by the specific carrier user, not the company
         ).order_by(QuoteCarrierRate.created_at.desc()).first()
 
+        # Safely handle cases where no rate exists
         quote.submitted_rate = existing_rate.rate if existing_rate else None
-        quote.submitted_comment = existing_rate.comment if existing_rate else ""
+        quote.submitted_comment = existing_rate.comment if existing_rate else None
 
     # Listas únicas para los select
     equipment_types = [row[0] for row in db.session.query(Quote.equipment_type.distinct()).all()]
@@ -253,7 +248,6 @@ def carrier_pending_quotes():
         equipment_types=equipment_types,
         modes=modes,
         carrier_admin_quote=carrier_user,
-        carrier_company_id=carrier_company_id,
         rate_types=rate_types,
         now=datetime.utcnow()
     )
