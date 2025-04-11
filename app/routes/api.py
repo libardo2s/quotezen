@@ -835,7 +835,11 @@ def api_quote():
             if not shipper:
                 return jsonify({"status": "error", "message": "User is not a shipper"}), 403
 
-            carrier_ids = form.getlist("carrier_ids[]")  # From <select multiple>
+            carrier_ids = form.getlist("carrier_ids[]") 
+            stops_json = form.get("stops", "[]")  # Obtiene el string JSON
+            additional_stops = json.loads(stops_json)  # Convierte a lista/dict
+            print("Parsed stops:", additional_stops) 
+
 
             # Query selected company carriers
             selected_carriers = Carrier.query.filter(Carrier.id.in_(carrier_ids)).all()
@@ -855,7 +859,7 @@ def api_quote():
                 declared_value=float(form.get("declared_value") or 0),
                 accessorials=",".join(form.getlist("accessorials[]")),
                 comments=form.get("comments"),
-                additional_stops=None,
+                additional_stops=additional_stops,
                 carriers=selected_carriers,
                 open_unit=form.get("leave_open_unit"),
                 open_value=form.get("leave_open_value"),
@@ -865,11 +869,13 @@ def api_quote():
             db.session.add(quote)
             db.session.commit()
 
+            '''
             send_emails_to_carrier_company_and_users(
                 selected_carriers=selected_carriers + carriers_of_company_carrier,
                 quote_id=quote.id,
                 shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
             )
+            '''
 
             return jsonify({"status": "success", "quote_id": quote.id})
 
@@ -1367,3 +1373,30 @@ def toggle_shipper_active(id):
         "status": "success",
         "active": shipper.active
     })
+
+@app_routes.route("/api/quotes/nuke_all", methods=["DELETE"])
+def nuke_all_quotes():
+    try:
+        # Eliminar registros relacionados primero para evitar errores de FK
+        db.session.execute(quote_carrier.delete())  # Tabla de relación muchos-a-muchos
+        
+        # Eliminar rates asociados
+        QuoteCarrierRate.query.delete()
+        
+        # Eliminar TODOS los quotes sin filtros
+        num_deleted = Quote.query.delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            "status": "success",
+            "message": f"🔥 Nuked {num_deleted} quotes and all related records",
+            "warning": "This action is irreversible!"
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to nuke quotes: {str(e)}"
+        }), 500

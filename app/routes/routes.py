@@ -228,6 +228,7 @@ def carrier_pending_quotes():
 
     # Obtener rates enviados por este usuario específico
     for quote in carrier_quotes:
+        print("additional_stops:", quote.additional_stops)
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
             carrier_id=carrier_user.id  # Filter by the specific carrier user, not the company
