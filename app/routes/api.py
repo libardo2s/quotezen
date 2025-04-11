@@ -746,13 +746,24 @@ def autocomplete_location():
     if not term:
         return jsonify([])
 
-    # Use ilike for case-insensitive partial match
-    results = (
-        City.query
-        .filter(City.city_name.ilike(f"%{term}%"))
-        .limit(10)
-        .all()
-    )
+    # Split the term by comma to separate city and province/state if present
+    parts = [part.strip() for part in term.split(',')]
+    city_term = parts[0]
+    province_term = parts[1] if len(parts) > 1 else None
+
+    # Build the query
+    query = City.query.filter(City.city_name.ilike(f"%{city_term}%"))
+    
+    if province_term:
+        # Search in both province name and abbreviation
+        query = query.filter(
+            db.or_(
+                City.province_name.ilike(f"%{province_term}%"),
+                City.province_abbr.ilike(f"%{province_term}%")
+            )
+        )
+
+    results = query.limit(10).all()
 
     response = [
         {
