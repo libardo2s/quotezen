@@ -746,20 +746,35 @@ def autocomplete_location():
     if not term:
         return jsonify([])
 
-    # Split the term by comma to separate city and province/state if present
-    parts = [part.strip() for part in term.split(',')]
-    city_term = parts[0]
-    province_term = parts[1] if len(parts) > 1 else None
+    # Normalizar el término: reemplazar comas por espacios y dividir
+    search_terms = [t.strip() for t in term.replace(',', ' ').split() if t.strip()]
 
-    # Build the query
-    query = City.query.filter(City.city_name.ilike(f"%{city_term}%"))
-    
-    if province_term:
-        # Search in both province name and abbreviation
+    # Construir la consulta base
+    query = City.query
+
+    # Si hay múltiples términos, el primero busca en ciudad y los demás en provincia
+    if len(search_terms) > 1:
+        city_term = search_terms[0]
+        province_terms = search_terms[1:]
+        
+        query = query.filter(City.city_name.ilike(f"%{city_term}%"))
+        
+        # Filtrar por cada término de provincia (búsqueda flexible)
+        province_filters = []
+        for term in province_terms:
+            province_filters.append(City.province_name.ilike(f"%{term}%"))
+            province_filters.append(City.province_abbr.ilike(f"%{term}%"))
+        
+        query = query.filter(db.or_(*province_filters))
+    else:
+        # Búsqueda simple en todos los campos relevantes
+        single_term = search_terms[0]
         query = query.filter(
             db.or_(
-                City.province_name.ilike(f"%{province_term}%"),
-                City.province_abbr.ilike(f"%{province_term}%")
+                City.city_name.ilike(f"%{single_term}%"),
+                City.province_name.ilike(f"%{single_term}%"),
+                City.province_abbr.ilike(f"%{single_term}%"),
+                City.postal_code.ilike(f"%{single_term}%")
             )
         )
 
