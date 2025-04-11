@@ -6,8 +6,7 @@
 <div class="container-fluid p-4">
     {% include "partials/summary_kpis.html" %}
 
-    <form method="POST" id="quoteForm" hx-post="/api/quote" hx-trigger="submit" hx-target="#quoteFeedback"
-        hx-swap="innerHTML">
+    <form method="POST" action="/api/quote" id="quoteForm">
         <div class="row">
             <!-- Main Form (Left Side) -->
             <div class="col-md-8">
@@ -435,6 +434,37 @@
         if (e.target.classList.contains("remove-stop-btn")) {
             e.target.closest(".row").remove();
         }
+    });
+
+    document.getElementById("quoteForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        
+        // Recolectar los stops adicionales
+        const stops = [];
+        const stopInputs = document.querySelectorAll('#additionalStopsContainer .stop-autocomplete');
+        
+        stopInputs.forEach((input, index) => {
+            const row = input.closest('.row');
+            const type = row.querySelector('select').value;
+            
+            if (input.value.trim()) {
+                stops.push({
+                    location: input.value,
+                    type: type
+                });
+            }
+        });
+
+        // Crear FormData y agregar los stops como JSON
+        const formData = new FormData(this);
+        formData.append('stops', JSON.stringify(stops));
+
+        // Enviar con HTMX
+        htmx.ajax('POST', '/api/quote', {
+            target: '#quoteFeedback',
+            swap: 'innerHTML',
+            values: Object.fromEntries(formData.entries())
+        });
     });
 
 </script>

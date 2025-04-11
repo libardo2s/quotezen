@@ -74,6 +74,7 @@
                         <th>Weight</th>
                         <th>Comments</th>
                         <th>Rate Type</th>
+                        <th>Aditional Stops</th>
                         <th class="text-center">Rate</th>
                     </tr>
                 </thead>
@@ -93,15 +94,30 @@
                         <td>{{ quote.comments}}</td>
                         <td>{{ quote.rate_type }}</td>
                         <td>
+                            {% if quote.additional_stops %}
+                            <ul class="list-unstyled mb-0">
+                                {% for stop in quote.additional_stops %}
+                                <li>
+                                    <small>
+                                        <strong>{{ stop.type|title }}:</strong> {{ stop.location }}
+                                    </small>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                            {% else %}
+                            <span class="text-muted">None</span>
+                            {% endif %}
+                        </td>
+                        <td>
                             <form hx-post="{{ url_for('app_routes.api_update_rate') }}" hx-target="this"
                                 hx-swap="outerHTML" hx-trigger="submit">
                                 <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
                                 <input type="hidden" name="quote_id" value="{{ quote.id }}">
-                        
+
                                 <div class="input-group input-group-sm" style="max-width: 180px;">
-                                    <input type="number" required name="rate" 
-                                           value="{{ quote.submitted_rate if quote.submitted_rate is not none else '' }}"
-                                           class="form-control" step="0.01" min="0">
+                                    <input type="number" required name="rate"
+                                        value="{{ quote.submitted_rate if quote.submitted_rate is not none else '' }}"
+                                        class="form-control" step="0.01" min="0">
                                     <button class="btn btn-outline-primary" type="submit">
                                         <i class="bi bi-check2-circle"></i> Save
                                     </button>
@@ -247,6 +263,16 @@
 
     .highlight-update {
         animation: blink 1s 3;
+    }
+
+    /* Add to your style section */
+    .list-unstyled li {
+        padding: 2px 0;
+        border-bottom: 1px dotted #eee;
+    }
+
+    .list-unstyled li:last-child {
+        border-bottom: none;
     }
 </style>
 
