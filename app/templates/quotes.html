@@ -137,7 +137,7 @@
                         <select id="carrierSelect" name="carrier_ids[]" multiple placeholder="Select Carriers...">
                             <option value="select_all">— Select All —</option>
                             {% for carrier in carriers %}
-                                <option value="{{ carrier.id }}">{{ carrier.name }}</option>
+                            <option value="{{ carrier.id }}">{{ carrier.name }}</option>
                             {% endfor %}
                         </select>
                         <div id="selectedCarrierTags" class="d-flex flex-wrap gap-2 mt-2"></div>
@@ -438,15 +438,15 @@
 
     document.getElementById("quoteForm").addEventListener("submit", function (e) {
         e.preventDefault();
-        
-        // Recolectar los stops adicionales
+
+        // Collect additional stops
         const stops = [];
         const stopInputs = document.querySelectorAll('#additionalStopsContainer .stop-autocomplete');
-        
+
         stopInputs.forEach((input, index) => {
             const row = input.closest('.row');
             const type = row.querySelector('select').value;
-            
+
             if (input.value.trim()) {
                 stops.push({
                     location: input.value,
@@ -455,16 +455,61 @@
             }
         });
 
-        // Crear FormData y agregar los stops como JSON
+        // Create FormData and add stops as JSON
         const formData = new FormData(this);
         formData.append('stops', JSON.stringify(stops));
 
-        // Enviar con HTMX
-        htmx.ajax('POST', '/api/quote', {
-            target: '#quoteFeedback',
-            swap: 'innerHTML',
-            values: Object.fromEntries(formData.entries())
-        });
+        // Send with HTMX but handle response manually
+        fetch('/api/quote', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw err; });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === "success") {
+                    Swal.fire({
+                        title: 'Success!',
+                        text: 'Quote created successfully',
+                        icon: 'success',
+                        confirmButtonText: 'OK'
+                    }).then(() => {
+                        // Redirect or clear form as needed
+                        //window.location.href = `/quote/${data.quote_id}`;
+                    });
+                } else {
+                    throw data; // Handle as error
+                }
+            })
+            .catch(error => {
+                let errorMessage = "An error occurred";
+                if (error.message) {
+                    errorMessage = error.message;
+                } else if (typeof error === 'string') {
+                    errorMessage = error;
+                }
+
+                Swal.fire({
+                    title: 'Error!',
+                    text: errorMessage,
+                    icon: 'error',
+                    confirmButtonText: 'OK'
+                });
+
+                // Highlight problematic fields if available
+                if (error.missing_ids) {
+                    error.missing_ids.forEach(id => {
+                        const checkbox = document.querySelector(`input[name="carrier_ids[]"][value="${id}"]`);
+                        if (checkbox) {
+                            checkbox.parentElement.style.border = "2px solid #ff4444";
+                        }
+                    });
+                }
+            });
     });
 
 </script>

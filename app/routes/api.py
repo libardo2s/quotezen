@@ -836,6 +836,10 @@ def api_quote():
                 return jsonify({"status": "error", "message": "User is not a shipper"}), 403
 
             carrier_ids = form.getlist("carrier_ids[]") 
+
+            if not carrier_ids:
+                return jsonify({"status": "error", "message": "No carriers selected"}), 400
+
             stops_json = form.get("stops", "[]")  # Obtiene el string JSON
             additional_stops = json.loads(stops_json)  # Convierte a lista/dict
             print("Parsed stops:", additional_stops) 
@@ -876,7 +880,6 @@ def api_quote():
                 shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
             )
             
-
             return jsonify({"status": "success", "quote_id": quote.id})
 
         except Exception as e:
@@ -921,7 +924,7 @@ def api_update_rate():
                 quote_id=quote_id,
                 carrier_id=carrier_id,
                 user_id=user_id,
-                carrier_admin_id=carrier_admin.id,
+                carrier_admin_id=carrier_admin.user.id,
                 rate=rate,
                 comment=comment,
                 created_at=datetime.utcnow()
