@@ -869,13 +869,13 @@ def api_quote():
             db.session.add(quote)
             db.session.commit()
 
-            '''
+            
             send_emails_to_carrier_company_and_users(
                 selected_carriers=selected_carriers + carriers_of_company_carrier,
                 quote_id=quote.id,
                 shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
             )
-            '''
+            
 
             return jsonify({"status": "success", "quote_id": quote.id})
 
