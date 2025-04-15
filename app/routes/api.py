@@ -1486,6 +1486,28 @@ def get_dashboard_stats():
                     ).count(),
                     "active_companies": 1  # Their company
                 })
+        elif user.role == "CompanyShipper":
+            company_shipper = Company.query.filter_by(user_id=user_id).first()
+            if company_shipper:
+                # For CompanyShippers, fetch relevant counts for their company
+                accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+                    QuoteCarrierRate.status == 'accepted'
+                ).distinct().subquery()
+                
+                stats.update({
+                    "pending_quotes": Quote.query.filter(
+                        Quote.company_id == company_shipper.company_id,
+                        ~Quote.id.in_(accepted_quotes_subquery)
+                    ).count(),
+                    "active_shippers": 1,  # Themselves (the shipper company)
+                    "active_carriers": db.session.query(Carrier).join(
+                        carrier_company
+                    ).filter(
+                        carrier_company.c.company_id == company_shipper.company_id,
+                        Carrier.active == True
+                    ).count(),
+                    "active_companies": 1  # Their company
+                })
         elif user.role == "CarrierAdmin":
             carrier = Carrier.query.filter_by(user_id=user_id).first()
             if carrier:
