@@ -318,6 +318,17 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Carrier Admin Section -->
+    {% if session.get('user_role') == 'CarrierAdmin' %}
+    <!-- Add this to your edit modal where creator info should appear -->
+    <div id="creatorInfo" class="p-2 bg-light rounded">
+        <div hx-get="{{ url_for('app_routes.get_carrier_creator', carrier_id=session.get('user_id')) }}"
+            hx-trigger="load" hx-swap="innerHTML">
+            <div class="spinner-border spinner-border-sm"></div> Loading creator info...
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <script>
@@ -434,6 +445,48 @@
         } catch (err) {
             target.innerHTML = `<tr><td colspan="7" class="text-danger">Error parsing data</td></tr>`;
             console.error("Failed to parse JSON:", err);
+        }
+
+        if (event.detail.requestConfig.path.includes('/api/carrier/') && 
+            event.detail.requestConfig.path.includes('/creator')) {
+            
+            try {
+                const data = JSON.parse(event.detail.xhr.responseText);
+                
+                if (data.error) {
+                    event.target.innerHTML = `<div class="text-danger">${data.error}</div>`;
+                    return;
+                }
+                
+                let html = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Created By:</strong> ${data.first_name} ${data.last_name}
+                        </div>
+                        <span class="badge bg-info">Shipper</span>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Email: ${data.email}</small>
+                    </div>
+                `;
+                
+                if (data.shipper_info) {
+                    html += `
+                        <div class="mt-2">
+                            <strong>Company:</strong> ${data.shipper_info.company_name || 'N/A'}
+                        </div>
+                        <div>
+                            <small class="text-muted">DUNS: ${data.shipper_info.duns_number || 'N/A'}</small>
+                        </div>
+                    `;
+                }
+                
+                event.target.innerHTML = html;
+                
+            } catch (err) {
+                console.error('Error parsing creator data:', err);
+                event.target.innerHTML = '<div class="text-danger">Error loading creator information</div>';
+            }
         }
     });
 

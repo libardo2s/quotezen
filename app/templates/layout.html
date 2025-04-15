@@ -25,7 +25,7 @@
         </button>
 
         <div class="nav flex-column">
-            {% if session.get('user_role') in ['Admin'] %}
+            {% if session.get('user_role') in ['Admin', 'Shipper'] %}
             <a href="{{ url_for('app_routes.dashboard') }}" class="sidebar-link text-decoration-none p-3 text-white">
                 <i class="fas fa-home me-3"></i>
                 <span class="hide-on-collapse">Dashboard</span>

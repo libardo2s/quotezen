@@ -1543,3 +1543,39 @@ def get_dashboard_stats():
             "status": "error",
             "message": f"Failed to get dashboard stats: {str(e)}"
         }), 500
+    
+
+@app_routes.route("/api/carrier/<int:carrier_id>/creator", methods=["GET"])
+# @token_required  # Uncomment if you need authentication
+def get_carrier_creator(carrier_id):
+    carrier = Carrier.query.filter_by(user_id=carrier_id).first()
+    
+    if not carrier:
+        return jsonify({"error": "Carrier not found"}), 404
+    
+    if not carrier.created_by:
+        return jsonify({"error": "Creator information not available"}), 404
+    
+    creator = User.query.get(carrier.created_by)
+    
+    if not creator:
+        return jsonify({"error": "Creator user not found"}), 404
+    
+    # Assuming you have a Shipper model related to User
+    shipper = Shipper.query.filter_by(user_id=creator.id).first()
+    
+    response_data = {
+        "creator_id": creator.id,
+        "first_name": creator.first_name,
+        "last_name": creator.last_name,
+        "email": creator.email,
+        "phone": creator.phone,
+        "created_at": creator.created_at.isoformat() if creator.created_at else None,
+        "shipper_info": {
+            "shipper_id": shipper.id if shipper else None,
+            "company_name": shipper.company.company_name if shipper and shipper.company else None,
+            "duns_number": shipper.company.duns if shipper and shipper.company else None
+        } if shipper else None
+    }
+    
+    return jsonify(response_data)

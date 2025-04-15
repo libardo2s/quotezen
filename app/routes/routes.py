@@ -145,14 +145,6 @@ def dashboard():
         return redirect(url_for("app_routes.signin"))
     
     user_role = session.get('user_role')
-    if user_role == 'CompanyShipper':
-        return redirect(url_for("app_routes.company_shipper"))
-    elif user_role == 'Shipper':
-        return redirect(url_for("app_routes.shipper"))
-    elif user_role == 'CarrierAdmin':
-        return redirect(url_for("app_routes.carrier_network"))
-    elif user_role == 'Carrier':
-        return redirect(url_for("app_routes.carrier"))
 
     # For Admins only
     # Get most recent quotes
