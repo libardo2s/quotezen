@@ -61,6 +61,8 @@ def api_sign_in():
         # Fetch user from the database
         user = User.query.filter_by(email=username).first()
 
+        
+
         if user:
             session["user_id"] = user.id
             session["user_name"] = user.email
@@ -71,6 +73,8 @@ def api_sign_in():
             redirect_url = "/dashboard"
         elif user.role == "CarrierAdmin":
             redirect_url = "/carrier_pending_quotes"
+        elif user.role == "CompanyShipper":
+            redirect_url = "/admin_settings"
         else:
             redirect_url = "/quotes"
 
