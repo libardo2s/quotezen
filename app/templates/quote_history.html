@@ -4,6 +4,7 @@
 
 {% block content %}
 <div class="container-fluid p-4">
+    {% include "partials/summary_kpis.html" %}
     <div class="card mt-4">
         <div class="card-header bg-white">
             <h5 class="mb-0">Quote History</h5>
@@ -46,13 +47,7 @@
                                     —
                                 {% endif %}
                             </td>
-                            <td>
-                                {% if quote.accepted_rate %}
-                                    {{ quote.accepted_rate.user.first_name }} {{ quote.accepted_rate.user.last_name }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
+                            <td></td>
                         </tr>
                     {% else %}
                         <tr>

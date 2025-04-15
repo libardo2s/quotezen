@@ -25,19 +25,12 @@
         </button>
 
         <div class="nav flex-column">
-
-            <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
+            {% if session.get('user_role') in ['Admin'] %}
+            <a href="{{ url_for('app_routes.dashboard') }}" class="sidebar-link text-decoration-none p-3 text-white">
                 <i class="fas fa-home me-3"></i>
                 <span class="hide-on-collapse">Dashboard</span>
             </a>
-
-            {% if session.get('user_role') in ['Shipper'] %}
-                <a href="#" class="sidebar-link text-decoration-none p-3 text-white">
-                    <i class="fas fa-history me-3"></i>
-                    <span class="hide-on-collapse">Quote History</span>
-                </a>
             {% endif %}
-
             {% if session.get('user_role') in ['Shipper'] %}
                 <a href="{{ url_for('app_routes.quotes') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-file-alt me-3"></i>
@@ -60,6 +53,12 @@
                 <a href="{{ url_for('app_routes.frequent_lanes') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-history me-3"></i>
                     <span class="hide-on-collapse">Frequent Lanes</span>
+                </a>
+            {% endif %}
+            {% if session.get('user_role') in ['Shipper'] %}
+                <a href="{{ url_for('app_routes.quote_history') }}" class="sidebar-link text-decoration-none p-3 text-white">
+                    <i class="fas fa-history me-3"></i>
+                    <span class="hide-on-collapse">Quote History</span>
                 </a>
             {% endif %}
             {% if session.get('user_role') in ['Shipper'] %}

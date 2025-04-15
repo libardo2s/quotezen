@@ -32,8 +32,8 @@ class Lane(db.Model):
     destination = Column(String(100), nullable=False)  # City, State, Zip
 
     # Shipment Information
-    pickup_date = Column(DateTime, nullable=False)  # When the shipment is picked up
-    delivery_date = Column(DateTime, nullable=False)  # When the shipment is delivered
+    pickup_date = Column(DateTime, nullable=True)  # When the shipment is picked up
+    delivery_date = Column(DateTime, nullable=True)  # When the shipment is delivered
 
     commodity = Column(String(100), nullable=False)  # Type of goods
     weight = Column(Float, nullable=False)  # Weight of shipment

@@ -4,63 +4,229 @@
 
 {% block content %}
 <div class="container-fluid p-4">
-    <!-- Metrics Section -->
-    <div class="row text-center">
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3 border-success">
-                <h5>Pending Quotes</h5>
-                <h3 class="text-success">6</h3>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3 border-success">
-                <h5>Completed Today</h5>
-                <h3 class="text-success">13</h3>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3 border-success">
-                <h5>Projected Spend MTD</h5>
-                <h3 class="text-success">$15,600.00</h3>
-                <small class="text-muted">-8% month over month</small>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3 border-success">
-                <h5>Active Carriers</h5>
-                <h3 class="text-success">18</h3>
-            </div>
-        </div>
-    </div>
 
-    <!-- Data Table -->
-    <div class="mt-4">
-        <table class="table table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th>Quote ID</th>
-                    <th>Lane</th>
-                    <th>Equipment Type</th>
-                    <th>Pickup Date</th>
-                    <th>Responses</th>
-                    <th>Status</th>
-                    <th>Lowest Rate</th>
-                    <th>Awarded Rate</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>001</td>
-                    <td>Elgin, IL - Miami, FL</td>
-                    <td>R</td>
-                    <td>03-03-2025</td>
-                    <td>6</td>
-                    <td><span class="badge bg-success">Awarded</span></td>
-                    <td>$2,750.00</td>
-                    <td>$2,810.00</td>
-                </tr>
-            </tbody>
-        </table>
+    <!-- Metrics Section -->
+    {% include "partials/summary_kpis.html" %}
+
+    <div class="row mt-4">
+
+        <!-- Left Column -->
+        <div class="col-lg-8 d-flex flex-column gap-4">
+
+            <!-- Quotes per Month Chart -->
+            <div class="card h-100 border border-success">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Quotes per Month</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="quotesChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Quotes Table -->
+            <div class="card h-100 border border-success">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Recent Quotes</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table id="recentQuotesTable" class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Lane</th>
+                                    <th>Rate</th>
+                                    <th>Carrier</th>
+                                    <th>Benchmark</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for q in recent_quotes %}
+                                <tr>
+                                    <td>{{ q.lane }}</td>
+                                    <td>{{ q.rate if q.rate else '-' }}</td>
+                                    <td>{{ q.carrier if q.carrier else '-' }}</td>
+                                    <td>{{ q.benchmark if q.benchmark else '-' }}</td>
+                                    <td>
+                                        {% if q.status == 'Awarded' %}
+                                        <span class="badge bg-success">Awarded</span>
+                                        {% elif q.status == 'Declined' %}
+                                        <span class="badge bg-danger">Declined</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">Open</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-4 d-flex flex-column gap-4">
+
+            <!-- Top Awarded Carriers -->
+            <div class="card h-100 border border-success">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Top Awarded Carriers YTD</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table id="topCarriersTable" class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Carrier</th>
+                                    <th>Quotes</th>
+                                    <th>Awards</th>
+                                    <th>Win%</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for carrier in top_carriers %}
+                                <tr>
+                                    <td>{{ carrier.name }}</td>
+                                    <td>{{ carrier.quotes }}</td>
+                                    <td>{{ carrier.awards }}</td>
+                                    <td>{{ carrier.win_percent }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Requests by User -->
+            <div class="card h-100 border border-success">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Requests by User MTD</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-center align-items-center" style="height: 250px;">
+                        <canvas id="requestsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+        </div>
     </div>
 </div>
+
+<!-- Chart.js + DataTables JS -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Quotes per Month (Bar Chart)
+        const ctx = document.getElementById('quotesChart').getContext('2d');
+        const quotesChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+                datasets: [{
+                    label: 'Quotes',
+                    data: {{ quotes_per_month | tojson }},
+                    backgroundColor: 'rgba(63, 133, 85, 1)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 5
+                        }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        // DataTables setup
+        $('#recentQuotesTable').DataTable({
+            order: [],
+            paging: false,
+            searching: false,
+            info: false
+        });
+
+        $('#topCarriersTable').DataTable({
+            order: [],
+            paging: false,
+            searching: false,
+            info: false
+        });
+
+        // Animate progress bars (if used)
+        const progressBars = document.querySelectorAll('.progress-bar');
+        progressBars.forEach(bar => {
+            const width = bar.style.width;
+            bar.style.width = '0';
+            setTimeout(() => {
+                bar.style.width = width;
+            }, 500);
+        });
+
+        // Requests by User (Pie Chart with green scale)
+        const userLabels = {{ user_requests | map(attribute='name') | list | tojson }};
+        const userData = {{ user_requests | map(attribute='requests') | list | tojson }};
+
+        const requestsChartCtx = document.getElementById('requestsChart').getContext('2d');
+        const requestsChart = new Chart(requestsChartCtx, {
+            type: 'pie',
+            data: {
+                labels: userLabels,
+                datasets: [{
+                    label: 'Requests',
+                    data: userData,
+                    backgroundColor: [
+                        'rgba(63, 133, 85, 0.9)',
+                        'rgba(88, 163, 112, 0.8)',
+                        'rgba(113, 192, 139, 0.7)',
+                        'rgba(138, 221, 166, 0.6)',
+                        'rgba(163, 250, 193, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgba(63, 133, 85, 1)',
+                        'rgba(88, 163, 112, 1)',
+                        'rgba(113, 192, 139, 1)',
+                        'rgba(138, 221, 166, 1)',
+                        'rgba(163, 250, 193, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (tooltipItem) {
+                                return tooltipItem.label + ': ' + tooltipItem.raw + ' requests';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
 {% endblock %}

@@ -66,11 +66,16 @@ def api_sign_in():
             session["user_name"] = user.email
             session["full_name"] = f"{user.first_name} {user.last_name}"
             session["user_role"] = user.role  # Store user role
+        
+        if user.role == "Admin":
+            redirect_url = "/dashboard"
+        else:
+            redirect_url = "/quotes"
 
         return jsonify({
             "status": "success",
             "message": "Login successful!",
-            "redirect_url": "/dashboard",
+            "redirect_url": redirect_url,
             "user": {
                 "id": user.id,
                 "email": user.email,
@@ -1421,4 +1426,97 @@ def nuke_all_quotes():
         return jsonify({
             "status": "error",
             "message": f"Failed to nuke quotes: {str(e)}"
+        }), 500
+    
+@app_routes.route("/api/dashboard/stats", methods=["GET"])
+def get_dashboard_stats():
+    try:
+        user_id = session.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "User not found"}), 404
+
+        # Initialize stats with default values
+        stats = {
+            "pending_quotes": 0,
+            "active_shippers": 0,
+            "active_carriers": 0,
+            "active_companies": 0
+        }
+
+        # Get counts based on user role
+        if user.role == "Admin":
+            # Admin sees all pending quotes (without accepted rates)
+            accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+                QuoteCarrierRate.status == 'accepted'
+            ).distinct().subquery()
+            
+            stats.update({
+                "pending_quotes": Quote.query.filter(
+                    ~Quote.id.in_(accepted_quotes_subquery)
+                ).count(),
+                "active_shippers": Shipper.query.filter_by(
+                    active=True, deleted=False
+                ).count(),
+                "active_carriers": Carrier.query.filter_by(active=True).count(),
+                "active_companies": Company.query.filter_by(active=True).count()
+            })
+        elif user.role == "Shipper":
+            shipper = Shipper.query.filter_by(user_id=user_id).first()
+            if shipper:
+                # Same logic as pending_quotes endpoint
+                accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+                    QuoteCarrierRate.status == 'accepted'
+                ).distinct().subquery()
+                
+                stats.update({
+                    "pending_quotes": Quote.query.filter(
+                        Quote.shipper_id == shipper.id,
+                        ~Quote.id.in_(accepted_quotes_subquery)
+                    ).count(),
+                    "active_shippers": 1,  # Themselves
+                    "active_carriers": db.session.query(Carrier).join(
+                        carrier_shipper
+                    ).filter(
+                        carrier_shipper.c.shipper_id == shipper.id,
+                        Carrier.active == True
+                    ).count(),
+                    "active_companies": 1  # Their company
+                })
+        elif user.role == "CarrierAdmin":
+            carrier = Carrier.query.filter_by(user_id=user_id).first()
+            if carrier:
+                # For carriers, count quotes where they haven't responded yet
+                stats.update({
+                    "pending_quotes": db.session.query(Quote).join(
+                        quote_carrier
+                    ).filter(
+                        quote_carrier.c.carrier_id == carrier.id,
+                        ~db.session.query(QuoteCarrierRate).filter(
+                            QuoteCarrierRate.quote_id == Quote.id,
+                            QuoteCarrierRate.carrier_admin_id == carrier.user_id
+                        ).exists()
+                    ).count(),
+                    "active_shippers": db.session.query(Shipper).join(
+                        carrier_shipper
+                    ).filter(
+                        carrier_shipper.c.carrier_id == carrier.id,
+                        Shipper.active == True
+                    ).count(),
+                    "active_carriers": 1,  # Themselves
+                    "active_companies": 1  # Their company
+                })
+
+        return jsonify({
+            "user_name": f"{user.first_name} {user.last_name}",
+            "stats": stats
+        }), 200
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to get dashboard stats: {str(e)}"
         }), 500

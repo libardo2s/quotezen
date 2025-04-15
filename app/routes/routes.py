@@ -139,22 +139,95 @@ def otp():
 def forgot_password():
     return render_template('forgot_password.html')
 
-
 @app_routes.route("/dashboard")
 def dashboard():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
-    # if session.get('user_role') == 'CompanyShipper':
-    #     return redirect(url_for("app_routes.company_shipper"))
-    # if session.get('user_role') == 'Shipper':
-    #     return redirect(url_for("app_routes.shipper"))
-    # if session.get('user_role') == 'CarrierAdmin':
-    #     return redirect(url_for("app_routes.carrier_network"))
-    # if session.get('user_role') == 'Carrier':
-    #     return redirect(url_for("app_routes.carrier"))
-    # if session.get('user_role') == 'Admin':
-    return render_template("dashboard.html")
+    
+    user_role = session.get('user_role')
+    if user_role == 'CompanyShipper':
+        return redirect(url_for("app_routes.company_shipper"))
+    elif user_role == 'Shipper':
+        return redirect(url_for("app_routes.shipper"))
+    elif user_role == 'CarrierAdmin':
+        return redirect(url_for("app_routes.carrier_network"))
+    elif user_role == 'Carrier':
+        return redirect(url_for("app_routes.carrier"))
 
+    # For Admins only
+    # Get most recent quotes
+    recent_quotes_query = (
+        db.session.query(Quote)
+        .options(joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.user))
+        .order_by(Quote.created_at.desc())
+        .limit(5)
+        .all()
+    )
+    
+    recent_quotes = []
+    for quote in recent_quotes_query:
+        latest_rate = sorted(quote.quote_rates, key=lambda r: r.created_at or datetime.min, reverse=True)
+        awarded_rate = next((r for r in latest_rate if r.status == "accepted"), None)
+        status = "Open" if not awarded_rate else "Awarded"
+        if not awarded_rate and latest_rate:
+            status = "Declined"
+
+        recent_quotes.append({
+            "lane": f"{quote.origin}-{quote.destination}",
+            "rate": awarded_rate.rate if awarded_rate else None,
+            "carrier": f"{awarded_rate.user.first_name} {awarded_rate.user.last_name}" if awarded_rate else None,
+            "benchmark": quote.benchmark_rate if hasattr(quote, "benchmark_rate") else None,
+            "status": status
+        })
+
+    # Top carriers by win percentage (quotes awarded / total quotes)
+    carriers = Carrier.query.all()
+    top_carriers = []
+    for carrier in carriers:
+        total_quotes = QuoteCarrierRate.query.filter_by(carrier_admin_id=carrier.created_by).count()
+        awards = QuoteCarrierRate.query.filter_by(carrier_admin_id=carrier.created_by, status="accepted").count()
+        win_percent = round((awards / total_quotes) * 100) if total_quotes > 0 else 0
+        top_carriers.append({
+            "name": carrier.carrier_name,
+            "quotes": total_quotes,
+            "awards": awards,
+            "win_percent": win_percent
+        })
+    top_carriers = sorted(top_carriers, key=lambda c: c['win_percent'], reverse=True)[:5]
+
+    # Requests per user (shipper requests)
+    user_requests_query = (
+        db.session.query(User.first_name, db.func.count(Quote.id))
+        .join(Shipper, Shipper.user_id == User.id)
+        .join(Quote, Quote.shipper_id == Shipper.id)
+        .group_by(User.id)
+        .all()
+    )
+    user_requests = [{"name": name, "requests": count, "total": count} for name, count in user_requests_query]
+
+    # Quotes per month (example over last 12 months)
+    this_year = datetime.utcnow().year
+    quotes_per_month_raw = db.session.query(
+        db.func.extract('month', Quote.created_at),
+        db.func.count(Quote.id)
+    ).filter(
+        db.func.extract('year', Quote.created_at) == this_year
+    ).group_by(
+        db.func.extract('month', Quote.created_at)
+    ).order_by(
+        db.func.extract('month', Quote.created_at)
+    ).all()
+
+    # Fill in all 12 months with zero if no data
+    quotes_per_month = [0] * 12
+    for month, count in quotes_per_month_raw:
+        quotes_per_month[int(month) - 1] = count
+
+    return render_template("dashboard.html",
+                         recent_quotes=recent_quotes,
+                         top_carriers=top_carriers,
+                         user_requests=user_requests,
+                         quotes_per_month=quotes_per_month)
 
 @app_routes.route("/admin_settings", methods=["GET"])
 def admin_settings():

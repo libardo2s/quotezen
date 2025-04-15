@@ -1,48 +1,118 @@
-<h2 class="mb-4">Welcome, {{ session.get('user_name', 'User') }}!</h2>
+<h2 class="mb-4">Welcome, <span id="userName">{{ session.get('full_name', 'User') }}</span></h2>
 
-<div class="row g-4 mb-5">
+<div class="row g-4 mb-5"
+     hx-get="/api/dashboard/stats"
+     hx-trigger="load"
+     hx-swap="none">
+     
     <div class="col-md-3">
-        <div class="card text-white bg-primary h-100">
-            <div class="card-body">
+        <div class="card bg-white border border-success h-100">
+            <div class="card-body text-dark">
                 <h5 class="card-title">Pending Quotes</h5>
-                <h3 class="card-text">100+</h3>
+                <h3 id="pendingQuotesCount" class="card-text">--</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card text-white bg-success h-100">
-            <div class="card-body">
-                <h5 class="card-title">Completed Today</h5>
-                <h3 class="card-text">6</h3>
-            </div>
-        </div>
-    </div>
+
     {% if session.get('user_role') in ['Admin', 'CompanyShipper'] %}
     <div class="col-md-3">
-        <div class="card text-white bg-warning h-100">
-            <div class="card-body">
+        <div class="card bg-white border border-success h-100">
+            <div class="card-body text-dark">
                 <h5 class="card-title">Active Shippers</h5>
                 <h3 id="activeShippersCount" class="card-text">--</h3>
             </div>
         </div>
     </div>
     {% endif %}
+
     <div class="col-md-3">
-        <div class="card text-white bg-info h-100">
-            <div class="card-body">
+        <div class="card bg-white border border-success h-100">
+            <div class="card-body text-dark">
                 <h5 class="card-title">Active Carriers</h5>
                 <h3 id="activeCarriersCount" class="card-text">--</h3>
             </div>
         </div>
     </div>
+
     {% if session.get('user_role') == 'Admin' %}
     <div class="col-md-3">
-        <div class="card text-white bg-success h-100">
-            <div class="card-body">
+        <div class="card bg-white border border-success h-100">
+            <div class="card-body text-dark">
                 <h5 class="card-title">Active Companies</h5>
-                <h3 class="card-text" id="activeCompaniesCount">--</h3>
+                <h3 id="activeCompaniesCount" class="card-text">--</h3>
             </div>
         </div>
     </div>
     {% endif %}
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Animation function
+    function animateValue(element, start, end, duration) {
+        const range = end - start;
+        const increment = end > start ? 1 : -1;
+        const stepTime = Math.abs(Math.floor(duration / range));
+        let current = start;
+        
+        const timer = setInterval(function() {
+            current += increment;
+            element.textContent = current;
+            
+            if (current === end) {
+                clearInterval(timer);
+                // Special case for pending quotes "100+"
+                if (element.id === 'pendingQuotesCount' && end > 100) {
+                    element.textContent = '100+';
+                }
+            }
+        }, stepTime);
+    }
+
+    // Listen for HTMX afterRequest event
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        if (evt.detail.requestConfig.path === '/api/dashboard/stats' && evt.detail.successful) {
+            try {
+                const response = JSON.parse(evt.detail.xhr.responseText);
+                
+                // Update user name if available
+                if (response.user_name) {
+                    document.getElementById('userName').textContent = response.user_name;
+                }
+                
+                // Update stats with animation
+                if (response.stats) {
+                    const animationDuration = 1000; // 1 second
+                    
+                    // Pending Quotes (special handling for 100+)
+                    const pendingEl = document.getElementById('pendingQuotesCount');
+                    const pendingValue = response.stats.pending_quotes;
+                    if (pendingValue > 100) {
+                        animateValue(pendingEl, 0, 100, animationDuration);
+                    } else {
+                        animateValue(pendingEl, 0, pendingValue, animationDuration);
+                    }
+                    
+                    // Active Shippers
+                    if (document.getElementById('activeShippersCount')) {
+                        const shippersEl = document.getElementById('activeShippersCount');
+                        animateValue(shippersEl, 0, response.stats.active_shippers || 0, animationDuration);
+                    }
+                    
+                    // Active Carriers
+                    const carriersEl = document.getElementById('activeCarriersCount');
+                    animateValue(carriersEl, 0, response.stats.active_carriers || 0, animationDuration);
+                    
+                    // Active Companies
+                    if (document.getElementById('activeCompaniesCount')) {
+                        const companiesEl = document.getElementById('activeCompaniesCount');
+                        animateValue(companiesEl, 0, response.stats.active_companies || 0, animationDuration);
+                    }
+                }
+            } catch (e) {
+                console.error('Error processing stats response:', e);
+            }
+        }
+    });
+});
+</script>
