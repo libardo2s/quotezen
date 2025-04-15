@@ -64,6 +64,7 @@ def api_sign_in():
         if user:
             session["user_id"] = user.id
             session["user_name"] = user.email
+            session["full_name"] = f"{user.first_name} {user.last_name}"
             session["user_role"] = user.role  # Store user role
 
         return jsonify({
@@ -817,6 +818,24 @@ def send_emails_to_carrier_company_and_users(selected_carriers, quote_id, shippe
                     body_html=html_content
                 )
                 print(f"Email sent to {carrier.user.email}: {response}")
+            
+            creator_carriers = Carrier.query.filter_by(created_by=carrier.user.id).all()
+            for creator_carrier in creator_carriers:                
+                    html_content = render_template(
+                        "email/quote.html",
+                        quote_url=quote_url,
+                        current_year=datetime.now().year,
+                        carrier_name=creator_carrier.carrier_name,
+                        shipper_name=shipper_name,
+                    )
+
+                    response = send_email(
+                        recipient=creator_carrier.user.email,
+                        subject="New Quote Available - Urgent",
+                        body_text="You have a new quote available in QuoteZen.",
+                        body_html=html_content
+                    )
+                    print(f"Email sent to creator's other carrier {creator_carrier.user.email}: {response}")
     except Exception as e:
         print(f"Email error: {str(e)}")
 
