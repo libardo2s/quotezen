@@ -69,6 +69,8 @@ def api_sign_in():
         
         if user.role == "Admin":
             redirect_url = "/dashboard"
+        elif user.role == "CarrierAdmin":
+            redirect_url = "/carrier_pending_quotes"
         else:
             redirect_url = "/quotes"
 
@@ -985,11 +987,18 @@ def quote_decision():
 
         if decision not in ["accepted", "declined"]:
             return jsonify({"status": "error", "message": "Invalid decision"}), 400
+        
+        quote = Quote.query.get(quote_id)
+        carrier = Carrier.query.get(carrier_admin_id)
+
+        
+        if not quote or not carrier:
+            return jsonify({"status": "error", "message": "Quote or Carrier not found"}), 404
 
         # Buscar el registro del rate
         quote_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote_id,
-            carrier_admin_id=carrier_admin_id,
+            carrier_id=carrier_admin_id,
             rate=rate
         ).first()
 
@@ -1002,11 +1011,10 @@ def quote_decision():
 
         db.session.commit()
 
-        quote = Quote.query.get(quote_id)
-        carrier = Carrier.query.get(carrier_admin_id)
-        
-        if not quote or not carrier:
-            return jsonify({"status": "error", "message": "Quote or Carrier not found"}), 404
+        #
+
+        #quote = Quote.query.get(quote_id)
+        #carrier = Carrier.query.get(carrier_admin_id)
 
         if decision == "accepted":
             try:
@@ -1447,16 +1455,16 @@ def get_dashboard_stats():
             "active_companies": 0
         }
 
+        # Subquery: quotes that have been accepted or declined
+        excluded_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+            QuoteCarrierRate.status.in_(["accepted", "declined"])
+        ).distinct().subquery()
+
         # Get counts based on user role
         if user.role == "Admin":
-            # Admin sees all pending quotes (without accepted rates)
-            accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
-                QuoteCarrierRate.status == 'accepted'
-            ).distinct().subquery()
-            
             stats.update({
                 "pending_quotes": Quote.query.filter(
-                    ~Quote.id.in_(accepted_quotes_subquery)
+                    ~Quote.id.in_(excluded_quotes_subquery)
                 ).count(),
                 "active_shippers": Shipper.query.filter_by(
                     active=True, deleted=False
@@ -1464,18 +1472,14 @@ def get_dashboard_stats():
                 "active_carriers": Carrier.query.filter_by(active=True).count(),
                 "active_companies": Company.query.filter_by(active=True).count()
             })
+
         elif user.role == "Shipper":
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if shipper:
-                # Same logic as pending_quotes endpoint
-                accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
-                    QuoteCarrierRate.status == 'accepted'
-                ).distinct().subquery()
-                
                 stats.update({
                     "pending_quotes": Quote.query.filter(
                         Quote.shipper_id == shipper.id,
-                        ~Quote.id.in_(accepted_quotes_subquery)
+                        ~Quote.id.in_(excluded_quotes_subquery)
                     ).count(),
                     "active_shippers": 1,  # Themselves
                     "active_carriers": db.session.query(Carrier).join(
@@ -1486,20 +1490,16 @@ def get_dashboard_stats():
                     ).count(),
                     "active_companies": 1  # Their company
                 })
+
         elif user.role == "CompanyShipper":
             company_shipper = Company.query.filter_by(user_id=user_id).first()
             if company_shipper:
-                # For CompanyShippers, fetch relevant counts for their company
-                accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
-                    QuoteCarrierRate.status == 'accepted'
-                ).distinct().subquery()
-                
                 stats.update({
                     "pending_quotes": Quote.query.filter(
                         Quote.company_id == company_shipper.company_id,
-                        ~Quote.id.in_(accepted_quotes_subquery)
+                        ~Quote.id.in_(excluded_quotes_subquery)
                     ).count(),
-                    "active_shippers": 1,  # Themselves (the shipper company)
+                    "active_shippers": 1,  # Themselves
                     "active_carriers": db.session.query(Carrier).join(
                         carrier_company
                     ).filter(
@@ -1508,10 +1508,10 @@ def get_dashboard_stats():
                     ).count(),
                     "active_companies": 1  # Their company
                 })
+
         elif user.role == "CarrierAdmin":
             carrier = Carrier.query.filter_by(user_id=user_id).first()
             if carrier:
-                # For carriers, count quotes where they haven't responded yet
                 stats.update({
                     "pending_quotes": db.session.query(Quote).join(
                         quote_carrier
@@ -1519,7 +1519,8 @@ def get_dashboard_stats():
                         quote_carrier.c.carrier_id == carrier.id,
                         ~db.session.query(QuoteCarrierRate).filter(
                             QuoteCarrierRate.quote_id == Quote.id,
-                            QuoteCarrierRate.carrier_admin_id == carrier.user_id
+                            QuoteCarrierRate.carrier_admin_id == carrier.user_id,
+                            QuoteCarrierRate.status.in_(["accepted", "declined"])
                         ).exists()
                     ).count(),
                     "active_shippers": db.session.query(Shipper).join(

@@ -89,7 +89,7 @@
                                                 <span class="badge bg-danger">Declined</span>
                                                 {% else %}
                                                 <button class="btn btn-sm btn-success me-1"
-                                                    onclick="submitDecision({{ quote.id }}, {{ carrier.carrier_admin_id }}, {{ carrier.rate }}, 'accepted')">
+                                                    onclick="submitDecision({{ quote.id }}, {{ carrier.carrier.id }}, {{ carrier.rate }}, 'accepted')">
                                                     Accept
                                                 </button>
 
@@ -295,6 +295,12 @@
 
 <script>
     function submitDecision(quoteId, carrierAdminId, rate, decision) {
+        console.log("Submitting decision:", {
+            quoteId: quoteId,
+            carrierAdminId: carrierAdminId,
+            rate: rate,
+            decision: decision
+        });
         fetch("/api/quote/decision", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -321,7 +327,7 @@
 
                 setTimeout(() => {
                     alertBox.classList.add("d-none");
-                    location.reload();
+                    //location.reload();
                 }, 2000);  // 2 seconds before reload
             })
             .catch(err => {

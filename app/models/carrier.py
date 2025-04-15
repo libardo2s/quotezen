@@ -43,4 +43,4 @@ class Carrier(db.Model):
     )
 
     def __repr__(self):
-        return f"<CarrierShipper DUNS: {self.duns} | Carrier: {self.carrier.company.company_name} | Shipper: {self.shipper.company.company_name}>"
+        return f"Carrier: {self.carrier.company.company_name} | Shipper: {self.shipper.company.company_name}>"

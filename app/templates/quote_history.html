@@ -42,12 +42,18 @@
                             <td>{{ quote.quote_rates | length }}</td>
                             <td>
                                 {% if quote.accepted_rate %}
-                                    ${{ quote.accepted_rate.rate }}
+                                    ${{ quote.accepted_rate }}
                                 {% else %}
                                     —
                                 {% endif %}
                             </td>
-                            <td></td>
+                            <td>
+                                {% if quote.accepted_rate %}
+                                    {{ quote.accepted_carrier_admin }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
                         </tr>
                     {% else %}
                         <tr>

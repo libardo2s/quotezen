@@ -1,10 +1,7 @@
 <h2 class="mb-4">Welcome, <span id="userName">{{ session.get('full_name', 'User') }}</span></h2>
 
-<div class="row g-4 mb-5"
-     hx-get="/api/dashboard/stats"
-     hx-trigger="load"
-     hx-swap="none">
-     
+<div class="row g-4 mb-5" hx-get="/api/dashboard/stats" hx-trigger="load" hx-swap="none">
+
     <div class="col-md-3">
         <div class="card bg-white border border-success h-100">
             <div class="card-body text-dark">
@@ -47,72 +44,91 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Animation function
-    function animateValue(element, start, end, duration) {
-        const range = end - start;
-        const increment = end > start ? 1 : -1;
-        const stepTime = Math.abs(Math.floor(duration / range));
-        let current = start;
-        
-        const timer = setInterval(function() {
-            current += increment;
-            element.textContent = current;
-            
-            if (current === end) {
-                clearInterval(timer);
-                // Special case for pending quotes "100+"
-                if (element.id === 'pendingQuotesCount' && end > 100) {
-                    element.textContent = '100+';
-                }
+    document.addEventListener('DOMContentLoaded', function () {
+        // Animation function
+        function animateValue(element, start, end, duration) {
+            const range = end - start;
+            if (range === 0) {
+                element.textContent = end;
+                return;
             }
-        }, stepTime);
-    }
 
-    // Listen for HTMX afterRequest event
-    document.body.addEventListener('htmx:afterRequest', function(evt) {
-        if (evt.detail.requestConfig.path === '/api/dashboard/stats' && evt.detail.successful) {
-            try {
-                const response = JSON.parse(evt.detail.xhr.responseText);
-                
-                // Update user name if available
-                if (response.user_name) {
-                    document.getElementById('userName').textContent = response.user_name;
-                }
-                
-                // Update stats with animation
-                if (response.stats) {
-                    const animationDuration = 1000; // 1 second
-                    
-                    // Pending Quotes (special handling for 100+)
-                    const pendingEl = document.getElementById('pendingQuotesCount');
-                    const pendingValue = response.stats.pending_quotes;
-                    if (pendingValue > 100) {
-                        animateValue(pendingEl, 0, 100, animationDuration);
-                    } else {
-                        animateValue(pendingEl, 0, pendingValue, animationDuration);
-                    }
-                    
-                    // Active Shippers
-                    if (document.getElementById('activeShippersCount')) {
-                        const shippersEl = document.getElementById('activeShippersCount');
-                        animateValue(shippersEl, 0, response.stats.active_shippers || 0, animationDuration);
-                    }
-                    
-                    // Active Carriers
-                    const carriersEl = document.getElementById('activeCarriersCount');
-                    animateValue(carriersEl, 0, response.stats.active_carriers || 0, animationDuration);
-                    
-                    // Active Companies
-                    if (document.getElementById('activeCompaniesCount')) {
-                        const companiesEl = document.getElementById('activeCompaniesCount');
-                        animateValue(companiesEl, 0, response.stats.active_companies || 0, animationDuration);
+            const increment = end > start ? 1 : -1;
+            const stepTime = Math.abs(Math.floor(duration / range));
+            let current = start;
+
+            const timer = setInterval(function () {
+                current += increment;
+                element.textContent = current;
+
+                if (current === end) {
+                    clearInterval(timer);
+                    // Special case for pending quotes "100+"
+                    if (element.id === 'pendingQuotesCount' && end > 100) {
+                        element.textContent = '100+';
                     }
                 }
-            } catch (e) {
-                console.error('Error processing stats response:', e);
-            }
+            }, stepTime);
         }
+
+        // Listen for HTMX afterRequest event
+        document.body.addEventListener('htmx:afterRequest', function (evt) {
+            if (evt.detail.requestConfig.path === '/api/dashboard/stats' && evt.detail.successful) {
+                try {
+                    const response = JSON.parse(evt.detail.xhr.responseText);
+
+                    // Update user name if available
+                    if (response.user_name) {
+                        document.getElementById('userName').textContent = response.user_name;
+                    }
+
+                    // Update stats with animation
+                    if (response.stats) {
+                        const animationDuration = 1000; // 1 second
+
+                        // Pending Quotes
+                        const pendingEl = document.getElementById('pendingQuotesCount');
+                        const pendingValue = response.stats.pending_quotes || 0;
+                        if (pendingValue > 100) {
+                            animateValue(pendingEl, 0, 100, animationDuration);
+                        } else if (pendingValue > 0) {
+                            animateValue(pendingEl, 0, pendingValue, animationDuration);
+                        } else {
+                            pendingEl.textContent = '0';
+                        }
+
+                        // Active Shippers
+                        const shippersEl = document.getElementById('activeShippersCount');
+                        const shippersValue = response.stats.active_shippers || 0;
+                        if (shippersValue > 0) {
+                            animateValue(shippersEl, 0, shippersValue, animationDuration);
+                        } else {
+                            shippersEl.textContent = '0';
+                        }
+
+                        // Active Carriers
+                        const carriersEl = document.getElementById('activeCarriersCount');
+                        const carriersValue = response.stats.active_carriers || 0;
+                        if (carriersValue > 0) {
+                            animateValue(carriersEl, 0, carriersValue, animationDuration);
+                        } else {
+                            carriersEl.textContent = '0';
+                        }
+
+                        // Active Companies
+                        const companiesEl = document.getElementById('activeCompaniesCount');
+                        const companiesValue = response.stats.active_companies || 0;
+                        if (companiesValue > 0) {
+                            animateValue(companiesEl, 0, companiesValue, animationDuration);
+                        } else {
+                            companiesEl.textContent = '0';
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error processing stats response:', e);
+                }
+            }
+        });
     });
-});
+
 </script>

@@ -431,7 +431,11 @@ def pending_quotes():
 
     # Subconsulta: quotes con al menos un rate aceptado
     accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
-        QuoteCarrierRate.status == 'accepted'
+        QuoteCarrierRate.status == 'accepted' 
+    ).distinct().subquery()
+
+    declined_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+        QuoteCarrierRate.status == 'declined'
     ).distinct().subquery()
 
     # Solo quotes de este shipper que NO tienen ningún rate aceptado
@@ -439,7 +443,8 @@ def pending_quotes():
         joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier_admin)
     ).filter(
         Quote.shipper_id == shipper.id,
-        ~Quote.id.in_(accepted_quotes_subquery)
+        ~Quote.id.in_(accepted_quotes_subquery),
+        ~Quote.id.in_(declined_subquery)
     ).order_by(Quote.created_at.desc()).all()
 
     # Agrupar los quote_rates por carrier_admin_id (último por fecha)
@@ -464,12 +469,10 @@ def quote_history():
     user_id = session.get("user_id")
     now = datetime.utcnow()
 
-    # Obtener el shipper logueado
     shipper = Shipper.query.filter_by(user_id=user_id).first()
     if not shipper:
         return redirect(url_for("app_routes.signin"))
 
-    # Obtener solo los quotes de este shipper
     quotes = Quote.query.filter_by(shipper_id=shipper.id)\
         .options(joinedload(Quote.quote_rates))\
         .order_by(Quote.created_at.desc())\
@@ -477,10 +480,9 @@ def quote_history():
 
     valid_quotes = []
     for quote in quotes:
-        # Rate aceptado
         accepted_rate = next((r for r in quote.quote_rates if r.status == "accepted"), None)
+        declined_rates = [r for r in quote.quote_rates if r.status == "declined"]
 
-        # Expiración
         expiration_time = quote.created_at
         if quote.open_unit == "minutes":
             expiration_time += timedelta(minutes=quote.open_value or 0)
@@ -491,9 +493,14 @@ def quote_history():
 
         is_expired = expiration_time < now
 
-        if accepted_rate or is_expired:
+        if accepted_rate or declined_rates or is_expired:
+            # Annotation
             quote.accepted_rate = accepted_rate.rate if accepted_rate else None
-            quote.accepted_carrier_admin = f"{accepted_rate.user.first_name} {accepted_rate.user.last_name}" if accepted_rate else None
+            quote.accepted_carrier_admin = (
+                f"{accepted_rate.user.first_name} {accepted_rate.user.last_name} - {accepted_rate.user.email}"
+                if accepted_rate else None
+            )
+            quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
             valid_quotes.append(quote)
 
     return render_template(
