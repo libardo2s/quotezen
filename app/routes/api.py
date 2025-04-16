@@ -18,6 +18,7 @@ from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
 from app.config import Config
 from datetime import datetime
+from psycopg2.errors import UniqueViolation
 
 from datetime import datetime
 from decimal import Decimal
@@ -224,10 +225,30 @@ def api_company():
 
         except IntegrityError as e:
             db.session.rollback()
-            return jsonify({"status": "error", "message": str(e)}), 400
+            print(e.orig)
+            if isinstance(e.orig, UniqueViolation):
+                # Check which constraint was violated
+                if 'companies_duns_key' in str(e.orig):
+                    return jsonify({
+                        "status": "error",
+                        "message": "A company with this DUNS number already exists"
+                    }), 400
+                elif 'ix_users_email' in str(e.orig):
+                    return jsonify({
+                        "status": "error",
+                        "message": "A user with this email already exists"
+                    }), 400
+            return jsonify({
+                "status": "error",
+                "message": "Database integrity error occurred"
+            }), 400
+
         except Exception as e:
             db.session.rollback()
-            return jsonify({"status": "error", "message": str(e)}), 500
+            return jsonify({
+                "status": "error",
+                "message": "An unexpected error occurred. Please try again later."
+            }), 500
 
 @app_routes.route("/api/company/<int:company_id>", methods=["GET"])
 # @token_required
