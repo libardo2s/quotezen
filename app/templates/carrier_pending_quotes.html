@@ -108,7 +108,7 @@
                             <span class="text-muted">None</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td class="align-middle" style="min-width: 250px; max-width: 350px;">
                             <form hx-post="{{ url_for('app_routes.api_update_rate') }}" hx-target="this"
                                 hx-swap="outerHTML" hx-trigger="submit">
                                 <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
