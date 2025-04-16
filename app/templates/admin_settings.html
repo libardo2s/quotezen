@@ -58,40 +58,49 @@
                 <form hx-post="{{ url_for('app_routes.api_company') }}" hx-target="#company-message" hx-swap="innerHTML"
                     hx-indicator="#loading-spinner">
                     <div class="modal-body">
+                        <div id="company-message"></div> <!-- Message container at the top -->
+
                         <div class="mb-3">
                             <label for="company_name" class="form-label">Company Name</label>
                             <input type="text" class="form-control" id="company_name" name="company_name" required>
+                            <div class="invalid-feedback">Please provide a company name.</div>
                         </div>
                         <div class="mb-3">
                             <label for="duns_number" class="form-label">DUNS Number</label>
-                            <input type="text" class="form-control" id="duns_number" name="duns" pattern="\d+"
-                                inputmode="numeric" required>
-                            <div class="invalid-feedback">Please enter only numbers for DUNS Number.</div>
+                            <input type="text" class="form-control" id="duns_number" name="duns"
+                                inputmode="numeric">
                         </div>
                         <div class="mb-3">
                             <label for="contact_name" class="form-label">Contact Name</label>
                             <input type="text" class="form-control" id="contact_name" name="contact_name" required>
+                            <div class="invalid-feedback">Please provide a contact name.</div>
                         </div>
                         <div class="mb-3">
                             <label for="contact_phone" class="form-label">Contact Phone #</label>
-                            <input type="tel" class="form-control" id="contact_phone" name="contact_phone" pattern="\d+"
-                                inputmode="numeric" required>
-                            <div class="invalid-feedback">Please enter a valid phone number (digits only).</div>
+                            <input type="tel" class="form-control" id="contact_phone" name="contact_phone"
+                                pattern="\d{10}" inputmode="numeric" required
+                                title="Please enter a 10-digit phone number">
+                            <div class="invalid-feedback">Please enter a valid 10-digit phone number.</div>
                         </div>
                         <div class="mb-3">
                             <label for="company_address" class="form-label">Address</label>
                             <input type="text" class="form-control" id="company_address" name="address" required>
+                            <div class="invalid-feedback">Please provide an address.</div>
                         </div>
                         <div class="mb-3">
                             <label for="contact_email" class="form-label">Contact Email</label>
                             <input type="email" class="form-control" id="contact_email" name="contact_email" required>
-                            <div class="invalid-feedback">Please enter a valid email address.</div>
+                            <div class="invalid-feedback">Please provide a valid email address.</div>
                         </div>
                     </div>
 
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-success">Save Company</button>
+                    </div>
+
+                    <div id="loading-spinner" class="htmx-indicator">
+                        <span class="spinner-border spinner-border-sm text-primary"></span> Saving...
                     </div>
                 </form>
             </div>
@@ -447,17 +456,17 @@
             console.error("Failed to parse JSON:", err);
         }
 
-        if (event.detail.requestConfig.path.includes('/api/carrier/') && 
+        if (event.detail.requestConfig.path.includes('/api/carrier/') &&
             event.detail.requestConfig.path.includes('/creator')) {
-            
+
             try {
                 const data = JSON.parse(event.detail.xhr.responseText);
-                
+
                 if (data.error) {
                     event.target.innerHTML = `<div class="text-danger">${data.error}</div>`;
                     return;
                 }
-                
+
                 let html = `
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
@@ -469,7 +478,7 @@
                         <small class="text-muted">Email: ${data.email}</small>
                     </div>
                 `;
-                
+
                 if (data.shipper_info) {
                     html += `
                         <div class="mt-2">
@@ -480,9 +489,9 @@
                         </div>
                     `;
                 }
-                
+
                 event.target.innerHTML = html;
-                
+
             } catch (err) {
                 console.error('Error parsing creator data:', err);
                 event.target.innerHTML = '<div class="text-danger">Error loading creator information</div>';
@@ -494,47 +503,58 @@
         const { path, verb } = event.detail.requestConfig;
 
         // Companies
-        if (path.includes("company")) {
+        if (path.includes("company") && verb === "post") {
+            const modal = document.getElementById("addCompanyModal");
+            const messageContainer = modal.querySelector("#company-message");
+
             try {
-                const target = document.querySelector("#company-message");
                 const response = JSON.parse(event.detail.xhr.responseText);
 
+                if (response.status === "error") {
+                    // Clear previous errors
+                    const form = modal.querySelector('form');
+                    form.classList.remove('was-validated');
+                    const invalidFields = form.querySelectorAll('.is-invalid');
+                    invalidFields.forEach(field => field.classList.remove('is-invalid'));
 
-                if (response.status === "success") {
-                    if (verb === "delete") {
-                        target.innerHTML = `
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                Company deleted successfully!
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
+                    // Handle specific field errors
+                    if (response.errors) {
+                        Object.entries(response.errors).forEach(([field, message]) => {
+                            const input = form.querySelector(`[name="${field}"]`);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                const feedback = input.nextElementSibling;
+                                if (feedback && feedback.classList.contains('invalid-feedback')) {
+                                    feedback.textContent = message;
+                                }
+                            }
+                        });
+                        form.classList.add('was-validated');
                     } else {
-                        htmx.trigger("#companyTableBody", "refresh");
-
-                        const modalId = verb === "post" ? "addCompanyModal" : "editCompanyModal";
-                        const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
-                        if (modal) modal.hide();
-
-                        document.querySelector(`#${modalId} form`).reset();
-
-                        target.innerHTML = `
-                            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                                Company ${verb === "post" ? "added" : "updated"} successfully!
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        `;
+                        // General error message
+                        messageContainer.innerHTML = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            ${response.message}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>`;
                     }
-                } else if (response.status === "error") {
-                    let errorMessage = response.message;
+                } else if (response.status === "success") {
+                    // Success handling
+                    htmx.trigger("#companyTableBody", "refresh");
+                    modal.querySelector('form').reset();
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    modalInstance.hide();
 
-                    if (errorMessage.includes("duplicate key value")) {
-                        errorMessage = "A company with this DUNS number already exists. Please use a unique DUNS number.";
-                    }
-
-                    showMessage(errorMessage, "danger");
+                    // Show success toast or notification
+                    showToast('Company created successfully!', 'success');
                 }
             } catch (err) {
-                console.error("Failed to parse response:", err);
+                console.error("Error parsing response:", err);
+                messageContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    An unexpected error occurred. Please try again.
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
             }
         }
 
@@ -788,6 +808,36 @@
         setTimeout(() => {
             target.innerHTML = "";
         }, 5000);
+    }
+
+    // Helper function to show toast notifications
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0 show`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.innerHTML = `
+        <div class="d-flex">
+            <div class="toast-body">${message}</div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    `;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.remove();
+        }, 5000);
+    }
+
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toastContainer';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        container.style.zIndex = '11';
+        document.body.appendChild(container);
+        return container;
     }
 
 </script>

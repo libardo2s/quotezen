@@ -3,329 +3,339 @@
 {% block title %}Carrier Network | QuoteZen{% endblock %}
 
 {% block content %}
-    <div class="container-fluid p-4">
+<div class="container-fluid p-4">
 
-        {#    {% include "partials/summary_kpis.html" %}#}
+    {# {% include "partials/summary_kpis.html" %}#}
 
-        {% if session.get('user_role') in ['Shipper'] %}
-            <!-- Carrier Table -->
-            <div class="card border mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Carriers</strong>
-                    <div>
-                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addCarrierModal">
-                            <i class="fas fa-plus"></i> New Carrier
-                        </button>
-                        <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#carrierTable">
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="collapse show" id="carrierTable">
-                    <div class="card-body">
-                        <table class="table table-striped" id="carrier-table">
-                            <thead>
-                            <tr>
-                                <th>Carrier Name</th>
-                                <th>Authority</th>
-                                <th>SCAC</th>
-                                <th>MC#</th>
-                                <th>Contact Name</th>
-                                <th>Phone</th>
-                                <th>Email</th>
-                                <th class="text-center">Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody id="carrierTableBody" hx-get="{{ url_for('app_routes.api_carrier') }}"
-                                   hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
-                            <!-- Dynamically loaded via HTMX -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+    {% if session.get('user_role') in ['Shipper'] %}
+    <!-- Carrier Table -->
+    <div class="card border mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Carriers</strong>
+            <div>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addCarrierModal">
+                    <i class="fas fa-plus"></i> New Carrier
+                </button>
+                <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#carrierTable">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
             </div>
-
-            <!-- Carrier Modal -->
-            <div class="modal fade" id="addCarrierModal" tabindex="-1" aria-labelledby="carrierModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="carrierModalLabel">Carrier</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body" id="modal-body">
-                            <form hx-post="{{ url_for('app_routes.api_carrier') }}" hx-trigger="submit"
-                                  hx-target="#carrier-message" hx-swap="innerHTML" class="needs-validation">
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Carrier Name</label>
-                                        <input type="text" name="carrier_name" class="form-control" required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Authority</label>
-                                        <input type="text" name="authority" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">SCAC</label>
-                                        <input type="text" name="scac" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">MC#</label>
-                                        <input type="text" name="mc_number" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Contact Name</label>
-                                        <input type="text" name="contact_name" class="form-control">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Phone</label>
-                                        <input type="text" name="contact_phone" class="form-control">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" name="contact_email" class="form-control">
-                                    </div>
-                                </div>
-
-                                <div class="d-flex justify-content-end mt-4">
-                                    <button type="submit" class="btn btn-success">Create Carrier</button>
-                                </div>
-                                <div id="carrier-message"></div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
+        </div>
+        <div class="collapse show" id="carrierTable">
+            <div class="card-body">
+                <table class="table table-striped" id="carrier-table">
+                    <thead>
+                        <tr>
+                            <th>Carrier Name</th>
+                            <th>Authority</th>
+                            <th>SCAC</th>
+                            <th>MC#</th>
+                            <th>Contact Name</th>
+                            <th>Phone</th>
+                            <th>Email</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="carrierTableBody" hx-get="{{ url_for('app_routes.api_carrier') }}"
+                        hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
+                        <!-- Dynamically loaded via HTMX -->
+                    </tbody>
+                </table>
             </div>
+        </div>
+    </div>
 
-            <!-- Edit Carrier Modal -->
-            <div class="modal fade" id="editCarrierModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Edit Carrier</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <form id="editCarrierForm" hx-put="" hx-target="#edit-carrier-message" hx-swap="innerHTML">
-                            <div class="modal-body">
-                                <input type="hidden" name="carrier_id" id="edit_carrier_id">
-
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label class="form-label">Carrier Name</label>
-                                        <input type="text" name="carrier_name" id="edit_carrier_name" class="form-control"
-                                               required>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Authority</label>
-                                        <input type="text" name="authority" id="edit_authority" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">SCAC</label>
-                                        <input type="text" name="scac" id="edit_scac" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">MC#</label>
-                                        <input type="text" name="mc_number" id="edit_mc_number" class="form-control">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label">Contact Name</label>
-                                        <input type="text" name="contact_name" id="edit_contact_name" class="form-control">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Phone</label>
-                                        <input type="text" name="contact_phone" id="edit_contact_phone" class="form-control">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label">Email</label>
-                                        <input type="email" name="contact_email" id="edit_contact_email" class="form-control">
-                                    </div>
-                                </div>
+    <!-- Carrier Modal -->
+    <div class="modal fade" id="addCarrierModal" tabindex="-1" aria-labelledby="carrierModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="carrierModalLabel">Carrier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="modal-body">
+                    <form hx-post="{{ url_for('app_routes.api_carrier') }}" hx-trigger="submit"
+                        hx-target="#carrier-message" hx-swap="innerHTML" class="needs-validation">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Carrier Name</label>
+                                <input type="text" name="carrier_name" class="form-control" required>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Update Carrier</button>
+                            <div class="col-md-6">
+                                <label class="form-label">Authority</label>
+                                <select name="authority" class="form-select" required>
+                                    <option value="">Select Authority</option>
+                                    <option value="Broker">Broker</option>
+                                    <option value="Carrier">Carrier</option>
+                                    <option value="Both">Both</option>
+                                </select>
                             </div>
-                            <div id="edit-carrier-message"></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        {% endif %}
+                            <div class="col-md-4">
+                                <label class="form-label">SCAC</label>
+                                <input type="text" name="scac" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">MC#</label>
+                                <input type="text" name="mc_number" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Contact Name</label>
+                                <input type="text" name="contact_name" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="text" name="contact_phone" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="contact_email" class="form-control">
+                            </div>
+                        </div>
 
-        <!-- Carrier Delete Confirmation Modal -->
-        <div class="modal fade" id="confirmDeleteCarrierModal" tabindex="-1" aria-labelledby="confirmDeleteCarrierLabel"
-             aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title" id="confirmDeleteCarrierLabel">Confirm Deletion</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                                aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        Are you sure you want to delete this carrier?
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button id="confirmDeleteCarrierBtn" type="button" class="btn btn-danger">Yes, Delete</button>
-                    </div>
-                    <div id="carrier-message-container"></div>
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-success">Create Carrier</button>
+                        </div>
+                        <div id="carrier-message"></div>
+                    </form>
                 </div>
             </div>
         </div>
-
-        {% if session.get('user_role') in ['CarrierAdmin'] %}
-            <!-- Simple Carrier Table -->
-            <div class="card border mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <strong>Carriers</strong>
-                    <div>
-                        <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addSimpleCarrierModal">
-                            <i class="fas fa-plus"></i> New Carrier
-                        </button>
-                        <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse"
-                                data-bs-target="#simpleCarrierTable">
-                            <i class="fas fa-chevron-down"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="collapse show" id="simpleCarrierTable">
-                    <div class="card-body">
-                        <table class="table table-striped" id="simple-carrier-table">
-                            <thead>
-                            <tr>
-                                <th>First Name</th>
-                                <th>Last Name</th>
-                                <th>Email Address</th>
-                                <th>Contact Phone</th>
-                                <th>Actions</th>
-                            </tr>
-                            </thead>
-                            <tbody id="simpleCarrierTableBody" hx-get="{{ url_for('app_routes.api_carrier') }}"
-                                   hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Add Simple Carrier Modal -->
-            <div class="modal fade" id="addSimpleCarrierModal" tabindex="-1" aria-labelledby="addSimpleCarrierModalModalLabel"
-                 aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form hx-post="{{ url_for('app_routes.api_carrier') }}" hx-target="#simple-carrier-message"
-                              hx-swap="innerHTML" hx-indicator="#shipper-loading-spinner">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="addShipperModalLabel">Add New Carrier</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="first_name" class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="last_name" class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="email" class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" name="email" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="phone" class="form-label">Contact Phone</label>
-                                    <input type="tel" class="form-control" name="phone" pattern="\d+" inputmode="numeric"
-                                           required>
-                                </div>
-                                <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Save Carrier</button>
-                            </div>
-                            <div id="shipper-loading-spinner" class="htmx-indicator">
-                                <span class="spinner-border spinner-border-sm text-primary"></span> Saving...
-                            </div>
-                            <div id="simple-carrier-message" class="mt-2"></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Edit Simple Carrier Modal -->
-            <div class="modal fade" id="editSimpleCarrierModal" tabindex="-1" aria-labelledby="editSimpleCarrierModalLabel"
-                 aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <form id="editSimpleCarrierForm" hx-put="" hx-target="#edit-simple-carrier-message" hx-swap="innerHTML">
-                            <div class="modal-header">
-                                <h5 class="modal-title" id="editSimpleCarrierModalLabel">Edit Carrier</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <input type="hidden" name="carrier_id" id="edit_simple_carrier_id">
-
-                                <div class="mb-3">
-                                    <label class="form-label">First Name</label>
-                                    <input type="text" class="form-control" name="first_name" id="edit_simple_first_name"
-                                           required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Last Name</label>
-                                    <input type="text" class="form-control" name="last_name" id="edit_simple_last_name"
-                                           required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Email Address</label>
-                                    <input type="email" class="form-control" name="email" id="edit_simple_email" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label class="form-label">Phone</label>
-                                    <input type="tel" class="form-control" name="phone" id="edit_simple_phone" required>
-                                </div>
-                                <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                <button type="submit" class="btn btn-success">Update Carrier</button>
-                            </div>
-                            <div id="edit-simple-carrier-message" class="mt-2"></div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-
-        {% endif %}
     </div>
 
-    <script>
-        document.body.addEventListener("htmx:afterOnLoad", function (event) {
-            const target = event.target;
-            const responseText = event.detail.xhr.responseText;
+    <!-- Edit Carrier Modal -->
+    <div class="modal fade" id="editCarrierModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Carrier</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form id="editCarrierForm" hx-put="" hx-target="#edit-carrier-message" hx-swap="innerHTML">
+                    <div class="modal-body">
+                        <input type="hidden" name="carrier_id" id="edit_carrier_id">
 
-            try {
-                const data = JSON.parse(responseText);
-                // For carriers
-                if (target.id === "carrierTableBody") {
-                    if (!Array.isArray(data) || data.length === 0) {
-                        target.innerHTML = `<tr><td colspan="8">No carriers found</td></tr>`;
-                        return;
-                    }
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Carrier Name</label>
+                                <input type="text" name="carrier_name" id="edit_carrier_name" class="form-control"
+                                    required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Authority</label>
+                                <select name="authority" id="edit_authority" class="form-select" required>
+                                    <option value="">Select Authority</option>
+                                    <option value="Broker">Broker</option>
+                                    <option value="Carrier">Carrier</option>
+                                    <option value="Both">Both</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">SCAC</label>
+                                <input type="text" name="scac" id="edit_scac" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">MC#</label>
+                                <input type="text" name="mc_number" id="edit_mc_number" class="form-control">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Contact Name</label>
+                                <input type="text" name="contact_name" id="edit_contact_name" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone</label>
+                                <input type="text" name="contact_phone" id="edit_contact_phone" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Email</label>
+                                <input type="email" name="contact_email" id="edit_contact_email" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Update Carrier</button>
+                    </div>
+                    <div id="edit-carrier-message"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-                    const countEl = document.getElementById("activeCarriersCount");
-                    if (countEl) {
-                        countEl.textContent = data.length;
-                    }
+    <!-- Carrier Delete Confirmation Modal -->
+    <div class="modal fade" id="confirmDeleteCarrierModal" tabindex="-1" aria-labelledby="confirmDeleteCarrierLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="confirmDeleteCarrierLabel">Confirm Deletion</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this carrier?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button id="confirmDeleteCarrierBtn" type="button" class="btn btn-danger">Yes, Delete</button>
+                </div>
+                <div id="carrier-message-container"></div>
+            </div>
+        </div>
+    </div>
 
-                    const rows = data.map(carrier => {
-                        return `
+    {% if session.get('user_role') in ['CarrierAdmin'] %}
+    <!-- Simple Carrier Table -->
+    <div class="card border mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <strong>Carriers</strong>
+            <div>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addSimpleCarrierModal">
+                    <i class="fas fa-plus"></i> New Carrier
+                </button>
+                <button class="btn btn-sm btn-outline-dark" data-bs-toggle="collapse"
+                    data-bs-target="#simpleCarrierTable">
+                    <i class="fas fa-chevron-down"></i>
+                </button>
+            </div>
+        </div>
+        <div class="collapse show" id="simpleCarrierTable">
+            <div class="card-body">
+                <table class="table table-striped" id="simple-carrier-table">
+                    <thead>
+                        <tr>
+                            <th>First Name</th>
+                            <th>Last Name</th>
+                            <th>Email Address</th>
+                            <th>Contact Phone</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="simpleCarrierTableBody" hx-get="{{ url_for('app_routes.api_carrier') }}"
+                        hx-trigger="load, refresh" hx-target="this" hx-swap="innerHTML">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Simple Carrier Modal -->
+    <div class="modal fade" id="addSimpleCarrierModal" tabindex="-1" aria-labelledby="addSimpleCarrierModalModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form hx-post="{{ url_for('app_routes.api_carrier') }}" hx-target="#simple-carrier-message"
+                    hx-swap="innerHTML" hx-indicator="#shipper-loading-spinner">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addShipperModalLabel">Add New Carrier</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" name="first_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" name="last_name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email Address</label>
+                            <input type="email" class="form-control" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Contact Phone</label>
+                            <input type="tel" class="form-control" name="phone" pattern="\d+" inputmode="numeric"
+                                required>
+                        </div>
+                        <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Save Carrier</button>
+                    </div>
+                    <div id="shipper-loading-spinner" class="htmx-indicator">
+                        <span class="spinner-border spinner-border-sm text-primary"></span> Saving...
+                    </div>
+                    <div id="simple-carrier-message" class="mt-2"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Simple Carrier Modal -->
+    <div class="modal fade" id="editSimpleCarrierModal" tabindex="-1" aria-labelledby="editSimpleCarrierModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="editSimpleCarrierForm" hx-put="" hx-target="#edit-simple-carrier-message" hx-swap="innerHTML">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editSimpleCarrierModalLabel">Edit Carrier</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="carrier_id" id="edit_simple_carrier_id">
+
+                        <div class="mb-3">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" name="first_name" id="edit_simple_first_name"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" name="last_name" id="edit_simple_last_name"
+                                required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" name="email" id="edit_simple_email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Phone</label>
+                            <input type="tel" class="form-control" name="phone" id="edit_simple_phone" required>
+                        </div>
+                        <input hidden type="text" class="form-control" name="simple_carrier" value="true" required>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Update Carrier</button>
+                    </div>
+                    <div id="edit-simple-carrier-message" class="mt-2"></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% endif %}
+</div>
+
+<script>
+    document.body.addEventListener("htmx:afterOnLoad", function (event) {
+        const target = event.target;
+        const responseText = event.detail.xhr.responseText;
+
+        try {
+            const data = JSON.parse(responseText);
+            // For carriers
+            if (target.id === "carrierTableBody") {
+                if (!Array.isArray(data) || data.length === 0) {
+                    target.innerHTML = `<tr><td colspan="8">No carriers found</td></tr>`;
+                    return;
+                }
+
+                const countEl = document.getElementById("activeCarriersCount");
+                if (countEl) {
+                    countEl.textContent = data.length;
+                }
+
+                const rows = data.map(carrier => {
+                    return `
                         <tr>
                             <td>${carrier.carrier_name}</td>
                             <td>${carrier.authority || "N/A"}</td>
                             <td>${carrier.scac || "N/A"}</td>
                             <td>${carrier.mc_number || "N/A"}</td>
-                            <td>${carrier.user.first_name || "N/A"} ${carrier.user.last_name || ""}</td>
+                            <td>${carrier.carrier_name || "N/A"}</td>
                             <td>${carrier.user.phone || "N/A"}</td>
                             <td>${carrier.user.email || "N/A"}</td>
                             <td class="text-center">
@@ -338,24 +348,24 @@
                             </td>
                         </tr>
                     `;
-                    }).join("");
+                }).join("");
 
-                    target.innerHTML = rows;
+                target.innerHTML = rows;
+            }
+
+            if (target.id === "simpleCarrierTableBody") {
+                if (!Array.isArray(data) || data.length === 0) {
+                    target.innerHTML = `<tr><td colspan="8">No carriers found</td></tr>`;
+                    return;
                 }
 
-                if (target.id === "simpleCarrierTableBody") {
-                    if (!Array.isArray(data) || data.length === 0) {
-                        target.innerHTML = `<tr><td colspan="8">No carriers found</td></tr>`;
-                        return;
-                    }
-
-                    //document.getElementById("simpleCarrierTableBody").textContent = data.length;
-                    const countEl = document.getElementById("simpleCarrierTableBody");
-                    if (countEl) {
-                        countEl.textContent = data.length;
-                    }
-                    const rows = data.map(carrier => {
-                        return `
+                //document.getElementById("simpleCarrierTableBody").textContent = data.length;
+                const countEl = document.getElementById("simpleCarrierTableBody");
+                if (countEl) {
+                    countEl.textContent = data.length;
+                }
+                const rows = data.map(carrier => {
+                    return `
                         <tr>
                             <td>${carrier.user.first_name || "N/A"}</td>
                             <td>${carrier.user.last_name || ""}</td>
@@ -371,254 +381,324 @@
                             </td>
                         </tr>
                     `;
-                    }).join("");
+                }).join("");
 
-                    target.innerHTML = rows;
+                target.innerHTML = rows;
+            }
+
+        } catch (err) {
+            console.error("Failed to parse response JSON:", err);
+        }
+    });
+
+    document.body.addEventListener("htmx:afterRequest", (event) => {
+        const { xhr, target, requestConfig } = event.detail;
+
+        let modalEl, messageContainer;
+        let modalSimple, messageContainerSimple;
+        let modalUpdateSimple, messageContainerUpdateSimple;
+
+        // Get form elements
+        const addCarrierForm = document.querySelector('#addCarrierModal form');
+        const addSimpleCarrierForm = document.querySelector('#addSimpleCarrierModal form');
+        const editCarrierForm = document.getElementById('editCarrierForm');
+        const editSimpleCarrierForm = document.getElementById('editSimpleCarrierForm');
+
+        const isCarrierCreate = requestConfig.verb.toLowerCase() === 'post' && requestConfig.path.includes('/api/carrier');
+        const isCarrierUpdate = requestConfig.verb.toLowerCase() === 'put' && requestConfig.path.includes('/api/carrier');
+
+        // Detect which modal/form is involved
+        if (isCarrierCreate) {
+            modalEl = document.getElementById("addCarrierModal");
+            messageContainer = document.getElementById("carrier-message");
+            modalSimple = document.getElementById("addSimpleCarrierModal");
+            messageContainerSimple = document.getElementById("simple-carrier-message");
+        } else if (isCarrierUpdate) {
+            modalSimple = document.getElementById("editSimpleCarrierModal");
+            messageContainerSimple = document.getElementById("edit-simple-carrier-message");
+            modalEl = document.getElementById("editCarrierModal");
+            messageContainer = document.getElementById("edit-carrier-message");
+        } else {
+            return; // Not a relevant HTMX request
+        }
+
+        try {
+            const response = JSON.parse(xhr.responseText);
+
+            if (response.status === "success") {
+                // Display success messages
+                if (messageContainer) {
+                    messageContainer.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    ${response.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
+                }
+                if (messageContainerSimple) {
+                    messageContainerSimple.innerHTML = `
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    ${response.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
                 }
 
-            } catch (err) {
-                console.error("Failed to parse response JSON:", err);
-            }
-        });
+                // Trigger refresh on both tables
+                safeTrigger("#carrierTableBody");
+                safeTrigger("#simpleCarrierTableBody");
 
-        document.body.addEventListener("htmx:afterRequest", (event) => {
-            const { xhr, target, requestConfig } = event.detail;
+                // Close modals and reset form after short delay
+                setTimeout(() => {
+                    const hideModal = (modal, label = "") => {
+                        if (modal) {
+                            console.log(`Closing modal: ${label}`);
+                            let modalInstance = bootstrap.Modal.getInstance(modal);
+                            if (!modalInstance) {
+                                modalInstance = new bootstrap.Modal(modal);
+                            }
+                            modalInstance.hide();
+                            document.body.classList.remove('modal-open');
+                            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                        }
+                    };
 
-            let modalEl, messageContainer;
-            let modalSimple, messageContainerSimple;
-            let modalUpdateSimple, messageContainerUpdateSimple;
-
-            const isCarrierCreate = requestConfig.verb.toLowerCase() === 'post' && requestConfig.path.includes('/api/carrier');
-            const isCarrierUpdate = requestConfig.verb.toLowerCase() === 'put' && requestConfig.path.includes('/api/carrier');
-
-            // Detect which modal/form is involved
-            if (isCarrierCreate) {
-                modalEl = document.getElementById("addCarrierModal");
-                messageContainer = document.getElementById("carrier-message");
-
-                modalSimple = document.getElementById("addSimpleCarrierModal");
-                messageContainerSimple = document.getElementById("simple-carrier-message");
-
-            } else if (isCarrierUpdate) {
-                const isSimpleForm = target.id === "editSimpleCarrierForm";
-
-                modalSimple = document.getElementById("editSimpleCarrierModal");
-                messageContainerSimple = document.getElementById("edit-simple-carrier-message");
-
-                modalEl = document.getElementById("editCarrierModal");
-                messageContainer = document.getElementById("edit-carrier-message");
-
-            } else {
-                return; // Not a relevant HTMX request
-            }
-
-            try {
-                const response = JSON.parse(xhr.responseText);
-
-                if (response.status === "success") {
-                    // Display success messages
-                    if (messageContainer) {
-                        messageContainer.innerHTML = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        ${response.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>`;
-                    }
-                    if (messageContainerSimple) {
-                        messageContainerSimple.innerHTML = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        ${response.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>`;
-                    }
-                    if (messageContainerUpdateSimple) {
-                        messageContainerUpdateSimple.innerHTML = `
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        ${response.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>`;
+                    // Reset forms based on which operation was performed
+                    if (isCarrierCreate) {
+                        if (addCarrierForm) {
+                            addCarrierForm.reset();
+                            const authoritySelect = addCarrierForm.querySelector('select[name="authority"]');
+                            if (authoritySelect) authoritySelect.selectedIndex = 0;
+                        }
+                        if (addSimpleCarrierForm) {
+                            addSimpleCarrierForm.reset();
+                        }
+                        hideModal(modalEl, "addCarrierModal");
+                        hideModal(modalSimple, "addSimpleCarrierModal");
+                    } else if (isCarrierUpdate) {
+                        if (editCarrierForm) {
+                            editCarrierForm.reset();
+                        }
+                        if (editSimpleCarrierForm) {
+                            editSimpleCarrierForm.reset();
+                        }
+                        hideModal(modalEl, "editCarrierModal");
+                        hideModal(modalSimple, "editSimpleCarrierModal");
                     }
 
-                    // Trigger refresh on both tables
+                    // Clear messages
+                    if (messageContainer) messageContainer.innerHTML = "";
+                    if (messageContainerSimple) messageContainerSimple.innerHTML = "";
+
+                    // Final refresh to ensure sync
                     safeTrigger("#carrierTableBody");
                     safeTrigger("#simpleCarrierTableBody");
 
-                    // Close modals and reset form after short delay
-                    setTimeout(() => {
-                        const hideModal = (modal, label = "") => {
-                            if (modal) {
-                                console.log(`Closing modal: ${label}`);
-                                let modalInstance = bootstrap.Modal.getInstance(modal);
-                                if (!modalInstance) {
-                                    modalInstance = new bootstrap.Modal(modal);
-                                }
-                                modalInstance.hide();
+                }, 1000);
 
-                                // Fallback cleanup (just in case)
-                                document.body.classList.remove('modal-open');
-                                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
-                            }
-                        };
-
-                        hideModal(modalEl, "modalEl");
-                        hideModal(modalSimple, "modalSimple");
-                        hideModal(modalUpdateSimple, "modalUpdateSimple");
-
-                        // Reset form
-                        if (target.tagName === "FORM") {
-                            target.reset();
-                        }
-
-                        // Clear messages
-                        if (messageContainer) messageContainer.innerHTML = "";
-                        if (messageContainerSimple) messageContainerSimple.innerHTML = "";
-                        if (messageContainerUpdateSimple) messageContainerUpdateSimple.innerHTML = "";
-
-                        // Final refresh to ensure sync
-                        safeTrigger("#carrierTableBody");
-                        safeTrigger("#simpleCarrierTableBody");
-
-                    }, 1000);
-
-                } else if (response.status === "error") {
-                    const container = messageContainer || messageContainerSimple || messageContainerUpdateSimple;
-                    if (container) {
-                        container.innerHTML = `
-                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                        ${response.message}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>`;
-                    }
-                }
-
-            } catch (err) {
-                console.error("Error parsing HTMX response:", err);
-                const container = messageContainer || messageContainerSimple || messageContainerUpdateSimple;
+            } else if (response.status === "error") {
+                const container = messageContainer || messageContainerSimple;
                 if (container) {
                     container.innerHTML = `
                 <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    An unexpected error occurred. Please try again later.
+                    ${response.message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>`;
                 }
             }
-        });
 
-        document.body.addEventListener("click", async function (e) {
-            const editBtn = e.target.closest("button.edit-carrier-btn");
-            const deleteCarrierBtn = e.target.closest(".delete-carrier-btn");
-            const isSimpleCarrier = document.getElementById("simple-carrier-table") !== null;
-
-            if (editBtn) {
-                const carrierId = editBtn.dataset.id;
-
-                try {
-                    const res = await fetch(`/api/carrier/${carrierId}`);
-                    const carrier = await res.json();
-
-                    if (isSimpleCarrier) {
-                        document.getElementById("edit_simple_carrier_id").value = carrier.id;
-                        document.getElementById("edit_simple_first_name").value = carrier.user.first_name || "";
-                        document.getElementById("edit_simple_last_name").value = carrier.user.last_name || "";
-                        document.getElementById("edit_simple_email").value = carrier.user.email || "";
-                        document.getElementById("edit_simple_phone").value = carrier.user.phone || "";
-
-                        const editForm = document.getElementById("editSimpleCarrierForm");
-                        editForm.setAttribute("hx-put", `/api/carrier/${carrierId}`);
-                        htmx.process(editForm);
-
-                        const modal = new bootstrap.Modal(document.getElementById("editSimpleCarrierModal"));
-                        modal.show();
-                    } else {
-                        document.getElementById("edit_carrier_name").value = carrier.carrier_name;
-                        document.getElementById("edit_authority").value = carrier.authority || "";
-                        document.getElementById("edit_scac").value = carrier.scac || "";
-                        document.getElementById("edit_mc_number").value = carrier.mc_number || "";
-                        document.getElementById("edit_contact_name").value = carrier.user.first_name || "";
-                        document.getElementById("edit_contact_phone").value = carrier.user.phone || "";
-                        document.getElementById("edit_contact_email").value = carrier.user.email || "";
-
-                        const editForm = document.getElementById("editCarrierForm");
-                        editForm.setAttribute("hx-put", `/api/carrier/${carrierId}`);
-                        htmx.process(editForm);
-
-                        const modal = new bootstrap.Modal(document.getElementById("editCarrierModal"));
-                        modal.show();
-                    }
-                } catch (err) {
-                    console.error("Failed to load carrier for editing:", err);
-                }
+        } catch (err) {
+            console.error("Error parsing HTMX response:", err);
+            const container = messageContainer || messageContainerSimple;
+            if (container) {
+                container.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                An unexpected error occurred. Please try again later.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
             }
+        }
+    });
 
-            if (deleteCarrierBtn) {
-                const carrierId = deleteCarrierBtn.dataset.id;
-                carrierToDeleteUrl = `/api/carrier/${carrierId}`;
+    // Helper function to safely trigger HTMX events
+    function safeTrigger(selector, eventName = "refresh") {
+        const el = document.querySelector(selector);
+        if (el) {
+            htmx.trigger(el, eventName);
+        }
+    }
 
-                const deleteModal = new bootstrap.Modal(document.getElementById("confirmDeleteCarrierModal"));
-                deleteModal.show();
-            }
-        });
+    // Carrier delete functionality
+    let carrierToDeleteUrl = null;
 
+    document.addEventListener("click", async function (e) {
+        const deleteCarrierBtn = e.target.closest(".delete-carrier-btn");
+        if (deleteCarrierBtn) {
+            const carrierId = deleteCarrierBtn.dataset.id;
+            carrierToDeleteUrl = `/api/carrier/${carrierId}`;
+            const deleteModal = new bootstrap.Modal(document.getElementById("confirmDeleteCarrierModal"));
+            deleteModal.show();
+        }
+    });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            document.getElementById("confirmDeleteCarrierBtn").addEventListener("click", async () => {
-                if (!carrierToDeleteUrl) return;
+    document.getElementById("confirmDeleteCarrierBtn")?.addEventListener("click", async () => {
+        if (!carrierToDeleteUrl) return;
 
-                try {
-                    const res = await fetch(carrierToDeleteUrl, {
-                        method: "DELETE",
-                        headers: {
-                            "Content-Type": "application/json"
-                        }
-                    });
-
-                    const response = await res.json();
-
-                    if (res.ok && response.status === "success") {
-                        carrierTable = document.getElementById("carrier-table")
-                        simpleCarrierTable = document.getElementById("simple-carrier-table")
-
-                        if (carrierTable)
-                            htmx.trigger("#carrierTableBody", "refresh");
-
-                        if (simpleCarrierTable)
-                            htmx.trigger("#simpleCarrierTableBody", "refresh");
-                        showCarrierMessage(response.message, "success");
-                    } else {
-                        throw new Error(response.message || "Deletion failed");
-                    }
-
-                } catch (err) {
-                    console.error("Delete error:", err);
-                    showCarrierMessage("Failed to delete carrier: " + err.message, "danger");
-                } finally {
-                    carrierToDeleteUrl = null;
-                    const confirmModalEl = document.getElementById("confirmDeleteCarrierModal");
-                    const confirmModal = bootstrap.Modal.getInstance(confirmModalEl);
-                    confirmModal.hide();
+        try {
+            const res = await fetch(carrierToDeleteUrl, {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
                 }
             });
-        })
 
-        function showCarrierMessage(message, type = "info") {
-            const container = document.getElementById("carrier-message-container");
+            const response = await res.json();
+
+            if (res.ok && response.status === "success") {
+                showCarrierMessage(response.message, "success");
+                htmx.trigger("#carrierTableBody", "refresh");
+                htmx.trigger("#simpleCarrierTableBody", "refresh");
+            } else {
+                throw new Error(response.message || "Deletion failed");
+            }
+        } catch (err) {
+            console.error("Delete error:", err);
+            showCarrierMessage("Failed to delete carrier: " + err.message, "danger");
+        } finally {
+            carrierToDeleteUrl = null;
+            const confirmModal = bootstrap.Modal.getInstance(document.getElementById("confirmDeleteCarrierModal"));
+            confirmModal.hide();
+        }
+    });
+
+    function showCarrierMessage(message, type = "info") {
+        const container = document.getElementById("carrier-message-container");
+        if (container) {
             container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show mt-2" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>`;
+
+            setTimeout(() => {
+                if (container) container.innerHTML = "";
+            }, 5000);
+        }
+    }
+
+    document.body.addEventListener("click", async function (e) {
+        const editBtn = e.target.closest("button.edit-carrier-btn");
+        const deleteCarrierBtn = e.target.closest(".delete-carrier-btn");
+        const isSimpleCarrier = document.getElementById("simple-carrier-table") !== null;
+
+        if (editBtn) {
+            const carrierId = editBtn.dataset.id;
+
+            try {
+                const res = await fetch(`/api/carrier/${carrierId}`);
+                const carrier = await res.json();
+
+                if (isSimpleCarrier) {
+                    document.getElementById("edit_simple_carrier_id").value = carrier.id;
+                    document.getElementById("edit_simple_first_name").value = carrier.user.first_name || "";
+                    document.getElementById("edit_simple_last_name").value = carrier.user.last_name || "";
+                    document.getElementById("edit_simple_email").value = carrier.user.email || "";
+                    document.getElementById("edit_simple_phone").value = carrier.user.phone || "";
+
+                    const editForm = document.getElementById("editSimpleCarrierForm");
+                    editForm.setAttribute("hx-put", `/api/carrier/${carrierId}`);
+                    htmx.process(editForm);
+
+                    const modal = new bootstrap.Modal(document.getElementById("editSimpleCarrierModal"));
+                    modal.show();
+                } else {
+                    document.getElementById("edit_carrier_name").value = carrier.carrier_name;
+                    document.getElementById("edit_authority").value = carrier.authority || "";
+                    document.getElementById("edit_scac").value = carrier.scac || "";
+                    document.getElementById("edit_mc_number").value = carrier.mc_number || "";
+                    document.getElementById("edit_contact_name").value = carrier.user.first_name || "";
+                    document.getElementById("edit_contact_phone").value = carrier.user.phone || "";
+                    document.getElementById("edit_contact_email").value = carrier.user.email || "";
+
+                    const editForm = document.getElementById("editCarrierForm");
+                    editForm.setAttribute("hx-put", `/api/carrier/${carrierId}`);
+                    htmx.process(editForm);
+
+                    const modal = new bootstrap.Modal(document.getElementById("editCarrierModal"));
+                    modal.show();
+                }
+            } catch (err) {
+                console.error("Failed to load carrier for editing:", err);
+            }
+        }
+
+        if (deleteCarrierBtn) {
+            const carrierId = deleteCarrierBtn.dataset.id;
+            carrierToDeleteUrl = `/api/carrier/${carrierId}`;
+
+            const deleteModal = new bootstrap.Modal(document.getElementById("confirmDeleteCarrierModal"));
+            deleteModal.show();
+        }
+    });
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.getElementById("confirmDeleteCarrierBtn").addEventListener("click", async () => {
+            if (!carrierToDeleteUrl) return;
+
+            try {
+                const res = await fetch(carrierToDeleteUrl, {
+                    method: "DELETE",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                const response = await res.json();
+
+                if (res.ok && response.status === "success") {
+                    carrierTable = document.getElementById("carrier-table")
+                    simpleCarrierTable = document.getElementById("simple-carrier-table")
+
+                    if (carrierTable)
+                        htmx.trigger("#carrierTableBody", "refresh");
+
+                    if (simpleCarrierTable)
+                        htmx.trigger("#simpleCarrierTableBody", "refresh");
+                    showCarrierMessage(response.message, "success");
+                } else {
+                    throw new Error(response.message || "Deletion failed");
+                }
+
+            } catch (err) {
+                console.error("Delete error:", err);
+                showCarrierMessage("Failed to delete carrier: " + err.message, "danger");
+            } finally {
+                carrierToDeleteUrl = null;
+                const confirmModalEl = document.getElementById("confirmDeleteCarrierModal");
+                const confirmModal = bootstrap.Modal.getInstance(confirmModalEl);
+                confirmModal.hide();
+            }
+        });
+    })
+
+    function showCarrierMessage(message, type = "info") {
+        const container = document.getElementById("carrier-message-container");
+        container.innerHTML = `
             <div class="alert alert-${type} alert-dismissible fade show mt-2" role="alert">
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         `;
 
-            setTimeout(() => { container.innerHTML = ""; }, 5000);
-        }
+        setTimeout(() => { container.innerHTML = ""; }, 5000);
+    }
 
-        function safeTrigger(selector, eventName = "refresh") {
-            const el = document.querySelector(selector);
-            if (el) {
-                htmx.trigger(el, eventName);
-            }
+    function safeTrigger(selector, eventName = "refresh") {
+        const el = document.querySelector(selector);
+        if (el) {
+            htmx.trigger(el, eventName);
         }
+    }
 
-    </script>
+</script>
 
 {% endblock %}
