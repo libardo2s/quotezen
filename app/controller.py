@@ -3,6 +3,8 @@ from app.config import Config
 from flask import jsonify, request, session, render_template
 from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
+from sqlalchemy.exc import IntegrityError
+from psycopg2.errors import UniqueViolation
 from app.models import User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote
 
 
@@ -108,6 +110,30 @@ def create_carrier_admin(data, user_id, db):
 
         new_carrier.shippers.append(shipper)
         db.session.commit()
+
+    except IntegrityError as e:
+        db.session.rollback()
+        if isinstance(e.orig, UniqueViolation):
+            # Check which constraint was violated
+            if 'scac' in str(e.orig):
+                return jsonify({
+                    "status": "error",
+                    "message": "A carrier with this SCAC code already exists"
+                }), 400
+            elif 'mc_number' in str(e.orig):
+                return jsonify({
+                    "status": "error",
+                    "message": "A carrier with this MC number already exists"
+                }), 400
+            elif 'email' in str(e.orig):
+                return jsonify({
+                    "status": "error",
+                    "message": "A user with this email already exists"
+                }), 400
+        return jsonify({
+            "status": "error",
+            "message": "Database integrity error occurred"
+        }), 400
 
     except Exception as e:
         db.session.rollback()
