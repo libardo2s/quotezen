@@ -19,25 +19,42 @@
         overflow: auto;
     }
     .chart-container {
-        min-height: 200px;
+        min-height: 180px; /* Reduced from 200px */
     }
     .table-responsive {
-        min-height: 300px;
+        min-height: 250px; /* Reduced from 300px */
+        font-size: 0.85rem; /* Smaller table font */
     }
     .align-with-chart {
-        height: calc(100% - 40px); /* Ajusta según el tamaño del header de la card */
+        height: calc(100% - 40px);
+    }
+    .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid rgba(0,0,0,.125);
+        padding: 0.5rem 1rem; /* Smaller header padding */
+    }
+    .card-title {
+        font-size: 0.95rem; /* Smaller card titles */
+        font-weight: 600;
+    }
+    table.dataTable {
+        font-size: 0.85rem; /* Consistent table font */
+    }
+    .badge {
+        font-size: 0.75rem; /* Smaller badge text */
+        padding: 0.25em 0.4em; /* Tighter badge padding */
     }
 </style>
 
-<div class="container-fluid p-4">
+<div class="container-fluid p-3"> <!-- Reduced padding from p-4 to p-3 -->
 
     <!-- Metrics Section -->
     {% include "partials/summary_kpis.html" %}
 
-    <div class="row mt-4 g-4" style="min-height: 600px;">
+    <div class="row mt-3 g-3" style="min-height: 500px;"> <!-- Reduced spacing -->
 
         <!-- Left Column -->
-        <div class="col-lg-8 d-flex flex-column gap-4">
+        <div class="col-lg-8 d-flex flex-column gap-3"> <!-- Reduced gap -->
             <!-- Quotes per Month Chart -->
             <div class="card border border-success">
                 <div class="card-header bg-white">
@@ -93,8 +110,8 @@
         </div>
 
         <!-- Right Column -->
-        <div class="col-lg-4 d-flex flex-column gap-4">
-            <!-- Top Awarded Carriers - Aligned with Quotes per Month -->
+        <div class="col-lg-4 d-flex flex-column gap-3"> <!-- Reduced gap -->
+            <!-- Top Awarded Carriers -->
             <div class="card border border-success h-100">
                 <div class="card-header bg-white">
                     <h5 class="card-title mb-0">Top Awarded Carriers YTD</h5>
@@ -125,7 +142,7 @@
                 </div>
             </div>
 
-            <!-- Requests by User - Aligned with Recent Quotes -->
+            <!-- Requests by User -->
             <div class="card border border-success h-100">
                 <div class="card-header bg-white">
                     <h5 class="card-title mb-0">Requests by User MTD</h5>
@@ -156,9 +173,11 @@
                 datasets: [{
                     label: 'Quotes',
                     data: {{ quotes_per_month | tojson }},
-                    backgroundColor: 'rgba(63, 133, 85, 1)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
+                    backgroundColor: 'rgba(0, 100, 0, 1)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 0,
+                    borderRadius: 0,
+                    barPercentage: 0.6
                 }]
             },
             options: {
@@ -167,30 +186,83 @@
                 scales: {
                     y: {
                         beginAtZero: true,
+                        max: 70,
+                        grid: {
+                            display: true,
+                            color: 'rgba(0, 0, 0, 0.1)'
+                        },
                         ticks: {
-                            stepSize: 5
+                            stepSize: 10,
+                            color: '#6c757d',
+                            font: {
+                                size: 10 // Smaller y-axis labels
+                            },
+                            callback: function(value) {
+                                return value === 0 ? '0' : value;
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#000000',
+                            font: {
+                                weight: 'bold',
+                                size: 10 // Smaller x-axis labels
+                            }
                         }
                     }
                 },
                 plugins: {
-                    legend: { display: false }
+                    legend: { 
+                        display: false 
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(0, 0, 0, 0.1)',
+                        borderWidth: 0,
+                        padding: 8, // Smaller tooltip padding
+                        titleFont: {
+                            size: 10 // Smaller tooltip title
+                        },
+                        bodyFont: {
+                            size: 10 // Smaller tooltip body
+                        },
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed.y + ' quotes';
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    duration: 800
                 }
             }
         });
 
-        // DataTables setup
+        // DataTables setup with compact styling
         $('#recentQuotesTable').DataTable({
             order: [],
             paging: false,
             searching: false,
-            info: false
+            info: false,
+            scrollY: '200px', // Fixed height with scroll
+            scrollCollapse: true
         });
 
         $('#topCarriersTable').DataTable({
             order: [],
             paging: false,
             searching: false,
-            info: false
+            info: false,
+            scrollY: '200px', // Fixed height with scroll
+            scrollCollapse: true
         });
 
         // Requests by User (Pie Chart with green scale)
@@ -206,7 +278,7 @@
                     label: 'Requests',
                     data: userData,
                     backgroundColor: [
-                        'rgba(63, 133, 85, 0.9)',
+                        'rgba(0, 100, 0, 1)',
                         'rgba(88, 163, 112, 0.8)',
                         'rgba(113, 192, 139, 0.7)',
                         'rgba(138, 221, 166, 0.6)',
@@ -228,8 +300,19 @@
                 plugins: {
                     legend: {
                         position: 'top',
+                        labels: {
+                            font: {
+                                size: 10 // Smaller legend text
+                            }
+                        }
                     },
                     tooltip: {
+                        titleFont: {
+                            size: 10 // Smaller tooltip
+                        },
+                        bodyFont: {
+                            size: 10 // Smaller tooltip
+                        },
                         callbacks: {
                             label: function (tooltipItem) {
                                 return tooltipItem.label + ': ' + tooltipItem.raw + ' requests';

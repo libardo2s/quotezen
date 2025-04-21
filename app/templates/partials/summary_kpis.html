@@ -1,51 +1,99 @@
-<h2 class="mb-4">Welcome, <span id="userName">{{ session.get('full_name', 'User') }}</span></h2>
+<h2 class="mb-3">Welcome, <span id="userName">{{ session.get('full_name', 'User') }}</span></h2>
 
-<div class="row g-4 mb-5" hx-get="/api/dashboard/stats" hx-trigger="load" hx-swap="none">
+<div class="row g-2 mb-3 justify-content-start" hx-get="/api/dashboard/stats" hx-trigger="load" hx-swap="none">
+    <style>
+        .square-card {
+            width: 150px;
+            height: 150px;
+            display: flex;
+            border-width: 3px !important;
+            margin-left: 20px;
+        }
+        .wide-card {
+            width: 300px !important;
+            height: 150px;
+            display: flex;
+            border-width: 3px !important;
+            margin-left: 20px;
+        }
+        .square-card .card-body,
+        .wide-card .card-body {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            width: 100%;
+        }
+        .square-card h5,
+        .wide-card h5 {
+            font-size: 1rem;
+            margin: 0;
+            text-align: center;
+            font-weight: 600;
+            line-height: 1.1;
+            align-self: flex-start;
+            width: 100%;
+        }
+        .square-card h3,
+        .wide-card h3 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin: auto 0;
+            line-height: 1;
+        }
+        .currency-symbol {
+            font-size: 1.5rem;
+            vertical-align: top;
+            margin-right: 3px;
+        }
+        .currency-value {
+            font-size: 2.5rem;
+        }
+        .card-title {
+            white-space: nowrap;
+        }
+    </style>
 
-    <div class="col-md-3">
-        <div class="card bg-white border border-success h-100">
+    <div class="col-auto">
+        <div class="card bg-white border border-success square-card">
             <div class="card-body text-dark">
                 <h5 class="card-title">Pending Quotes</h5>
-                <h3 id="pendingQuotesCount" class="card-text">--</h3>
+                <h3 id="pendingQuotesCount">0</h3>
             </div>
         </div>
     </div>
 
-    {% if session.get('user_role') in ['Admin', 'CompanyShipper', 'Shipper'] %}
-    <div class="col-md-3">
-        <div class="card bg-white border border-success h-100">
+    <div class="col-auto">
+        <div class="card bg-white border border-success square-card">
             <div class="card-body text-dark">
-                <h5 class="card-title">Active Shippers</h5>
-                <h3 id="activeShippersCount" class="card-text">--</h3>
+                <h5 class="card-title">Completed Today</h5>
+                <h3 id="completedQuotesCount">0</h3>
             </div>
         </div>
     </div>
-    {% endif %}
 
-    <div class="col-md-3">
-        <div class="card bg-white border border-success h-100">
+    <div class="col-auto">
+        <div class="card bg-white border border-success wide-card">
+            <div class="card-body text-dark">
+                <h5 class="card-title">Projected Spend MTD</h5>
+                <h3 id="spendMTCount"><span class="currency-symbol">$</span><span class="currency-value">0</span></h3>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-auto">
+        <div class="card bg-white border border-success square-card">
             <div class="card-body text-dark">
                 <h5 class="card-title">Active Carriers</h5>
-                <h3 id="activeCarriersCount" class="card-text">--</h3>
+                <h3 id="activeCarriersCount">0</h3>
             </div>
         </div>
     </div>
-
-    {% if session.get('user_role') == 'Admin' %}
-    <div class="col-md-3">
-        <div class="card bg-white border border-success h-100">
-            <div class="card-body text-dark">
-                <h5 class="card-title">Active Companies</h5>
-                <h3 id="activeCompaniesCount" class="card-text">--</h3>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // Animation function
         function animateValue(element, start, end, duration) {
             const range = end - start;
             if (range === 0) {
@@ -53,75 +101,115 @@
                 return;
             }
 
-            const increment = end > start ? 1 : -1;
-            const stepTime = Math.abs(Math.floor(duration / range));
+            const increment = Math.max(1, Math.floor(range / (duration / 16)));
             let current = start;
 
             const timer = setInterval(function () {
-                current += increment;
+                current = Math.min(current + increment, end);
                 element.textContent = current;
 
-                if (current === end) {
+                if (current >= end) {
                     clearInterval(timer);
-                    // Special case for pending quotes "100+"
                     if (element.id === 'pendingQuotesCount' && end > 100) {
                         element.textContent = '100+';
                     }
                 }
-            }, stepTime);
+            }, 16);
         }
 
-        // Listen for HTMX afterRequest event
+        function formatCurrency(value) {
+            return value.toLocaleString('en-US');
+        }
+
+        function animateCurrency(element, start, end, duration) {
+            const range = end - start;
+            if (range === 0) {
+                element.querySelector('.currency-value').textContent = formatCurrency(end);
+                return;
+            }
+
+            // Adjust duration based on value size (600-1200ms)
+            const adjustedDuration = Math.min(1200, Math.max(600, duration * (range / 10000)));
+            const startTime = performance.now();
+            const symbol = element.querySelector('.currency-symbol');
+            const valueElement = element.querySelector('.currency-value');
+
+            function updateValue(timestamp) {
+                const elapsed = timestamp - startTime;
+                const progress = Math.min(elapsed / adjustedDuration, 1);
+                const current = Math.floor(start + (progress * range));
+                
+                valueElement.textContent = formatCurrency(current);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(updateValue);
+                } else {
+                    valueElement.textContent = formatCurrency(end);
+                }
+            }
+
+            requestAnimationFrame(updateValue);
+        }
+
         document.body.addEventListener('htmx:afterRequest', function (evt) {
             if (evt.detail.requestConfig.path === '/api/dashboard/stats' && evt.detail.successful) {
                 try {
                     const response = JSON.parse(evt.detail.xhr.responseText);
 
-                    // Update user name if available
                     if (response.user_name) {
                         document.getElementById('userName').textContent = response.user_name;
                     }
 
-                    // Update stats with animation
                     if (response.stats) {
-                        const animationDuration = 1000; // 1 second
+                        const baseDuration = 1000;
 
                         // Pending Quotes
                         const pendingEl = document.getElementById('pendingQuotesCount');
                         const pendingValue = response.stats.pending_quotes || 0;
                         if (pendingValue > 100) {
-                            animateValue(pendingEl, 0, 100, animationDuration);
+                            animateValue(pendingEl, 0, 100, baseDuration);
                         } else if (pendingValue > 0) {
-                            animateValue(pendingEl, 0, pendingValue, animationDuration);
+                            animateValue(pendingEl, 0, pendingValue, baseDuration);
                         } else {
                             pendingEl.textContent = '0';
                         }
 
-                        // Active Shippers
-                        const shippersEl = document.getElementById('activeShippersCount');
-                        const shippersValue = response.stats.active_shippers || 0;
-                        if (shippersValue > 0) {
-                            animateValue(shippersEl, 0, shippersValue, animationDuration);
+                        // Spend MTD - Optimized currency animation
+                        const spendEl = document.getElementById('spendMTCount');
+                        const spendValue = response.stats.spendMT || 0;
+                        if (spendValue > 0) {
+                            animateCurrency(spendEl, 0, spendValue, baseDuration);
                         } else {
-                            shippersEl.textContent = '0';
+                            spendEl.querySelector('.currency-value').textContent = '0';
+                        }
+
+                        // Completed Quotes
+                        const completedEl = document.getElementById('completedQuotesCount');
+                        const completedValue = response.stats.completedQuotes || 0;
+                        if (completedValue > 0) {
+                            animateValue(completedEl, 0, completedValue, baseDuration);
+                        } else {
+                            completedEl.textContent = '0';
                         }
 
                         // Active Carriers
                         const carriersEl = document.getElementById('activeCarriersCount');
                         const carriersValue = response.stats.active_carriers || 0;
                         if (carriersValue > 0) {
-                            animateValue(carriersEl, 0, carriersValue, animationDuration);
+                            animateValue(carriersEl, 0, carriersValue, baseDuration);
                         } else {
                             carriersEl.textContent = '0';
                         }
 
-                        // Active Companies
-                        const companiesEl = document.getElementById('activeCompaniesCount');
-                        const companiesValue = response.stats.active_companies || 0;
-                        if (companiesValue > 0) {
-                            animateValue(companiesEl, 0, companiesValue, animationDuration);
-                        } else {
-                            companiesEl.textContent = '0';
+                        // Active Shippers (conditional)
+                        const shippersEl = document.getElementById('activeShippersCount');
+                        if (shippersEl) {
+                            const shippersValue = response.stats.active_shippers || 0;
+                            if (shippersValue > 0) {
+                                animateValue(shippersEl, 0, shippersValue, baseDuration);
+                            } else {
+                                shippersEl.textContent = '0';
+                            }
                         }
                     }
                 } catch (e) {
@@ -130,5 +218,4 @@
             }
         });
     });
-
 </script>
