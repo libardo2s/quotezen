@@ -19,7 +19,7 @@
 
 <div class="d-flex">
     <!-- Sidebar -->
-    <nav class="sidebar bg-dark text-white d-flex flex-column vh-100">
+    <nav class="sidebar bg-dark text-white d-flex flex-column" style="max-width: 300px;">
         <button class="toggle-btn btn btn-light btn-sm m-3" onclick="toggleSidebar()">
             <i class="fas fa-chevron-left"></i>
         </button>
@@ -34,7 +34,7 @@
             {% if session.get('user_role') in ['Shipper'] %}
                 <a href="{{ url_for('app_routes.quotes') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-file-alt me-3"></i>
-                    <span class="hide-on-collapse">Quotes</span>
+                    <span class="hide-on-collapse">New Quotes</span>
                 </a>
             {% endif %}
             {% if session.get('user_role') in ['Shipper'] %}
@@ -87,7 +87,7 @@
         <nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom px-4">
             <div class="d-flex align-items-center">
                 <!-- Logo on the left -->
-                <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" class="me-3" width="250">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="me-3 mb-3 mt-3" width="250">
             </div>
 
             <div class="dropdown ms-auto">

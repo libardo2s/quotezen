@@ -16,7 +16,7 @@
     <div class="container d-flex justify-content-center align-items-center vh-100">
         <div class="card p-4 shadow-lg" style="width: 100%; max-width: 400px;">
             <div class="text-center">
-                <img src="{{ url_for('static', filename='img/logo.svg') }}" alt="Logo" class="mb-3 img-fluid" style="max-width: 250px;">
+                <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="mb-3 img-fluid mt-3 me-3" style="max-width: 250px;">
             </div>
             <form 
                 hx-post="{{ url_for('app_routes.api_sign_in') }}" 
