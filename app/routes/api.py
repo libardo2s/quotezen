@@ -2,7 +2,7 @@ from decimal import Decimal
 import json
 
 import boto3
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from app.controller import create_carrier_user, create_carrier_admin
 from app.database import db
@@ -1477,7 +1477,9 @@ def get_dashboard_stats():
             "pending_quotes": 0,
             "active_shippers": 0,
             "active_carriers": 0,
-            "active_companies": 0
+            "active_companies": 0,
+            "spendMT": 0,  # Quotes assigned with values
+            "completedQuotes": 0  # Quotes completed
         }
 
         # Subquery: quotes that have been accepted or declined
@@ -1495,7 +1497,13 @@ def get_dashboard_stats():
                     active=True, deleted=False
                 ).count(),
                 "active_carriers": Carrier.query.filter_by(active=True).count(),
-                "active_companies": Company.query.filter_by(active=True).count()
+                "active_companies": Company.query.filter_by(active=True).count(),
+                "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).filter(
+                    QuoteCarrierRate.status == "accepted"
+                ).scalar() or 0,
+                "completedQuotes": QuoteCarrierRate.query.filter(
+                    QuoteCarrierRate.status == "accepted"
+                ).count()
             })
 
         elif user.role == "Shipper":
@@ -1513,7 +1521,19 @@ def get_dashboard_stats():
                         carrier_shipper.c.shipper_id == shipper.id,
                         Carrier.active == True
                     ).count(),
-                    "active_companies": 1  # Their company
+                    "active_companies": 1,  # Their company
+                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).join(
+                        Quote
+                    ).filter(
+                        Quote.shipper_id == shipper.id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).scalar() or 0,
+                    "completedQuotes": db.session.query(QuoteCarrierRate).join(
+                        Quote
+                    ).filter(
+                        Quote.shipper_id == shipper.id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).count()
                 })
 
         elif user.role == "CompanyShipper":
@@ -1531,7 +1551,19 @@ def get_dashboard_stats():
                         carrier_company.c.company_id == company_shipper.company_id,
                         Carrier.active == True
                     ).count(),
-                    "active_companies": 1  # Their company
+                    "active_companies": 1,  # Their company
+                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).join(
+                        Quote
+                    ).filter(
+                        Quote.company_id == company_shipper.company_id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).scalar() or 0,
+                    "completedQuotes": db.session.query(QuoteCarrierRate).join(
+                        Quote
+                    ).filter(
+                        Quote.company_id == company_shipper.company_id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).count()
                 })
 
         elif user.role == "CarrierAdmin":
@@ -1555,7 +1587,15 @@ def get_dashboard_stats():
                         Shipper.active == True
                     ).count(),
                     "active_carriers": 1,  # Themselves
-                    "active_companies": 1  # Their company
+                    "active_companies": 1,  # Their company
+                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).filter(
+                        QuoteCarrierRate.carrier_admin_id == user_id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).scalar() or 0,
+                    "completedQuotes": QuoteCarrierRate.query.filter(
+                        QuoteCarrierRate.carrier_admin_id == user_id,
+                        QuoteCarrierRate.status == "accepted"
+                    ).count()
                 })
 
         return jsonify({
