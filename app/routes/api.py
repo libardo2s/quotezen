@@ -11,6 +11,8 @@ from app.routes import app_routes
 from app.config import Config
 from app.models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
                     QuoteCarrierRate)
+
+
 from app.models.association import carrier_shipper,  quote_carrier  # si lo tienes separado
 from sqlalchemy.exc import IntegrityError
 #from utils.token_required import token_required
@@ -1537,33 +1539,47 @@ def get_dashboard_stats():
                 })
 
         elif user.role == "CompanyShipper":
-            company_shipper = Company.query.filter_by(user_id=user_id).first()
-            if company_shipper:
+            # First get the company associated with this CompanyShipper user
+            company = Company.query.filter_by(user_id=user_id).first()
+            if company:
+                # Get all active shippers belonging to this company
+                company_shippers = Shipper.query.filter_by(
+                    company_id=company.id,
+                    active=True,
+                    deleted=False
+                ).all()
+                shipper_ids = [s.id for s in company_shippers]
+
+                # Get carriers associated with this company through the association table
+                # First ensure the association table is properly imported/defined
+                
+                
                 stats.update({
                     "pending_quotes": Quote.query.filter(
-                        Quote.company_id == company_shipper.company_id,
+                        Quote.shipper_id.in_(shipper_ids),
                         ~Quote.id.in_(excluded_quotes_subquery)
                     ).count(),
-                    "active_shippers": 1,  # Themselves
-                    "active_carriers": db.session.query(Carrier).join(
-                        carrier_company
-                    ).filter(
-                        carrier_company.c.company_id == company_shipper.company_id,
-                        Carrier.active == True
-                    ).count(),
-                    "active_companies": 1,  # Their company
-                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).join(
-                        Quote
-                    ).filter(
-                        Quote.company_id == company_shipper.company_id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).scalar() or 0,
-                    "completedQuotes": db.session.query(QuoteCarrierRate).join(
-                        Quote
-                    ).filter(
-                        Quote.company_id == company_shipper.company_id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).count()
+                    "active_shippers": len(shipper_ids),
+                    "active_carriers": 0,
+                    "active_companies": 1,  # Their own company
+                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id.in_(shipper_ids),
+                            QuoteCarrierRate.status == "accepted"
+                        ).scalar() or 0,
+                    "completedQuotes": db.session.query(QuoteCarrierRate)
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id.in_(shipper_ids),
+                            QuoteCarrierRate.status == "accepted"
+                        ).count(),
+                    "completedToday": db.session.query(QuoteCarrierRate)
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id.in_(shipper_ids),
+                            QuoteCarrierRate.status == "accepted"
+                        ).count(),
                 })
 
         elif user.role == "CarrierAdmin":

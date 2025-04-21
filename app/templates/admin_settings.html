@@ -379,8 +379,8 @@
                     target.innerHTML = `<tr><td colspan="7">No companies registered</td></tr>`;
                     return;
                 }
-
-                document.getElementById("activeCompaniesCount").textContent = data.length;
+                if (document.getElementById("activeCompaniesCount"))
+                    document.getElementById("activeCompaniesCount").textContent = data.length;
 
                 const rows = data.map(company => {
                     const user = company.user || {};
@@ -418,7 +418,8 @@
                     return;
                 }
 
-                document.getElementById("activeShippersCount").textContent = data.length;
+                if(document.getElementById("activeShippersCount"))
+                    document.getElementById("activeShippersCount").textContent = data.length;
 
                 const rows = data.map(shipper => `
                 <tr>
