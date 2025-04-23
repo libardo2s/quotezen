@@ -78,3 +78,6 @@ build/
 .terraform/
 *.terraform.lock.hcl
 terraform.tfstate
+vartiables.tf
+app/config.py
+app/create_data_for_quotes.py
