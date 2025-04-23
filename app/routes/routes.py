@@ -2,6 +2,7 @@ import os
 import boto3
 import pandas as pd
 from flask import jsonify, request
+from sqlalchemy import and_, case, func, or_, text
 from app.routes import app_routes
 from cryptography.fernet import Fernet
 from app.config import Config
@@ -409,7 +410,6 @@ def quotes():
         accessorials=accessorials
     )
 
-
 @app_routes.route("/pending_quotes", methods=["GET"])
 def pending_quotes():
     if "access_token" not in session:
@@ -430,13 +430,36 @@ def pending_quotes():
         QuoteCarrierRate.status == 'declined'
     ).distinct().subquery()
 
-    # Solo quotes de este shipper que NO tienen ningún rate aceptado
+    now = datetime.utcnow()
+    
+    # Condición para quotes con tiempo de apertura no expirado
+    expiry_condition = or_(
+        # Caso 1: No tiene tiempo de apertura definido
+        and_(Quote.open_value.is_(None), Quote.open_unit.is_(None)),
+        # Caso 2: Tiene tiempo de apertura y no ha expirado
+        and_(
+            Quote.open_value.isnot(None),
+            Quote.open_unit.isnot(None),
+            case(
+                (Quote.open_unit == 'minutes', 
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 minute'")) > now),
+                (Quote.open_unit == 'hours', 
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 hour'")) > now),
+                (Quote.open_unit == 'days', 
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 day'")) > now),
+                else_=True
+            )
+        )
+    )
+
+    # Solo quotes de este shipper que NO tienen ningún rate aceptado y no han expirado
     quotes = Quote.query.options(
         joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier_admin)
     ).filter(
         Quote.shipper_id == shipper.id,
         ~Quote.id.in_(accepted_quotes_subquery),
-        ~Quote.id.in_(declined_subquery)
+        ~Quote.id.in_(declined_subquery),
+        expiry_condition
     ).order_by(Quote.created_at.desc()).all()
 
     # Agrupar los quote_rates por carrier_admin_id (último por fecha)
@@ -450,7 +473,7 @@ def pending_quotes():
     return render_template(
         "pending_quotes.html",
         pending_quotes=quotes,
-        now=datetime.utcnow()
+        now=now
     )
 
 @app_routes.route("/quote_history", methods=["GET"])
