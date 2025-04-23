@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container-fluid p-4">
     {% include "partials/summary_kpis.html" %}
-    
+
     <div class="card mt-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Quote History</h5>
@@ -13,111 +13,118 @@
                 Viewing as: {{ 'Shipper' if user_type == 'shipper' else 'Carrier Admin' }}
             </span>
         </div>
-        
+
         <div class="card-body table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         {% if user_type == 'shipper' %}
-                            <!-- Shipper View Columns -->
-                            <th>#</th>
-                            <th>Created At</th>
-                            <th>Lane</th>
-                            <th>Equipment</th>
-                            <th>Send At</th>
-                            <th>Open For</th>
-                            <th>Rates Received</th>
-                            <th>Accepted Rate</th>
-                            <th>Accepted Carrier</th>
-                            <th>Status</th>
+                        <!-- Shipper View Columns -->
+                        <th>#</th>
+                        <th>Created At</th>
+                        <th>Lane</th>
+                        <th>Equipment</th>
+                        <th>Send At</th>
+                        <th>Open For</th>
+                        <th>Rates Received</th>
+                        <th>Accepted Rate</th>
+                        <th>Accepted Carrier</th>
+                        <th>Status</th>
                         {% else %}
-                            <!-- Carrier Admin View Columns -->
-                            <th>#</th>
-                            <th>Shipper</th>
-                            <th>Lane</th>
-                            <th>Equipment</th>
-                            <th>Quote Date</th>
-                            <th>Your Rate</th>
-                            <th>Your Status</th>
-                            <th>Expiration</th>
-                            <th>Actions</th>
+                        <!-- Carrier Admin View Columns -->
+                        <th>#</th>
+                        <th>Shipper</th>
+                        <th>Lane</th>
+                        <th>Equipment</th>
+                        <th>Quote Date</th>
+                        <th>Your Rate</th>
+                        <th>Your Status</th>
+                        <th>Expiration</th>
+                        <th>Actions</th>
                         {% endif %}
                     </tr>
                 </thead>
-                
+
                 <tbody>
                     {% if user_type == 'shipper' %}
-                        <!-- Shipper View Rows -->
-                        {% for quote in quotes %}
-                        <tr>
-                            <td>{{ quote.id }}</td>
-                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
-                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
-                            <td>{{ quote.equipment_type or '—' }}</td>
-                            <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M') }}</td>
-                            <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                            <td>{{ quote.quote_rates|length }}</td>
-                            <td>
-                                {% if quote.accepted_rate %}
-                                    ${{ "{:,.2f}".format(quote.accepted_rate) }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if quote.accepted_carrier_admin %}
-                                    {{ quote.accepted_carrier_admin }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge bg-{% if quote.status_summary == 'Accepted' %}success
+                    <!-- Shipper View Rows -->
+                    {% for quote in quotes %}
+                    <tr>
+                        <td>{{ quote.id }}</td>
+                        <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
+                        <td>{{ quote.origin }} → {{ quote.destination }}</td>
+                        <td>{{ quote.equipment_type or '—' }}</td>
+                        <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M') }}</td>
+                        <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
+                        <td>{{ quote.quote_rates|length }}</td>
+                        <td>
+                            {% if quote.accepted_rate %}
+                            ${{ "{:,.2f}".format(quote.accepted_rate) }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if quote.accepted_carrier_admin %}
+                            {{ quote.accepted_carrier_admin }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if quote.status_summary == 'Accepted' %}success
                                                      {% elif quote.status_summary == 'Declined' %}danger
                                                      {% else %}secondary{% endif %}">
-                                    {{ quote.status_summary }}
-                                </span>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="10" class="text-center text-muted">No quote history found.</td>
-                        </tr>
-                        {% endfor %}
-                        
+                                {{ quote.status_summary }}
+                            </span>
+                        </td>
+                    </tr>
                     {% else %}
-                        <!-- Carrier Admin View Rows -->
-                        {% for item in quotes %}
-                        {% set quote = item.quote %}
-                        <tr>
-                            <td>{{ quote.id }}</td>
-                            <td>{{ quote.shipper.user.company_name }}</td>
-                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
-                            <td>{{ quote.equipment_type or '—' }}</td>
-                            <td>{{ quote.created_at.strftime('%m-%d-%y') }}</td>
-                            <td>${{ "{:,.2f}".format(item.rate.rate) }}</td>
-                            <td>
-                                <span class="badge bg-{% if item.rate.status == 'accepted' %}success
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No quote history found.</td>
+                    </tr>
+                    {% endfor %}
+
+                    {% else %}
+                    <!-- Carrier Admin View Rows -->
+                    {% for item in quotes %}
+                    {% set quote = item.quote %}
+                    <tr>
+                        <td>{{ quote.id }}</td>
+                        <td>{{ quote.shipper.user.company_name }}</td>
+                        <td>{{ quote.origin }} → {{ quote.destination }}</td>
+                        <td>{{ quote.equipment_type or '—' }}</td>
+                        <td>{{ quote.created_at.strftime('%m-%d-%y') }}</td>
+                        <td>${{ "{:,.2f}".format(item.rate.rate) }}</td>
+                        <td>
+                            <span class="badge bg-{% if item.rate.status == 'accepted' %}success
                                                      {% elif item.rate.status == 'declined' %}danger
                                                      {% else %}warning{% endif %}">
-                                    {{ item.rate.status|title }}
-                                </span>
-                            </td>
-                            <td>{{ item.expiration_status }}</td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#quoteDetailsModal"
-                                        data-quote-id="{{ quote.id }}">
-                                    Details
-                                </button>
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="9" class="text-center text-muted">No quote history found.</td>
-                        </tr>
-                        {% endfor %}
+                                {{ item.rate.status|capitalize }}
+                            </span>
+                        </td>
+                        <td>
+                            <span
+                                class="badge bg-{% if item.expiration_status == 'Expired' %}secondary{% else %}success{% endif %}">
+                                {% if item.expiration_status == 'Expired' %}
+                                <i class="bi bi-hourglass-bottom"></i> Expired
+                                {% else %}
+                                <i class="bi bi-check-circle"></i> Active
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                data-bs-target="#quoteDetailsModal" data-quote-id="{{ quote.id }}">
+                                Details
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" class="text-center text-muted">No quote history found.</td>
+                    </tr>
+                    {% endfor %}
                     {% endif %}
                 </tbody>
             </table>
@@ -126,7 +133,8 @@
 </div>
 
 <!-- Modal for Quote Details -->
-<div class="modal fade" id="quoteDetailsModal" tabindex="-1" aria-labelledby="quoteDetailsModalLabel" aria-hidden="true">
+<div class="modal fade" id="quoteDetailsModal" tabindex="-1" aria-labelledby="quoteDetailsModalLabel"
+    aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
@@ -148,25 +156,59 @@
     </div>
 </div>
 
-{% endblock %}
-
-{% block scripts %}
 <script>
-// Load quote details in modal
-document.getElementById('quoteDetailsModal').addEventListener('show.bs.modal', function (event) {
-    const button = event.relatedTarget;
-    const quoteId = button.getAttribute('data-quote-id');
-    const modalContent = document.getElementById('quoteDetailsContent');
-    
-    // Load content via AJAX
-    fetch(`/api/quotes/${quoteId}`)
-        .then(response => response.text())
-        .then(html => {
-            modalContent.innerHTML = html;
-        })
-        .catch(error => {
-            modalContent.innerHTML = `<div class="alert alert-danger">Error loading quote details</div>`;
+    const quoteDetailsModal = document.getElementById('quoteDetailsModal');
+    quoteDetailsModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const quoteId = button.getAttribute('data-quote-id');
+        const modalContent = document.getElementById('quoteDetailsContent');
+
+        // Mostrar spinner
+        modalContent.innerHTML = `<div class="text-center py-4">
+            <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
+        </div>`;
+
+        // Cargar datos de la API
+        fetch(`/api/quote/${quoteId}`)
+            .then(response => response.json())
+            .then(data => {
+                modalContent.innerHTML = formatQuoteDetails(data);
+            })
+            .catch(error => {
+                modalContent.innerHTML = `<div class="alert alert-danger">Error loading quote details</div>`;
+            });
+    });
+
+    // Función que toma el JSON y devuelve HTML bonito
+    function formatQuoteDetails(data) {
+        return `
+        <ul class="list-group">
+            <li class="list-group-item"><strong>Origin:</strong> ${data.origin}</li>
+            <li class="list-group-item"><strong>Destination:</strong> ${data.destination}</li>
+            <li class="list-group-item"><strong>Pickup Date:</strong> ${formatDate(data.pickup_date)}</li>
+            <li class="list-group-item"><strong>Delivery Date:</strong> ${formatDate(data.delivery_date)}</li>
+            <li class="list-group-item"><strong>Weight:</strong> ${data.weight} lbs</li>
+            <li class="list-group-item"><strong>Equipment:</strong> ${data.equipment_type}</li>
+            <li class="list-group-item"><strong>Mode:</strong> ${data.mode}</li>
+            <li class="list-group-item"><strong>Temp Controlled:</strong> ${data.temp_controlled ? 'Yes' : 'No'}</li>
+            <li class="list-group-item"><strong>Declared Value:</strong> $${Number(data.declared_value).toLocaleString()}</li>
+            <li class="list-group-item"><strong>Commodity:</strong> ${data.commodity}</li>
+            <li class="list-group-item"><strong>Comments:</strong> ${data.comments}</li>
+            <li class="list-group-item"><strong>Accessorials:</strong>
+                <ul>${data.accessorials.map(item => `<li>${item}</li>`).join('')}</ul>
+            </li>
+        </ul>`;
+    }
+
+    // Función auxiliar para formatear fechas ISO
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
         });
-});
+    }
 </script>
+
+
 {% endblock %}

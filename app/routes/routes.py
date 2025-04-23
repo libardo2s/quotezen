@@ -545,7 +545,7 @@ def quote_history():
             if accepted_rate or declined_rates or is_expired:
                 quote.accepted_rate = accepted_rate.rate if accepted_rate else None
                 quote.accepted_carrier_admin = (
-                    f"{accepted_rate.carrier_admin.user.first_name} {accepted_rate.carrier_admin.user.last_name}"
+                    f"{accepted_rate.carrier_admin.first_name} {accepted_rate.user.last_name}"
                     if accepted_rate else None
                 )
                 quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"

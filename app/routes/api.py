@@ -938,6 +938,37 @@ def api_quote():
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
+        
+
+@app_routes.route("/api/quote/<int:quote_id>", methods=["GET"])
+def get_quote_by_id(quote_id):
+    quote = Quote.query.get(quote_id)
+    if not quote:
+        return jsonify({"status": "error", "message": "Quote not found"}), 404
+
+    # Convert the additional_stops JSON string to a Python object
+    try:
+        additional_stops = json.loads(quote.additional_stops) if quote.additional_stops else []
+    except json.JSONDecodeError:
+        additional_stops = []
+
+    return jsonify({
+        "id": quote.id,
+        "mode": quote.mode,
+        "equipment_type": quote.equipment_type,
+        "rate_type": quote.rate_type,
+        "temp_controlled": quote.temp_controlled,
+        "origin": quote.origin,
+        "destination": quote.destination,
+        "pickup_date": quote.pickup_date.isoformat() if quote.pickup_date else None,
+        "delivery_date": quote.delivery_date.isoformat() if quote.delivery_date else None,
+        "commodity": quote.commodity,
+        "weight": float(quote.weight) if quote.weight else 0.0,
+        "declared_value": float(quote.declared_value) if quote.declared_value else 0.0,
+        "accessorials": [a.strip() for a in (quote.accessorials or "").split(",")],
+        "comments": quote.comments,
+        "additional_stops": additional_stops
+    }), 200
 
 
 @app_routes.route("/api/update_rate", methods=["POST"])
