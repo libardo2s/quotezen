@@ -627,6 +627,7 @@
         document.addEventListener("click", function (e) {
             const originBox = document.getElementById("originSuggestions");
             const destBox = document.getElementById("destinationSuggestions");
+            const sendQuoteBtn = e.target.closest(".send-quote-btn");
 
             if (!originBox.contains(e.target) && !document.getElementById("originInput").contains(e.target)) {
                 originBox.innerHTML = "";
@@ -636,6 +637,11 @@
             if (!destBox.contains(e.target) && !document.getElementById("destinationInput").contains(e.target)) {
                 destBox.innerHTML = "";
                 destBox.classList.remove("showing");
+            }
+
+            if (sendQuoteBtn) {
+                const laneId = sendQuoteBtn.dataset.id;
+                sendQuoteFromLane(laneId);
             }
         });
 
@@ -734,13 +740,13 @@
             <td>${lane.carrier_count}</td>
             <td>${lane.last_sent}</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-secondary edit-lane-btn" data-id="${lane.id}">
+                <button class="btn btn-sm btn-secondary edit-lane-btn" data-id="${lane.id}">
                     Edit
                 </button>
-                <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="${lane.id}">
+                <button class="btn btn-sm btn-danger delete-lane-btn" data-id="${lane.id}">
                     Delete
                 </button>
-                <button class="btn btn-sm btn-outline-danger delete-lane-btn" data-id="${lane.id}">
+                <button class="btn btn-sm btn-primary send-quote-btn" data-id="${lane.id}">
                     Send Quote
                 </button>
             </td>
@@ -1051,6 +1057,32 @@
                         });
                 }
             });
+        }
+
+        function sendQuoteFromLane(laneId) {
+            fetch(`/api/lanes/${laneId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        // Almacena los datos del lane en sessionStorage
+                        sessionStorage.setItem('laneQuoteData', JSON.stringify(data.data));
+                        // Redirige a la página de quotes
+                        window.location.href = '/quotes';
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: data.message || "Failed to load lane details"
+                        });
+                    }
+                })
+                .catch(error => {
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "An error occurred while fetching lane details"
+                    });
+                });
         }
 
     </script>

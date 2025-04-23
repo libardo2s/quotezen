@@ -247,6 +247,33 @@
             plugins: ['remove_button'],
             placeholder: 'Select Accessorials...'
         });
+
+        // Verifica si hay datos de lane almacenados
+        const laneData = sessionStorage.getItem('laneQuoteData');
+        if (laneData) {
+            const lane = JSON.parse(laneData);
+
+            // Rellena los campos del formulario con los datos del lane
+            document.querySelector('select[name="mode"]').value = lane.mode || 'Select';
+            document.querySelector('select[name="equipment_type"]').value = lane.equipment_type || 'Select';
+            document.querySelector('select[name="rate_type"]').value = lane.rate_type || 'Select';
+            document.querySelector('input[name="origin"]').value = lane.origin || '';
+            document.querySelector('input[name="destination"]').value = lane.destination || '';
+            document.querySelector('input[name="pickup_date"]').value = lane.pickup_date || '';
+            document.querySelector('input[name="delivery_date"]').value = lane.delivery_date || '';
+            document.querySelector('input[name="commodity"]').value = lane.commodity || '';
+            document.querySelector('input[name="weight"]').value = lane.weight || '';
+            document.querySelector('input[name="declared_value"]').value = lane.declared_value || '';
+            document.querySelector('textarea[name="comments"]').value = lane.comments || '';
+
+            // Si hay accessorials, selecciónalos
+            if (lane.accessorials && lane.accessorials.length > 0) {
+                accessorialSelectInstance.setValue(lane.accessorials);
+            }
+
+            // Limpia los datos de sessionStorage
+            sessionStorage.removeItem('laneQuoteData');
+        }
     });
 
     document.addEventListener("htmx:afterOnLoad", function (evt) {
