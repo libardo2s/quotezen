@@ -1136,7 +1136,7 @@ def get_lanes():
         lanes_data = []
         for lane in lanes:
             # Count carriers associated with this lane
-            #carrier_count = len(lane.carriers) if lane.carriers else 0
+            
             
             # Get last sent date (you might need to add this field to your model)
             #last_sent = lane.last_sent.strftime('%m/%d/%Y') if lane.last_sent else "Never"

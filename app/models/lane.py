@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean, Numeric
+from sqlalchemy import JSON, Column, Integer, String, DateTime, Float, Text, ForeignKey, Boolean, Numeric
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import db
+from .association import quote_carrier
 
 lane_accessorials = db.Table(
     'lane_accessorials',
@@ -40,7 +41,7 @@ class Lane(db.Model):
     declared_value = Column(Float, nullable=True)  # Declared monetary value
 
     # Additional Details
-    additional_stops = Column(Integer, default=0)  # Number of additional stops
+    additional_stops = Column(JSON, nullable=True) 
     accessorials = relationship(
         "Accessorial",
         secondary=lane_accessorials,
@@ -48,8 +49,10 @@ class Lane(db.Model):
     )
     comments = Column(Text, nullable=True)  # Additional comments or notes
 
-    leave_open_for_option = Column(String(100), nullable=False)  # Hours, Minute, Seconds
-    leave_open_for_number = Column(Numeric(100), nullable=False)
+    open_unit = Column(String(50), nullable=True)
+    open_value = Column(Float, nullable=True)
+
+    carriers = relationship('Carrier', secondary=quote_carrier, back_populates='quotes')
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
