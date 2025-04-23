@@ -266,7 +266,6 @@ def carrier_pending_quotes():
     if not carrier_user:
         return redirect(url_for("app_routes.signin"))
 
-    # Recoger filtros de la query
     filters = {
         "equipment_type": request.args.get("equipment_type"),
         "mode": request.args.get("mode"),
@@ -275,10 +274,44 @@ def carrier_pending_quotes():
         "destination": request.args.get("destination"),
     }
 
-    # Base query - get quotes where current carrier is one of the invited carriers
-    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.id == carrier_user.id)
+    now = datetime.utcnow()
 
-    # Aplicar filtros si existen
+    # Subconsultas para excluir quotes ya aceptados o declinados
+    accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+        QuoteCarrierRate.status == 'accepted'
+    ).distinct().subquery()
+
+    declined_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
+        QuoteCarrierRate.status == 'declined',
+        QuoteCarrierRate.carrier_id == carrier_user.id
+    ).distinct().subquery()
+
+    # Condición para quotes no expirados
+    expiry_condition = or_(
+        and_(Quote.open_value.is_(None), Quote.open_unit.is_(None)),
+        and_(
+            Quote.open_value.isnot(None),
+            Quote.open_unit.isnot(None),
+            case(
+                (Quote.open_unit == 'minutes',
+                 Quote.created_at + (Quote.open_value * text("INTERVAL '1 minute'")) > now),
+                (Quote.open_unit == 'hours',
+                 Quote.created_at + (Quote.open_value * text("INTERVAL '1 hour'")) > now),
+                (Quote.open_unit == 'days',
+                 Quote.created_at + (Quote.open_value * text("INTERVAL '1 day'")) > now),
+                else_=True
+            )
+        )
+    )
+
+    # Base query con filtros
+    query = Quote.query.join(Carrier, Quote.carriers).filter(
+        Carrier.id == carrier_user.id,
+        ~Quote.id.in_(accepted_quotes_subquery),
+        ~Quote.id.in_(declined_quotes_subquery),
+        expiry_condition
+    )
+
     if filters["equipment_type"]:
         query = query.filter(Quote.equipment_type == filters["equipment_type"])
     if filters["mode"]:
@@ -292,19 +325,15 @@ def carrier_pending_quotes():
 
     carrier_quotes = query.all()
 
-    # Obtener rates enviados por este usuario específico
     for quote in carrier_quotes:
-        print("additional_stops:", quote.additional_stops)
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
-            carrier_id=carrier_user.id  # Filter by the specific carrier user, not the company
+            carrier_id=carrier_user.id
         ).order_by(QuoteCarrierRate.created_at.desc()).first()
 
-        # Safely handle cases where no rate exists
         quote.submitted_rate = existing_rate.rate if existing_rate else None
         quote.submitted_comment = existing_rate.comment if existing_rate else None
 
-    # Listas únicas para los select
     equipment_types = [row[0] for row in db.session.query(Quote.equipment_type.distinct()).all()]
     modes = [row[0] for row in db.session.query(Quote.mode.distinct()).all()]
     rate_types = [row[0] for row in db.session.query(Quote.rate_type.distinct()).all()]
@@ -316,8 +345,9 @@ def carrier_pending_quotes():
         modes=modes,
         carrier_admin_quote=carrier_user,
         rate_types=rate_types,
-        now=datetime.utcnow()
+        now=now
     )
+
 
 
 @app_routes.route("/carrier_pending_quotes/<hashed_id>", methods=["GET"])
@@ -485,44 +515,93 @@ def quote_history():
     now = datetime.utcnow()
 
     shipper = Shipper.query.filter_by(user_id=user_id).first()
-    if not shipper:
+    carrier_admin = Carrier.query.filter_by(user_id=user_id).first()
+
+    if not shipper and not carrier_admin:
         return redirect(url_for("app_routes.signin"))
 
-    quotes = Quote.query.filter_by(shipper_id=shipper.id)\
-        .options(joinedload(Quote.quote_rates))\
-        .order_by(Quote.created_at.desc())\
-        .all()
+    # --- Shipper logic (no changes needed) ---
+    if shipper:
+        quotes = Quote.query.filter_by(shipper_id=shipper.id)\
+            .options(joinedload(Quote.quote_rates))\
+            .order_by(Quote.created_at.desc())\
+            .all()
 
-    valid_quotes = []
-    for quote in quotes:
-        accepted_rate = next((r for r in quote.quote_rates if r.status == "accepted"), None)
-        declined_rates = [r for r in quote.quote_rates if r.status == "declined"]
+        valid_quotes = []
+        for quote in quotes:
+            accepted_rate = next((r for r in quote.quote_rates if r.status == "accepted"), None)
+            declined_rates = [r for r in quote.quote_rates if r.status == "declined"]
 
-        expiration_time = quote.created_at
-        if quote.open_unit == "minutes":
-            expiration_time += timedelta(minutes=quote.open_value or 0)
-        elif quote.open_unit == "hours":
-            expiration_time += timedelta(hours=quote.open_value or 0)
-        elif quote.open_unit == "days":
-            expiration_time += timedelta(days=quote.open_value or 0)
+            expiration_time = quote.created_at
+            if quote.open_unit == "minutes":
+                expiration_time += timedelta(minutes=quote.open_value or 0)
+            elif quote.open_unit == "hours":
+                expiration_time += timedelta(hours=quote.open_value or 0)
+            elif quote.open_unit == "days":
+                expiration_time += timedelta(days=quote.open_value or 0)
 
-        is_expired = expiration_time < now
+            is_expired = expiration_time < now
 
-        if accepted_rate or declined_rates or is_expired:
-            # Annotation
-            quote.accepted_rate = accepted_rate.rate if accepted_rate else None
-            quote.accepted_carrier_admin = (
-                f"{accepted_rate.user.first_name} {accepted_rate.user.last_name} - {accepted_rate.user.email}"
-                if accepted_rate else None
-            )
-            quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
-            valid_quotes.append(quote)
+            if accepted_rate or declined_rates or is_expired:
+                quote.accepted_rate = accepted_rate.rate if accepted_rate else None
+                quote.accepted_carrier_admin = (
+                    f"{accepted_rate.carrier_admin.user.first_name} {accepted_rate.carrier_admin.user.last_name}"
+                    if accepted_rate else None
+                )
+                quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
+                valid_quotes.append(quote)
 
-    return render_template(
-        "quote_history.html",
-        quotes=valid_quotes,
-        now=now
-    )
+        return render_template(
+            "quote_history.html",
+            quotes=valid_quotes,
+            now=now,
+            user_type="shipper"
+        )
+
+    # --- Carrier Admin logic (filtered for accepted, declined, or expired) ---
+    elif carrier_admin:
+        quote_rates = QuoteCarrierRate.query\
+            .filter_by(carrier_admin_id=carrier_admin.user.id)\
+            .options(joinedload(QuoteCarrierRate.quote).joinedload(Quote.shipper))\
+            .order_by(QuoteCarrierRate.created_at.desc())\
+            .all()
+
+        processed_quotes = []
+        for rate in quote_rates:
+            quote = rate.quote
+
+            # Calculate expiration
+            expiration_time = quote.created_at
+            if quote.open_unit == "minutes":
+                expiration_time += timedelta(minutes=quote.open_value or 0)
+            elif quote.open_unit == "hours":
+                expiration_time += timedelta(hours=quote.open_value or 0)
+            elif quote.open_unit == "days":
+                expiration_time += timedelta(days=quote.open_value or 0)
+
+            is_expired = expiration_time < now
+
+            if rate.status in ["accepted", "declined"] or is_expired:
+                quote.rate_status = rate.status
+                quote.rate_value = rate.rate
+                #quote.rate_notes = rate.notes
+                quote.expiration_status = "Expired" if is_expired else "Active"
+                quote.shipper_info = f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}"
+                quote.quote_date = quote.created_at.strftime('%Y-%m-%d')
+
+                processed_quotes.append({
+                    'quote': quote,
+                    'rate': rate,
+                    'expiration_status': "Expired" if is_expired else "Active"
+                })
+
+        return render_template(
+            "quote_history.html",
+            quotes=processed_quotes,
+            now=now,
+            user_type="carrier_admin"
+        )
+
 
 
 @app_routes.route("/frequent_lanes", methods=["GET"])

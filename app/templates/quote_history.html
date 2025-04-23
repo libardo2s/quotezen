@@ -5,64 +5,168 @@
 {% block content %}
 <div class="container-fluid p-4">
     {% include "partials/summary_kpis.html" %}
+    
     <div class="card mt-4">
-        <div class="card-header bg-white">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Quote History</h5>
+            <span class="badge bg-{% if user_type == 'shipper' %}primary{% else %}info{% endif %}">
+                Viewing as: {{ 'Shipper' if user_type == 'shipper' else 'Carrier Admin' }}
+            </span>
         </div>
+        
         <div class="card-body table-responsive">
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>#</th>
-                        <th>Created At</th>
-                        <th>Lane</th>
-                        <th>Equipment</th>
-                        <th>Send At</th>
-                        <th>Open For</th>
-                        <th>Rates Received</th>
-                        <th>Accepted Rate</th>
-                        <th>Accepted Carrier Admin</th>
+                        {% if user_type == 'shipper' %}
+                            <!-- Shipper View Columns -->
+                            <th>#</th>
+                            <th>Created At</th>
+                            <th>Lane</th>
+                            <th>Equipment</th>
+                            <th>Send At</th>
+                            <th>Open For</th>
+                            <th>Rates Received</th>
+                            <th>Accepted Rate</th>
+                            <th>Accepted Carrier</th>
+                            <th>Status</th>
+                        {% else %}
+                            <!-- Carrier Admin View Columns -->
+                            <th>#</th>
+                            <th>Shipper</th>
+                            <th>Lane</th>
+                            <th>Equipment</th>
+                            <th>Quote Date</th>
+                            <th>Your Rate</th>
+                            <th>Your Status</th>
+                            <th>Expiration</th>
+                            <th>Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
+                
                 <tbody>
-                    {% for quote in quotes %}
+                    {% if user_type == 'shipper' %}
+                        <!-- Shipper View Rows -->
+                        {% for quote in quotes %}
                         <tr>
                             <td>{{ quote.id }}</td>
-                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
-                            <td>{{ quote.origin }} - {{ quote.destination }}</td>
+                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
+                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
                             <td>{{ quote.equipment_type or '—' }}</td>
-                            <td>
-                                {% if quote.pickup_date.date() == now.date() %}
-                                    Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
-                                {% else %}
-                                    {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
-                                {% endif %}
-                            </td>
+                            <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M') }}</td>
                             <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                            <td>{{ quote.quote_rates | length }}</td>
+                            <td>{{ quote.quote_rates|length }}</td>
                             <td>
                                 {% if quote.accepted_rate %}
-                                    ${{ quote.accepted_rate }}
+                                    ${{ "{:,.2f}".format(quote.accepted_rate) }}
                                 {% else %}
                                     —
                                 {% endif %}
                             </td>
                             <td>
-                                {% if quote.accepted_rate %}
+                                {% if quote.accepted_carrier_admin %}
                                     {{ quote.accepted_carrier_admin }}
                                 {% else %}
                                     —
                                 {% endif %}
                             </td>
+                            <td>
+                                <span class="badge bg-{% if quote.status_summary == 'Accepted' %}success
+                                                     {% elif quote.status_summary == 'Declined' %}danger
+                                                     {% else %}secondary{% endif %}">
+                                    {{ quote.status_summary }}
+                                </span>
+                            </td>
                         </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">No quote history found.</td>
+                        </tr>
+                        {% endfor %}
+                        
                     {% else %}
+                        <!-- Carrier Admin View Rows -->
+                        {% for item in quotes %}
+                        {% set quote = item.quote %}
+                        <tr>
+                            <td>{{ quote.id }}</td>
+                            <td>{{ quote.shipper.user.company_name }}</td>
+                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
+                            <td>{{ quote.equipment_type or '—' }}</td>
+                            <td>{{ quote.created_at.strftime('%m-%d-%y') }}</td>
+                            <td>${{ "{:,.2f}".format(item.rate.rate) }}</td>
+                            <td>
+                                <span class="badge bg-{% if item.rate.status == 'accepted' %}success
+                                                     {% elif item.rate.status == 'declined' %}danger
+                                                     {% else %}warning{% endif %}">
+                                    {{ item.rate.status|title }}
+                                </span>
+                            </td>
+                            <td>{{ item.expiration_status }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#quoteDetailsModal"
+                                        data-quote-id="{{ quote.id }}">
+                                    Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
                         <tr>
                             <td colspan="9" class="text-center text-muted">No quote history found.</td>
                         </tr>
-                    {% endfor %}
+                        {% endfor %}
+                    {% endif %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<!-- Modal for Quote Details -->
+<div class="modal fade" id="quoteDetailsModal" tabindex="-1" aria-labelledby="quoteDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="quoteDetailsModalLabel">Quote Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="quoteDetailsContent">
+                <!-- Content will be loaded via AJAX -->
+                <div class="text-center py-4">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Load quote details in modal
+document.getElementById('quoteDetailsModal').addEventListener('show.bs.modal', function (event) {
+    const button = event.relatedTarget;
+    const quoteId = button.getAttribute('data-quote-id');
+    const modalContent = document.getElementById('quoteDetailsContent');
+    
+    // Load content via AJAX
+    fetch(`/api/quotes/${quoteId}`)
+        .then(response => response.text())
+        .then(html => {
+            modalContent.innerHTML = html;
+        })
+        .catch(error => {
+            modalContent.innerHTML = `<div class="alert alert-danger">Error loading quote details</div>`;
+        });
+});
+</script>
 {% endblock %}
