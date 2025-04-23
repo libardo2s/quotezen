@@ -113,15 +113,20 @@
                                 hx-swap="outerHTML" hx-trigger="submit">
                                 <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
                                 <input type="hidden" name="quote_id" value="{{ quote.id }}">
-
-                                <div class="input-group input-group-sm" style="max-width: 180px;">
+                        
+                                <!-- Input para el rate -->
+                                <div class="input-group input-group-sm mb-1" style="max-width: 180px;">
                                     <input type="number" required name="rate"
                                         value="{{ quote.submitted_rate if quote.submitted_rate is not none else '' }}"
-                                        class="form-control" step="0.01" min="0">
-                                    <button class="btn btn-outline-primary" type="submit">
+                                        class="form-control" step="0.01" min="0" placeholder="Rate">
+                                    <button class="btn btn-outline-primary" type="submit" title="Save rate & comment">
                                         <i class="bi bi-check2-circle"></i> Save
                                     </button>
                                 </div>
+                        
+                                <!-- Campo de texto para comentarios -->
+                                <textarea name="comment" class="form-control form-control-sm" rows="1"
+                                    placeholder="Add comment (optional)">{{ quote.submitted_comment or '' }}</textarea>
                             </form>
                         </td>
                     </tr>
@@ -273,6 +278,11 @@
 
     .list-unstyled li:last-child {
         border-bottom: none;
+    }
+
+    textarea.form-control-sm {
+        resize: vertical;
+        font-size: 0.85rem;
     }
 </style>
 
