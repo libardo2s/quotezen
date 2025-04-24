@@ -137,7 +137,9 @@
                         <select id="carrierSelect" name="carrier_ids[]" multiple placeholder="Select Carriers...">
                             <option value="select_all">— Select All —</option>
                             {% for carrier in carriers %}
-                            <option value="{{ carrier.id }}">{{ carrier.name }}</option>
+                                {% if carrier.active %}
+                                    <option value="{{ carrier.id }}">{{ carrier.name }}</option>
+                                {% endif %}
                             {% endfor %}
                         </select>
                         <div id="selectedCarrierTags" class="d-flex flex-wrap gap-2 mt-2"></div>
