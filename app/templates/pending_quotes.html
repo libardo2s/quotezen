@@ -16,10 +16,10 @@
                 <thead class="table-light">
                     <tr>
                         <th>#</th>
-                        <th>Created At</th>
+                        <th>Created At (UTC)</th>
                         <th>Lane</th>
                         <th>Equipment Type</th>
-                        <th>Send At</th>
+                        <th>Send At (UTC)</th>
                         <th>Open For</th>
                         <th>Time Remaining</th>
                         <th>Requester Form</th>
@@ -32,19 +32,21 @@
                     <!-- Main row -->
                     <tr>
                         <td>{{ quote.id }}</td>
-                        <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M:%S') }}</td>
+                        <td>{{ quote.created_at.strftime('%m-%d-%Y %H:%M:%S UTC') }}</td>
                         <td>{{ quote.origin }} - {{ quote.destination }}</td>
                         <td>{{ quote.equipment_type or 'R' }}</td>
                         <td>
                             {% if quote.pickup_date.date() == today %}
-                            Today {{ quote.pickup_date.strftime('%H:%M:%S') }}
+                            Today {{ quote.pickup_date.strftime('%H:%M:%S UTC') }}
                             {% else %}
-                            {{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S') }}
+                            {{ quote.pickup_date.strftime('%m-%d-%Y %H:%M:%S UTC') }}
                             {% endif %}
                         </td>
                         <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                        <td class="time-remaining" data-unit="{{ quote.open_unit }}"
-                            data-created-at="{{ quote.created_at.isoformat() }}" data-value="{{ quote.open_value }}">
+                        <td class="time-remaining" 
+                            data-unit="{{ quote.open_unit }}"
+                            data-created-at="{{ quote.created_at.isoformat() + 'Z' }}" 
+                            data-value="{{ quote.open_value }}">
                             <!-- Initial value will be set by JS -->
                             00:00:00
                         </td>
@@ -61,7 +63,7 @@
 
                     <!-- Expandable row for details -->
                     <tr id="quote-details-{{ quote.id }}" style="display: none;">
-                        <td colspan="8" class="p-0">
+                        <td colspan="10" class="p-0">
                             <div class="p-3">
                                 <table class="table table-sm table-bordered mb-0">
                                     <thead class="table-light">
@@ -92,64 +94,63 @@
                                                     onclick="submitDecision({{ quote.id }}, {{ carrier.carrier.id }}, {{ carrier.rate }}, 'accepted')">
                                                     Accept
                                                 </button>
-
+                                                <button class="btn btn-sm btn-danger"
+                                                    onclick="submitDecision({{ quote.id }}, {{ carrier.carrier.id }}, {{ carrier.rate }}, 'declined')">
+                                                    Decline
+                                                </button>
                                                 {% endif %}
                                             </td>
                                         </tr>
                                         {% else %}
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted">No carrier offers yet.</td>
+                                            <td colspan="6" class="text-center text-muted">No carrier offers yet.</td>
                                         </tr>
                                         {% endfor %}
                                         <tr>
-                                        <tr>
-                                            <td colspan="8" class="text-end">
+                                            <td colspan="6" class="text-end">
                                                 <button class="btn btn-sm btn-danger"
                                                     onclick="declineAll({{ quote.id }})">
                                                     Decline All
                                                 </button>
                                             </td>
                                         </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
                     </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="10" class="text-center text-muted">No pending quotes found.</td>
+                    </tr>
+                    {% endfor %}
                 </tbody>
             </table>
         </div>
-        </td>
-        </tr>
-
-        {% else %}
-        <tr>
-            <td colspan="8" class="text-center text-muted">No pending quotes found.</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-        </table>
     </div>
-</div>
 
-<!-- Delete Modal -->
-<div class="modal fade" id="confirmDeleteQuoteModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Confirm Delete Quote</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                Are you sure you want to delete this quote?
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button id="confirmDeleteQuoteBtn" class="btn btn-danger">Yes, Delete</button>
+    <!-- Delete Modal -->
+    <div class="modal fade" id="confirmDeleteQuoteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirm Delete Quote</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete this quote?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button id="confirmDeleteQuoteBtn" class="btn btn-danger">Yes, Delete</button>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-</div>
-
 <script>
-    let quoteToDeleteId = null;
+    // Toggle quote details
     function toggleDetails(quoteId) {
         const detailsRow = document.getElementById(`quote-details-${quoteId}`);
         const icon = document.getElementById(`icon-${quoteId}`);
@@ -164,6 +165,9 @@
             icon.classList.add('bi-chevron-down');
         }
     }
+
+    // Delete quote functionality
+    let quoteToDeleteId = null;
     document.body.addEventListener('click', function (event) {
         const deleteBtn = event.target.closest('.delete-quote-btn');
         if (deleteBtn) {
@@ -197,8 +201,8 @@
             modal.hide();
         }
     });
-</script>
-<script>
+
+    // Countdown timer functionality with UTC handling
     document.addEventListener('DOMContentLoaded', function () {
         const timeElements = document.querySelectorAll('.time-remaining');
 
@@ -212,29 +216,29 @@
                 return;
             }
 
-            // Calcular la fecha de expiración sumando según unidad
+            // Calculate expiration time in UTC
             let expiration = new Date(createdAt.getTime());
             switch (unit) {
                 case 'minutes':
-                    expiration.setMinutes(expiration.getMinutes() + value);
+                    expiration.setUTCMinutes(expiration.getUTCMinutes() + value);
                     break;
                 case 'hours':
-                    expiration.setHours(expiration.getHours() + value);
+                    expiration.setUTCHours(expiration.getUTCHours() + value);
                     break;
                 case 'days':
-                    expiration.setDate(expiration.getDate() + value);
+                    expiration.setUTCDate(expiration.getUTCDate() + value);
                     break;
                 default:
                     element.textContent = '00:00:00';
                     return;
             }
 
-            // Almacenar el temporizador
+            // Initialize and store the timer
             element.countdownTimer = setInterval(() => {
                 updateCountdown(element, expiration);
             }, 1000);
 
-            // Llamada inicial
+            // Initial call
             updateCountdown(element, expiration);
         });
 
@@ -259,6 +263,7 @@
                 `${String(minutes).padStart(2, '0')}:` +
                 `${String(seconds).padStart(2, '0')}`;
 
+            // Add warning class when less than 30 minutes remain
             if (diff < 30 * 60 * 1000) {
                 element.classList.add('warning');
             } else {
@@ -266,41 +271,9 @@
             }
         }
     });
-</script>
 
-<style>
-    .time-remaining.warning {
-        color: orange;
-        font-weight: bold;
-    }
-
-    .time-remaining.expired {
-        color: red;
-        font-weight: bold;
-    }
-
-    .swal2-popup {
-        font-family: inherit;
-        border-radius: 0.5rem;
-    }
-
-    .swal2-title {
-        font-size: 1.5rem;
-    }
-
-    .swal2-confirm {
-        padding: 0.5rem 1.5rem;
-    }
-</style>
-
-<script>
+    // Quote decision functionality
     function submitDecision(quoteId, carrierAdminId, rate, decision) {
-        console.log("Submitting decision:", {
-            quoteId: quoteId,
-            carrierAdminId: carrierAdminId,
-            rate: rate,
-            decision: decision
-        });
         fetch("/api/quote/decision", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -327,8 +300,8 @@
 
                 setTimeout(() => {
                     alertBox.classList.add("d-none");
-                    //location.reload();
-                }, 2000);  // 2 seconds before reload
+                    location.reload();
+                }, 2000);
             })
             .catch(err => {
                 const alertBox = document.getElementById("decision-alert");
@@ -384,4 +357,29 @@
         });
     }
 </script>
+
+<style>
+    .time-remaining.warning {
+        color: orange;
+        font-weight: bold;
+    }
+
+    .time-remaining.expired {
+        color: red;
+        font-weight: bold;
+    }
+
+    .swal2-popup {
+        font-family: inherit;
+        border-radius: 0.5rem;
+    }
+
+    .swal2-title {
+        font-size: 1.5rem;
+    }
+
+    .swal2-confirm {
+        padding: 0.5rem 1.5rem;
+    }
+</style>
 {% endblock %}

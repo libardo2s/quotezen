@@ -802,7 +802,36 @@ def autocomplete_location():
     if not term:
         return jsonify([])
 
-    # Normalizar el término: reemplazar comas por espacios y dividir
+    # Si el término es numérico, buscar solo por código postal
+    if term.isdigit():
+        query = City.query.filter(City.postal_code.ilike(f"%{term}%"))
+        results = query.limit(10).all()
+        
+        response = [
+            {
+                "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
+                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+            }
+            for city in results
+        ]
+        return jsonify(response)
+
+    # Primero intentamos buscar el término completo en ciudad
+    query_full = City.query.filter(City.city_name.ilike(f"%{term}%"))
+    results_full = query_full.limit(10).all()
+
+    if results_full:
+        # Si encontramos resultados con el término completo, los devolvemos
+        response = [
+            {
+                "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
+                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+            }
+            for city in results_full
+        ]
+        return jsonify(response)
+
+    # Si no hay resultados con el término completo, procedemos con el split
     search_terms = [t.strip() for t in term.replace(',', ' ').split() if t.strip()]
 
     # Construir la consulta base
