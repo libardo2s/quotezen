@@ -1741,3 +1741,137 @@ def get_carrier_creator(carrier_id):
     }
     
     return jsonify(response_data)
+
+
+@app_routes.route('/api/quotes/filter', methods=['POST'])
+def filter_quotes():
+    try:
+        # Get filters from request
+        filters = request.get_json()
+        user_id = session.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "Unauthorized"}), 401
+
+        # Base query for pending quotes
+        query = Quote.query
+        
+        # For shipper view - only their quotes
+        if session.get('user_role') == 'Shipper':
+            shipper = Shipper.query.filter_by(user_id=user_id).first()
+            if not shipper:
+                return jsonify({"error": "Shipper not found"}), 404
+            query = query.filter_by(shipper_id=shipper.id)
+        
+        # For carrier admin view - quotes assigned to them
+        elif session.get('user_role') == 'CarrierAdmin':
+            carrier = Carrier.query.filter_by(user_id=user_id).first()
+            if not carrier:
+                return jsonify({"error": "Carrier not found"}), 404
+            
+            # Get quotes where this carrier is assigned but hasn't responded yet
+            query = query.join(
+                quote_carrier,
+                Quote.id == quote_carrier.c.quote_id
+            ).filter(
+                quote_carrier.c.carrier_id == carrier.id,
+                ~exists().where(and_(
+                    QuoteCarrierRate.quote_id == Quote.id,
+                    QuoteCarrierRate.carrier_admin_id == user_id
+                ))
+            )
+
+        # Apply date filters
+        date_start = filters.get('date_start')
+        date_end = filters.get('date_end')
+        
+        if date_start:
+            start_date = datetime.strptime(date_start, '%Y-%m-%d').date()
+            query = query.filter(Quote.created_at >= start_date)
+            
+        if date_end:
+            end_date = datetime.strptime(date_end, '%Y-%m-%d').date()
+            query = query.filter(Quote.created_at <= end_date)
+
+        # Apply lane filter (origin → destination)
+        lane = filters.get('lane')
+        if lane:
+            origin, destination = map(str.strip, lane.split('→'))
+            query = query.filter(
+                Quote.origin.ilike(f'%{origin}%'),
+                Quote.destination.ilike(f'%{destination}%')
+            )
+
+        # Apply equipment filter
+        equipment = filters.get('equipment')
+        if equipment:
+            query = query.filter_by(equipment_type=equipment)
+
+        # Apply carrier filter (only for shipper view)
+        carrier_filter = filters.get('carrier')
+        if carrier_filter and session.get('user_role') == 'Shipper':
+            if carrier_filter == 'none':
+                # Quotes with no accepted carrier
+                query = query.filter(
+                    Quote.accepted_carrier_admin.is_(None)
+                )
+            else:
+                # Quotes with specific accepted carrier
+                query = query.filter(
+                    Quote.accepted_carrier_admin.ilike(f'%{carrier_filter}%')
+                )
+
+        # Get only pending quotes (not accepted or declined by all carriers)
+        if session.get('user_role') == 'Shipper':
+            # For shipper - quotes that still have carriers who haven't responded
+            subquery = db.session.query(
+                QuoteCarrierRate.quote_id,
+                func.count(QuoteCarrierRate.id).label('response_count')
+            ).group_by(
+                QuoteCarrierRate.quote_id
+            ).subquery()
+
+            query = query.outerjoin(
+                subquery,
+                Quote.id == subquery.c.quote_id
+            ).filter(
+                or_(
+                    subquery.c.response_count.is_(None),
+                    subquery.c.response_count < func.array_length(Quote.carriers, 1)
+                )
+            )
+
+        # Execute query
+        quotes = query.order_by(Quote.created_at.desc()).all()
+
+        # Serialize results
+        result = []
+        for quote in quotes:
+            quote_data = {
+                "id": quote.id,
+                "created_at": quote.created_at.isoformat(),
+                "origin": quote.origin,
+                "destination": quote.destination,
+                "equipment_type": quote.equipment_type,
+                "pickup_date": quote.pickup_date.isoformat() if quote.pickup_date else None,
+                "open_value": quote.open_value,
+                "open_unit": quote.open_unit,
+                "rates_received": len([r for r in quote.quote_rates if r.rate is not None]),
+                "accepted_rate": float(quote.accepted_rate) if quote.accepted_rate else None,
+                "accepted_carrier": quote.accepted_carrier_admin,
+                "status": "Pending"  # You might have more sophisticated status logic
+            }
+            result.append(quote_data)
+
+        return jsonify({
+            "status": "success",
+            "data": result,
+            "count": len(result)
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 500
+

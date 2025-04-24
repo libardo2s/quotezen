@@ -14,8 +14,53 @@
             </span>
         </div>
 
+        <!-- Filter Section (Shipper View Only) -->
+        {% if user_type == 'shipper' %}
+        <div class="card-header bg-light">
+            <form id="quoteFilters" class="row g-3">
+                <div class="col-md-4">
+                    <label for="dateRange" class="form-label">Date Range</label>
+                    <div class="input-group">
+                        <input type="date" class="form-control" id="dateStart" aria-label="Start date">
+                        <span class="input-group-text">to</span>
+                        <input type="date" class="form-control" id="dateEnd" aria-label="End date">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="laneFilter" class="form-label">Lane</label>
+                    <input type="text" class="form-control" id="laneFilter" placeholder="Origin → Destination">
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="equipmentFilter" class="form-label">Equipment</label>
+                    <select class="form-select" id="equipmentFilter">
+                        <option value="">Select Equipment</option>
+                        {% for eq in equipment_types %}
+                        <option value="{{ eq.name }}">{{ eq.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="carrierFilter" class="form-label">Accepted Carrier</label>
+                    <input type="text" class="form-control" id="carrierFilter" placeholder="Carrier Name">
+                </div>
+                
+                <div class="col-md-1 d-flex flex-column">
+                    <button type="button" class="btn btn-primary mb-2" onclick="applyFilters()">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="resetAllFilters()">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
         <div class="card-body table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" id="quotesTable">
                 <thead class="table-light">
                     <tr>
                         {% if user_type == 'shipper' %}
@@ -49,7 +94,11 @@
                     {% if user_type == 'shipper' %}
                     <!-- Shipper View Rows -->
                     {% for quote in quotes %}
-                    <tr>
+                    <tr class="quote-row" 
+                        data-created-at="{{ quote.created_at.strftime('%Y-%m-%d') }}"
+                        data-lane="{{ quote.origin }} → {{ quote.destination }}"
+                        data-equipment="{{ quote.equipment_type or '' }}"
+                        data-carrier="{{ quote.accepted_carrier_admin or '' }}">
                         <td>{{ quote.id }}</td>
                         <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
                         <td>{{ quote.origin }} → {{ quote.destination }}</td>
@@ -157,18 +206,124 @@
 </div>
 
 <script>
+    // Set default dates (today for end date, 30 days ago for start date)
+    document.addEventListener('DOMContentLoaded', function() {
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        document.getElementById('dateEnd').valueAsDate = today;
+        document.getElementById('dateStart').valueAsDate = thirtyDaysAgo;
+        
+        // Apply filters on page load
+        applyFilters();
+    });
+
+    // Reset date range
+    function resetDateRange() {
+        document.getElementById('dateStart').value = '';
+        document.getElementById('dateEnd').value = '';
+        applyFilters();
+    }
+
+    // Reset all filters
+    function resetAllFilters() {
+        // Reset all filter inputs
+        document.getElementById('dateStart').value = '';
+        document.getElementById('dateEnd').value = '';
+        document.getElementById('laneFilter').value = '';
+        document.getElementById('equipmentFilter').value = '';
+        document.getElementById('carrierFilter').value = '';
+        
+        // Show all rows
+        const rows = document.querySelectorAll('.quote-row');
+        rows.forEach(row => {
+            row.style.display = '';
+        });
+        
+        // Remove no results message if it exists
+        const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
+        if (noResultsRow) {
+            noResultsRow.remove();
+        }
+    }
+
+    // Apply filters function
+    function applyFilters() {
+        const dateStart = document.getElementById('dateStart').value;
+        const dateEnd = document.getElementById('dateEnd').value;
+        const laneFilter = document.getElementById('laneFilter').value.toLowerCase();
+        const equipmentFilter = document.getElementById('equipmentFilter').value.toLowerCase();
+        const carrierFilter = document.getElementById('carrierFilter').value.toLowerCase();
+        
+        const rows = document.querySelectorAll('.quote-row');
+        let hasVisibleRows = false;
+        
+        rows.forEach(row => {
+            const createdAt = row.getAttribute('data-created-at');
+            const lane = row.getAttribute('data-lane').toLowerCase();
+            const equipment = row.getAttribute('data-equipment').toLowerCase();
+            const carrier = (row.getAttribute('data-carrier') || '').toLowerCase();
+            
+            let showRow = true;
+            
+            // Apply date filter
+            if (dateStart && dateEnd) {
+                showRow = showRow && (createdAt >= dateStart && createdAt <= dateEnd);
+            } else if (dateStart) {
+                showRow = showRow && (createdAt >= dateStart);
+            } else if (dateEnd) {
+                showRow = showRow && (createdAt <= dateEnd);
+            }
+            
+            // Apply lane filter (partial match)
+            if (laneFilter) {
+                showRow = showRow && lane.includes(laneFilter);
+            }
+            
+            // Apply equipment filter
+            if (equipmentFilter) {
+                showRow = showRow && equipment.includes(equipmentFilter);
+            }
+            
+            // Apply carrier filter (partial match)
+            if (carrierFilter) {
+                showRow = showRow && carrier.includes(carrierFilter);
+            }
+            
+            row.style.display = showRow ? '' : 'none';
+            if (showRow) hasVisibleRows = true;
+        });
+        
+        // Show message if no rows match
+        const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
+        const tbody = document.querySelector('#quotesTable tbody');
+        
+        if (!hasVisibleRows) {
+            if (!noResultsRow) {
+                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No quotes match your filters</td></tr>';
+            }
+        } else {
+            // Remove no results message if it exists and we have visible rows
+            if (noResultsRow && hasVisibleRows) {
+                noResultsRow.remove();
+            }
+        }
+    }
+
+    // Quote Details Modal
     const quoteDetailsModal = document.getElementById('quoteDetailsModal');
     quoteDetailsModal.addEventListener('show.bs.modal', function (event) {
         const button = event.relatedTarget;
         const quoteId = button.getAttribute('data-quote-id');
         const modalContent = document.getElementById('quoteDetailsContent');
 
-        // Mostrar spinner
+        // Show spinner
         modalContent.innerHTML = `<div class="text-center py-4">
             <div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>
         </div>`;
 
-        // Cargar datos de la API
+        // Load data from API
         fetch(`/api/quote/${quoteId}`)
             .then(response => response.json())
             .then(data => {
@@ -176,10 +331,11 @@
             })
             .catch(error => {
                 modalContent.innerHTML = `<div class="alert alert-danger">Error loading quote details</div>`;
+                console.error('Error loading quote details:', error);
             });
     });
 
-    // Función que toma el JSON y devuelve HTML bonito
+    // Format quote details
     function formatQuoteDetails(data) {
         return `
         <ul class="list-group">
@@ -200,8 +356,9 @@
         </ul>`;
     }
 
-    // Función auxiliar para formatear fechas ISO
+    // Helper function to format ISO dates
     function formatDate(dateStr) {
+        if (!dateStr) return '—';
         const date = new Date(dateStr);
         return date.toLocaleString(undefined, {
             year: 'numeric', month: 'short', day: 'numeric',
@@ -210,5 +367,48 @@
     }
 </script>
 
-
+<style>
+    /* Custom styling for filters */
+    #quoteFilters .form-label {
+        font-weight: 500;
+        font-size: 0.875rem;
+    }
+    
+    /* Button styling */
+    #quoteFilters .btn {
+        white-space: nowrap;
+        width: 100%;
+    }
+    
+    /* Reset button highlight */
+    #quoteFilters .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+    
+    #quoteFilters .btn-danger:hover {
+        background-color: #bb2d3b;
+        border-color: #b02a37;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        #quoteFilters .col-md-4,
+        #quoteFilters .col-md-3, 
+        #quoteFilters .col-md-2,
+        #quoteFilters .col-md-1 {
+            margin-bottom: 1rem;
+        }
+        
+        #quoteFilters .d-flex.flex-column {
+            flex-direction: row !important;
+            gap: 0.5rem;
+        }
+        
+        #quoteFilters .btn {
+            width: auto;
+            flex: 1;
+        }
+    }
+</style>
 {% endblock %}

@@ -551,11 +551,20 @@ def quote_history():
                 quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
                 valid_quotes.append(quote)
 
+        modes = Mode.query.all()
+        equipment_types = EquipmentType.query.all()
+        rate_types = RateType.query.all()
+        accessorials = Accessorial.query.all()
+
         return render_template(
             "quote_history.html",
             quotes=valid_quotes,
             now=now,
-            user_type="shipper"
+            user_type="shipper",
+            modes=modes,
+            equipment_types=equipment_types,
+            rate_types=rate_types,
+            accessorials=accessorials
         )
 
     # --- Carrier Admin logic (filtered for accepted, declined, or expired) ---
@@ -595,14 +604,21 @@ def quote_history():
                     'expiration_status': "Expired" if is_expired else "Active"
                 })
 
+        modes = Mode.query.all()
+        equipment_types = EquipmentType.query.all()
+        rate_types = RateType.query.all()
+        accessorials = Accessorial.query.all()
+
         return render_template(
             "quote_history.html",
             quotes=processed_quotes,
             now=now,
-            user_type="carrier_admin"
+            user_type="carrier_admin",
+            modes=modes,
+            equipment_types=equipment_types,
+            rate_types=rate_types,
+            accessorials=accessorials
         )
-
-
 
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():
