@@ -657,7 +657,7 @@ def update_carrier(carrier_id):
 def delete_carrier(carrier_id):
     try:
         carrier = Carrier.query.get_or_404(carrier_id)
-        carrier.active = False  # Set active flag to False instead of deleting
+        carrier.deleted = True  # Set active flag to False instead of deleting
         db.session.commit()
 
         return jsonify({"status": "success", "message": "Carrier deleted successfully"})

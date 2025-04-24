@@ -18,6 +18,7 @@ class Carrier(db.Model):
     scac = Column(String(20), unique=True, nullable=True)
     mc_number = Column(String(50), unique=True, nullable=True)
     active = Column(Boolean, default=True, nullable=True)
+    deleted = Column(Boolean, default=False, nullable=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

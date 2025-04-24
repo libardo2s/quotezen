@@ -335,9 +335,15 @@
                             <td>${carrier.authority || "N/A"}</td>
                             <td>${carrier.scac || "N/A"}</td>
                             <td>${carrier.mc_number || "N/A"}</td>
-                            <td>${carrier.carrier_name || "N/A"}</td>
+                            <td>${carrier.user.first_name || "N/A"} ${carrier.user.last_name || ""}</td>
                             <td>${carrier.user.phone || "N/A"}</td>
                             <td>${carrier.user.email || "N/A"}</td>
+                            <td>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input toggle-carrier-btn" type="checkbox" 
+                                        data-id="${carrier.id}" ${carrier.is_active ? 'checked' : ''}>
+                                </div>
+                            </td>
                             <td class="text-center">
                                 <button class="btn btn-sm btn-primary edit-carrier-btn" data-id="${carrier.id}">
                                     <i class="fas fa-edit"></i> Edit
@@ -371,6 +377,12 @@
                             <td>${carrier.user.last_name || ""}</td>
                             <td>${carrier.user.email || "N/A"}</td>
                             <td>${carrier.user.phone || "N/A"}</td>
+                            <td>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input toggle-carrier-btn" type="checkbox" 
+                                        data-id="${carrier.id}" ${carrier.is_active ? 'checked' : ''}>
+                                </div>
+                            </td>
                             <td class="text-center">
                                 <button class="btn btn-sm btn-primary edit-carrier-btn" data-id="${carrier.id}">
                                     <i class="fas fa-edit"></i> Edit
@@ -700,5 +712,17 @@
     }
 
 </script>
+<style>
+    .form-switch .form-check-input {
+        width: 2.5em;
+        height: 1.5em;
+        cursor: pointer;
+    }
 
+    .form-switch .form-check-input:checked {
+        background-color: #198754;
+        /* Bootstrap success color */
+        border-color: #198754;
+    }
+</style>
 {% endblock %}
