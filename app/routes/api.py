@@ -534,7 +534,7 @@ def api_carrier():
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     if request.method == "GET":
-        carriers = Carrier.query.filter_by(active=True, created_by=user_id).all()
+        carriers = Carrier.query.filter_by(deleted=False, created_by=user_id).all()
         carrier_list = [
             {
                 "id": carrier.id,
@@ -563,7 +563,6 @@ def api_carrier():
             return create_carrier_user(data=data, user_id=user_id, db=db)
         else:
             return create_carrier_admin(data=data, user_id=user_id, db=db)
-
 
 @app_routes.route("/api/carrier/<string:mc_number>", methods=["GET"])
 #@token_required
@@ -664,6 +663,28 @@ def delete_carrier(carrier_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Deletion failed: {str(e)}"}), 500
+    
+@app_routes.route('/api/carrier/<int:carrier_id>/toggle-active', methods=['PUT'])
+#@token_required
+def toggle_carrier_active(carrier_id):
+    try:
+        carrier = Carrier.query.get_or_404(carrier_id)
+        carrier.active = not carrier.active
+
+        # Si desactivamos este carrier, también desactivamos todos los carriers creados por él
+        if not carrier.active:
+            created_carriers = Carrier.query.filter_by(created_by=carrier.user.id).all()
+            for c in created_carriers:
+                c.active = False
+                c.user.active = False
+
+        db.session.commit()
+        status = "activated" if carrier.active else "deactivated"
+        return jsonify({"status": "success", "message": f"Carrier {status} successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": f"Toggle failed: {str(e)}"}), 500
 
 def get_all_created_user_ids(user_id):
     """
