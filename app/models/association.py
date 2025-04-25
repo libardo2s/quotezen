@@ -5,7 +5,8 @@ carrier_shipper = Table(
     'carrier_shipper',
     db.Model.metadata,
     Column('carrier_id', Integer, ForeignKey('carriers.id'), primary_key=True),
-    Column('shipper_id', Integer, ForeignKey('shippers.id'), primary_key=True)
+    Column('shipper_id', Integer, ForeignKey('shippers.id'), primary_key=True),
+    Column('carrier_user_id', Integer, ForeignKey('users.id'), nullable=True),
 )
 
 quote_carrier = Table(

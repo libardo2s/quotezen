@@ -8,7 +8,8 @@ from .association import quote_carrier
 
 class Carrier(db.Model):
     """
-    This is the carrier admin
+    This is the carrier model with a one-to-many relationship to users
+    (1 carrier can have many users)
     """
     __tablename__ = 'carriers'
 
@@ -23,12 +24,17 @@ class Carrier(db.Model):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    # Changed from user_id to primary_user_id to indicate this is just one of many users
+    primary_user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     created_by = Column(Integer, ForeignKey('users.id'), nullable=True)
 
-
-   # Relationships
-    user = relationship("User", backref="carrier_user", foreign_keys=[user_id])
+    # Relationships
+    # Changed to represent many users for this carrier
+    users = relationship("User", backref="carrier")
+    
+    # Relationship to the primary user
+    primary_user = relationship("User", foreign_keys=[primary_user_id])
+    
     created_by_user = relationship("User", backref="carrier_creator", foreign_keys=[created_by])
 
     shippers = relationship(
@@ -44,4 +50,4 @@ class Carrier(db.Model):
     )
 
     def __repr__(self):
-        return f"Carrier: {self.carrier.company.company_name} | Shipper: {self.shipper.company.company_name}>"
+        return f"<Carrier: {self.carrier_name} (ID: {self.id})>"
