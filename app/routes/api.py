@@ -9,13 +9,28 @@ from app.database import db
 from flask import jsonify, request, session, render_template
 from app.routes import app_routes
 from app.config import Config
-from app.models import (User, Company, Shipper, Carrier, Mode, EquipmentType, RateType, Accessorial, City, Quote,
-                    QuoteCarrierRate)
+from app.models import (
+    User,
+    Company,
+    Shipper,
+    Carrier,
+    Mode,
+    EquipmentType,
+    RateType,
+    Accessorial,
+    City,
+    Quote,
+    QuoteCarrierRate,
+)
 
 
-from app.models.association import carrier_shipper,  quote_carrier  # si lo tienes separado
+from app.models.association import (
+    carrier_shipper,
+    quote_carrier,
+)  # si lo tienes separado
 from sqlalchemy.exc import IntegrityError
-#from utils.token_required import token_required
+
+# from utils.token_required import token_required
 from app.utils.send_email import send_email
 from cryptography.fernet import Fernet
 from app.config import Config
@@ -28,9 +43,11 @@ from app.routes import app_routes
 from app.database import db
 from app.models import Lane, Accessorial
 
+
 @app_routes.route("/api/status", methods=["GET"])
 def api_status():
     return jsonify({"status": "API is running!"})
+
 
 @app_routes.route("/api/signin", methods=["POST"])
 def api_sign_in():
@@ -38,23 +55,22 @@ def api_sign_in():
     password = request.form.get("password")
 
     if not username or not password:
-        return jsonify({
-            "status": "error",
-            "message": "Missing username or password."
-        }), 400
+        return (
+            jsonify({"status": "error", "message": "Missing username or password."}),
+            400,
+        )
 
     client = boto3.client("cognito-idp", region_name=Config.COGNITO_REGION)
 
     try:
         response = client.initiate_auth(
-            AuthFlow='USER_PASSWORD_AUTH',
+            AuthFlow="USER_PASSWORD_AUTH",
             AuthParameters={
-                'USERNAME': username,
-                'PASSWORD': password,
+                "USERNAME": username,
+                "PASSWORD": password,
             },
-            ClientId=Config.CLIENT_ID
+            ClientId=Config.CLIENT_ID,
         )
-        
 
         tokens = response.get("AuthenticationResult", {})
         session["access_token"] = tokens.get("AccessToken")
@@ -64,14 +80,12 @@ def api_sign_in():
         # Fetch user from the database
         user = User.query.filter_by(email=username).first()
 
-        
-
         if user:
             session["user_id"] = user.id
             session["user_name"] = user.email
             session["full_name"] = f"{user.first_name} {user.last_name}"
             session["user_role"] = user.role  # Store user role
-        
+
         if user.role == "Admin":
             redirect_url = "/dashboard"
         elif user.role == "CarrierAdmin":
@@ -81,78 +95,91 @@ def api_sign_in():
         else:
             redirect_url = "/quotes"
 
-        return jsonify({
-            "status": "success",
-            "message": "Login successful!",
-            "redirect_url": redirect_url,
-            "user": {
-                "id": user.id,
-                "email": user.email,
-                "role": user.role
+        return jsonify(
+            {
+                "status": "success",
+                "message": "Login successful!",
+                "redirect_url": redirect_url,
+                "user": {"id": user.id, "email": user.email, "role": user.role},
             }
-        })
+        )
 
     except client.exceptions.NotAuthorizedException as e:
         print(Config.CLIENT_ID)
         print(f"Login error: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": "Invalid username or password."
-        }), 401
+        return (
+            jsonify({"status": "error", "message": "Invalid username or password."}),
+            401,
+        )
     except client.exceptions.UserNotFoundException:
-        return jsonify({
-            "status": "error",
-            "message": "User not found."
-        }), 404
+        return jsonify({"status": "error", "message": "User not found."}), 404
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Server error: {str(e)}"
-        }), 500
+        return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 500
+
 
 @app_routes.route("/api/forgot_password", methods=["POST"])
 def api_forgot_password():
     data = request.get_json()
     username = data.get("username")
     if not username:
-        return jsonify({'status': 'error', 'message': 'Email is required'}), 400
+        return jsonify({"status": "error", "message": "Email is required"}), 400
 
     client = boto3.client("cognito-idp", region_name=Config.COGNITO_REGION)
 
     try:
         client.forgot_password(ClientId=Config.CLIENT_ID, Username=username)
-        return jsonify({'status': 'success', 'message': 'A reset code was sent to your email'}), 200
+        return (
+            jsonify(
+                {"status": "success", "message": "A reset code was sent to your email"}
+            ),
+            200,
+        )
     except client.exceptions.UserNotFoundException:
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+        return jsonify({"status": "error", "message": "User not found"}), 404
     except client.exceptions.LimitExceededException:
-        return jsonify({'status': 'error', 'message': 'Too many reset requests. Try again later.'}), 429
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": "Too many reset requests. Try again later.",
+                }
+            ),
+            429,
+        )
     except client.exceptions.CodeMismatchException:
-        return jsonify({'status': 'error', 'message': 'Invalid verification code'}), 400
+        return jsonify({"status": "error", "message": "Invalid verification code"}), 400
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/company", methods=["GET", "POST"])
-#@token_required
+# @token_required
 def api_company():
     if request.method == "GET":
         creator_id = session.get("user_id")
         companies = Company.query.filter_by(active=True, created_by=creator_id)
-        return jsonify([
-            {
-                "id": company.id,
-                "company_name": company.company_name,
-                "duns": company.duns,
-                "active": company.active,
-                "user": {
-                    "first_name": company.user.first_name,
-                    "phone": company.user.phone,
-                    "address": company.user.address,
-                    "email": company.user.email,
-                    "active": company.user.active
-                } if company.user else None
-            }
-            for company in companies
-        ])
+        return jsonify(
+            [
+                {
+                    "id": company.id,
+                    "company_name": company.company_name,
+                    "duns": company.duns,
+                    "active": company.active,
+                    "user": (
+                        {
+                            "first_name": company.user.first_name,
+                            "phone": company.user.phone,
+                            "address": company.user.address,
+                            "email": company.user.email,
+                            "active": company.user.active,
+                        }
+                        if company.user
+                        else None
+                    ),
+                }
+                for company in companies
+            ]
+        )
 
     if request.method == "POST":
         try:
@@ -168,12 +195,25 @@ def api_company():
             encrypted_email = f.encrypt(contact_email.encode()).decode()
 
             # Send the hashed email via POST
-            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
-
+            register_url = (
+                f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+            )
 
             # Validate required fields
-            if not all([company_name, duns, contact_name, contact_phone, address, contact_email]):
-                return jsonify({"status": "error", "message": "All fields are required"}), 400
+            if not all(
+                [
+                    company_name,
+                    duns,
+                    contact_name,
+                    contact_phone,
+                    address,
+                    contact_email,
+                ]
+            ):
+                return (
+                    jsonify({"status": "error", "message": "All fields are required"}),
+                    400,
+                )
 
             # Get creator user ID from session (or use current_user.id)
             creator_id = session.get("user_id")  # Or: current_user.id
@@ -185,7 +225,7 @@ def api_company():
                 email=contact_email,
                 phone=contact_phone,
                 address=address,
-                role="CompanyShipper"
+                role="CompanyShipper",
             )
 
             db.session.add(company_user)
@@ -196,7 +236,7 @@ def api_company():
                 company_name=company_name,
                 duns=duns,
                 user_id=company_user.id,
-                created_by=creator_id
+                created_by=creator_id,
             )
 
             db.session.add(new_company)
@@ -205,52 +245,76 @@ def api_company():
             try:
 
                 # Render HTML email content
-                html_content = render_template("email/company_welcome_email.html", register_url=register_url)
+                html_content = render_template(
+                    "email/company_welcome_email.html", register_url=register_url
+                )
                 print(html_content)
 
                 response = send_email(
                     recipient=contact_email,
                     subject="Welcome to QuoteZen!",
                     body_text="Welcome to QuoteZen! Please complete your registration.",
-                    body_html=html_content
+                    body_html=html_content,
                 )
             except Exception as e:
                 print(f"Email error: {str(e)}")
 
             # Return new table row for HTMX
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": "Company created",
-                    "complete_registration": register_url}
-            ), 200
+            return (
+                jsonify(
+                    {
+                        "status": "success",
+                        "message": "Company created",
+                        "complete_registration": register_url,
+                    }
+                ),
+                200,
+            )
 
         except IntegrityError as e:
             db.session.rollback()
             print(e.orig)
             if isinstance(e.orig, UniqueViolation):
                 # Check which constraint was violated
-                if 'companies_duns_key' in str(e.orig):
-                    return jsonify({
-                        "status": "error",
-                        "message": "A company with this DUNS number already exists"
-                    }), 400
-                elif 'ix_users_email' in str(e.orig):
-                    return jsonify({
-                        "status": "error",
-                        "message": "A user with this email already exists"
-                    }), 400
-            return jsonify({
-                "status": "error",
-                "message": "Database integrity error occurred"
-            }), 400
+                if "companies_duns_key" in str(e.orig):
+                    return (
+                        jsonify(
+                            {
+                                "status": "error",
+                                "message": "A company with this DUNS number already exists",
+                            }
+                        ),
+                        400,
+                    )
+                elif "ix_users_email" in str(e.orig):
+                    return (
+                        jsonify(
+                            {
+                                "status": "error",
+                                "message": "A user with this email already exists",
+                            }
+                        ),
+                        400,
+                    )
+            return (
+                jsonify(
+                    {"status": "error", "message": "Database integrity error occurred"}
+                ),
+                400,
+            )
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({
-                "status": "error",
-                "message": "An unexpected error occurred. Please try again later."
-            }), 500
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": "An unexpected error occurred. Please try again later.",
+                    }
+                ),
+                500,
+            )
+
 
 @app_routes.route("/api/company/<int:company_id>", methods=["GET"])
 # @token_required
@@ -259,17 +323,24 @@ def get_company_by_id(company_id):
     if not company:
         return jsonify({"status": "error", "message": "Company not found"}), 404
 
-    return jsonify({
-        "id": company.id,
-        "company_name": company.company_name,
-        "duns": company.duns,
-        "user": {
-            "first_name": company.user.first_name,
-            "phone": company.user.phone,
-            "address": company.user.address,
-            "email": company.user.email
-        } if company.user else None
-    })
+    return jsonify(
+        {
+            "id": company.id,
+            "company_name": company.company_name,
+            "duns": company.duns,
+            "user": (
+                {
+                    "first_name": company.user.first_name,
+                    "phone": company.user.phone,
+                    "address": company.user.address,
+                    "email": company.user.email,
+                }
+                if company.user
+                else None
+            ),
+        }
+    )
+
 
 @app_routes.route("/api/company/<int:company_id>", methods=["PUT"])
 # @token_required
@@ -294,13 +365,19 @@ def update_company(company_id):
 
     try:
         db.session.commit()
-        return jsonify({"status": "success", "message": "Company updated successfully!"})
+        return jsonify(
+            {"status": "success", "message": "Company updated successfully!"}
+        )
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"status": "error", "message": "DUNS number must be unique"}), 400
+        return (
+            jsonify({"status": "error", "message": "DUNS number must be unique"}),
+            400,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/company/<int:company_id>", methods=["DELETE"])
 def delete_company(company_id):
@@ -329,28 +406,35 @@ def delete_company(company_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app_routes.route("/api/shipper", methods=["GET", "POST"])
-#@token_required
+# @token_required
 def api_shipper():
     if request.method == "GET":
         role_user = session.get("user_role")
-        if role_user == 'Admin':
+        if role_user == "Admin":
             shippers = Shipper.query.filter_by(deleted=False).all()
-            return jsonify([
-                {
-                    "id": shipper.id,
-                    "company_id": shipper.company_id,
-                    "active": shipper.active,
-                    "user": {
-                        "first_name": shipper.user.first_name,
-                        "last_name": shipper.user.last_name,
-                        "phone": shipper.user.phone,
-                        "email": shipper.user.email,
-                        "active": shipper.user.active
-                    } if shipper.user else None
-                }
-                for shipper in shippers
-            ])
+            return jsonify(
+                [
+                    {
+                        "id": shipper.id,
+                        "company_id": shipper.company_id,
+                        "active": shipper.active,
+                        "user": (
+                            {
+                                "first_name": shipper.user.first_name,
+                                "last_name": shipper.user.last_name,
+                                "phone": shipper.user.phone,
+                                "email": shipper.user.email,
+                                "active": shipper.user.active,
+                            }
+                            if shipper.user
+                            else None
+                        ),
+                    }
+                    for shipper in shippers
+                ]
+            )
 
         user_id = session.get("user_id")
         company = Company.query.filter_by(user_id=user_id).first()
@@ -359,22 +443,28 @@ def api_shipper():
 
         shippers = Shipper.query.filter_by(company_id=company.id).all()
 
-        return jsonify([
-            {
-                "id": shipper.id,
-                "company_id": shipper.company_id,
-                "active": shipper.active,
-                "deleted": shipper.deleted,
-                "user": {
-                    "first_name": shipper.user.first_name,
-                    "last_name": shipper.user.last_name,
-                    "phone": shipper.user.phone,
-                    "email": shipper.user.email,
-                    "active": shipper.user.active
-                } if shipper.user else None
-            }
-            for shipper in shippers
-        ])
+        return jsonify(
+            [
+                {
+                    "id": shipper.id,
+                    "company_id": shipper.company_id,
+                    "active": shipper.active,
+                    "deleted": shipper.deleted,
+                    "user": (
+                        {
+                            "first_name": shipper.user.first_name,
+                            "last_name": shipper.user.last_name,
+                            "phone": shipper.user.phone,
+                            "email": shipper.user.email,
+                            "active": shipper.user.active,
+                        }
+                        if shipper.user
+                        else None
+                    ),
+                }
+                for shipper in shippers
+            ]
+        )
 
     if request.method == "POST":
         # For Shipper User
@@ -389,7 +479,9 @@ def api_shipper():
             encrypted_email = f.encrypt(email.encode()).decode()
 
             # Send the hashed email via POST
-            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+            register_url = (
+                f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+            )
 
             # Get company of current user
             company = Company.query.filter_by(user_id=user_id).first()
@@ -403,7 +495,7 @@ def api_shipper():
                 email=email,
                 phone=phone,
                 role="Shipper",
-                active=True
+                active=True,
             )
             db.session.add(new_user)
             db.session.flush()
@@ -413,7 +505,7 @@ def api_shipper():
                 user_id=new_user.id,
                 company_id=company.id,
                 created_by=user_id,
-                active=True
+                active=True,
             )
             db.session.add(new_shipper)
             db.session.commit()
@@ -423,7 +515,7 @@ def api_shipper():
                     "email/shipper_welcome_email.html",
                     name=f"{first_name} {last_name}",
                     userAdminName=company.company_name,
-                    link_to_create_password=register_url
+                    link_to_create_password=register_url,
                 )
 
                 print(html_content)
@@ -432,45 +524,57 @@ def api_shipper():
                     recipient=email,
                     subject="You're invited to QuoteZen!",
                     body_text="You've been invited to QuoteZen. Click the link to complete registration.",
-                    body_html=html_content
+                    body_html=html_content,
                 )
             except Exception as e:
                 print(f"Email error: {str(e)}")
 
             # Return new table row for HTMX
-            return jsonify(
-                {
-                    "status": "success",
-                    "message": "Shipper created",
-                    "complete_registration": register_url
-                }), 200
+            return (
+                jsonify(
+                    {
+                        "status": "success",
+                        "message": "Shipper created",
+                        "complete_registration": register_url,
+                    }
+                ),
+                200,
+            )
 
         except Exception as e:
             db.session.rollback()
             return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
 
+
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["GET"])
-#@token_required
+# @token_required
 def get_shipper_by_id(shipper_id):
     shipper = Shipper.query.get(shipper_id)
     if not shipper:
         return jsonify({"status": "error", "message": "Shipper not found"}), 404
 
-    return jsonify({
-        "id": shipper.id,
-        "company_id": shipper.company_id,
-        "active": shipper.active,
-        "user": {
-            "first_name": shipper.user.first_name,
-            "last_name": shipper.user.last_name,
-            "phone": shipper.user.phone,
-            "email": shipper.user.email,
-            "active": shipper.user.active
-        } if shipper.user else None
-    })
+    return jsonify(
+        {
+            "id": shipper.id,
+            "company_id": shipper.company_id,
+            "active": shipper.active,
+            "user": (
+                {
+                    "first_name": shipper.user.first_name,
+                    "last_name": shipper.user.last_name,
+                    "phone": shipper.user.phone,
+                    "email": shipper.user.email,
+                    "active": shipper.user.active,
+                }
+                if shipper.user
+                else None
+            ),
+        }
+    )
+
 
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["PUT"])
-#@token_required
+# @token_required
 def update_shipper(shipper_id):
     shipper = Shipper.query.get(shipper_id)
 
@@ -492,20 +596,26 @@ def update_shipper(shipper_id):
         return jsonify({"status": "success", "message": "Shipper updated successfully"})
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"status": "error", "message": "DUNS number must be unique"}), 400
+        return (
+            jsonify({"status": "error", "message": "DUNS number must be unique"}),
+            400,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "status": "error",
-            "message": f"Failed to update shipper: {str(e)}"
-        }), 500
+        return (
+            jsonify(
+                {"status": "error", "message": f"Failed to update shipper: {str(e)}"}
+            ),
+            500,
+        )
+
 
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["DELETE"])
-#@token_required
+# @token_required
 def delete_shipper(shipper_id):
     shipper = Shipper.query.get(shipper_id)
 
@@ -521,20 +631,25 @@ def delete_shipper(shipper_id):
             shipper.user.active = False
 
         db.session.commit()
-        return jsonify({"status": "success", "message": "Shipper deleted successfully"}), 200
+        return (
+            jsonify({"status": "success", "message": "Shipper deleted successfully"}),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app_routes.route("/api/carrier/", methods=["GET", "POST"])
-#@token_required
+# @token_required
 def api_carrier():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
     if request.method == "GET":
-        carriers = Carrier.query.filter_by(deleted=False, created_by=user_id).all()
+        shipper = Shipper.query.filter_by(user_id=user_id).first()
+        carriers = Carrier.query.filter(Carrier.users.any(shipper_id=shipper.id)).all()
         carrier_list = [
             {
                 "id": carrier.id,
@@ -545,16 +660,15 @@ def api_carrier():
                 "active": carrier.active,
                 "created_at": carrier.created_at.isoformat(),
                 "updated_at": carrier.updated_at.isoformat(),
-                "user": {
-                    "first_name": carrier.user.first_name,
-                    "last_name": carrier.user.last_name,
-                    "phone": carrier.user.phone,
-                    "email": carrier.user.email,
-                    "active": carrier.user.active
-                } if carrier.user else None
+                "user": get_user_data_for_shipper(carrier.users, shipper.id),
+
             }
             for carrier in carriers
         ]
+
+        for carrier in carriers:
+            print(f"Carrier ID: {carrier.id}, Carrier Name: {carrier.carrier_name}")
+
         return jsonify(carrier_list), 200
 
     if request.method == "POST":
@@ -564,8 +678,9 @@ def api_carrier():
         else:
             return create_carrier_admin(data=data, user_id=user_id, db=db)
 
+
 @app_routes.route("/api/carrier/<string:mc_number>", methods=["GET"])
-#@token_required
+# @token_required
 def get_carrier_by_mc(mc_number):
     carrier = Carrier.query.filter_by(
         mc_number=mc_number,
@@ -575,52 +690,66 @@ def get_carrier_by_mc(mc_number):
     if not carrier:
         return jsonify({"error": "Carrier not found"}), 404
 
-    return jsonify({
-        "id": carrier.id,
-        "carrier_name": carrier.carrier_name,
-        "authority": carrier.authority,
-        "scac": carrier.scac,
-        "mc_number": carrier.mc_number,
-        "active": carrier.active,
-        "created_at": carrier.created_at.isoformat(),
-        "updated_at": carrier.updated_at.isoformat(),
-        "user": {
-            "first_name": carrier.user.first_name,
-            "last_name": carrier.user.last_name,
-            "phone": carrier.user.phone,
-            "email": carrier.user.email,
-            "active": carrier.user.active
-        } if carrier.user else None
-    })
+    return jsonify(
+        {
+            "id": carrier.id,
+            "carrier_name": carrier.carrier_name,
+            "authority": carrier.authority,
+            "scac": carrier.scac,
+            "mc_number": carrier.mc_number,
+            "active": carrier.active,
+            "created_at": carrier.created_at.isoformat(),
+            "updated_at": carrier.updated_at.isoformat(),
+            "user": (
+                {
+                    "first_name": carrier.user.first_name,
+                    "last_name": carrier.user.last_name,
+                    "phone": carrier.user.phone,
+                    "email": carrier.user.email,
+                    "active": carrier.user.active,
+                }
+                if carrier.user
+                else None
+            ),
+        }
+    )
+
 
 @app_routes.route("/api/carrier/<int:carrier_id>", methods=["GET"])
-#@token_required
+# @token_required
 def get_carrier_by_id(carrier_id):
     carrier = Carrier.query.get(carrier_id)
 
     if not carrier:
         return jsonify({"error": "Carrier not found"}), 404
 
-    return jsonify({
-        "id": carrier.id,
-        "carrier_name": carrier.carrier_name,
-        "authority": carrier.authority,
-        "scac": carrier.scac,
-        "mc_number": carrier.mc_number,
-        "active": carrier.active,
-        "created_at": carrier.created_at.isoformat(),
-        "updated_at": carrier.updated_at.isoformat(),
-        "user": {
-            "first_name": carrier.user.first_name,
-            "last_name": carrier.user.last_name,
-            "phone": carrier.user.phone,
-            "email": carrier.user.email,
-            "active": carrier.user.active
-        } if carrier.user else None
-    })
+    return jsonify(
+        {
+            "id": carrier.id,
+            "carrier_name": carrier.carrier_name,
+            "authority": carrier.authority,
+            "scac": carrier.scac,
+            "mc_number": carrier.mc_number,
+            "active": carrier.active,
+            "created_at": carrier.created_at.isoformat(),
+            "updated_at": carrier.updated_at.isoformat(),
+            "user": (
+                {
+                    "first_name": carrier.user.first_name,
+                    "last_name": carrier.user.last_name,
+                    "phone": carrier.user.phone,
+                    "email": carrier.user.email,
+                    "active": carrier.user.active,
+                }
+                if carrier.users
+                else None
+            ),
+        }
+    )
+
 
 @app_routes.route("/api/carrier/<int:carrier_id>", methods=["PUT"])
-#@token_required
+# @token_required
 def update_carrier(carrier_id):
     try:
         data = request.form
@@ -646,13 +775,17 @@ def update_carrier(carrier_id):
 
         db.session.commit()
 
-        return jsonify({"status": "success", "message": "Carrier updated successfully"}), 200
+        return (
+            jsonify({"status": "success", "message": "Carrier updated successfully"}),
+            200,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Update failed: {str(e)}"}), 500
 
-@app_routes.route('/api/carrier/<int:carrier_id>', methods=['DELETE'])
-#@token_required
+
+@app_routes.route("/api/carrier/<int:carrier_id>", methods=["DELETE"])
+# @token_required
 def delete_carrier(carrier_id):
     try:
         carrier = Carrier.query.get_or_404(carrier_id)
@@ -662,10 +795,14 @@ def delete_carrier(carrier_id):
         return jsonify({"status": "success", "message": "Carrier deleted successfully"})
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": f"Deletion failed: {str(e)}"}), 500
-    
-@app_routes.route('/api/carrier/<int:carrier_id>/toggle-active', methods=['PUT'])
-#@token_required
+        return (
+            jsonify({"status": "error", "message": f"Deletion failed: {str(e)}"}),
+            500,
+        )
+
+
+@app_routes.route("/api/carrier/<int:carrier_id>/toggle-active", methods=["PUT"])
+# @token_required
 def toggle_carrier_active(carrier_id):
     try:
         carrier = Carrier.query.get_or_404(carrier_id)
@@ -680,11 +817,15 @@ def toggle_carrier_active(carrier_id):
 
         db.session.commit()
         status = "activated" if carrier.active else "deactivated"
-        return jsonify({"status": "success", "message": f"Carrier {status} successfully"}), 200
+        return (
+            jsonify({"status": "success", "message": f"Carrier {status} successfully"}),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Toggle failed: {str(e)}"}), 500
+
 
 def get_all_created_user_ids(user_id):
     """
@@ -700,7 +841,9 @@ def get_all_created_user_ids(user_id):
         visited.add(current_user_id)
 
         # Fetch carriers where created_by matches this user ID
-        carriers_created = Carrier.query.filter_by(created_by=current_user_id, active=True).all()
+        carriers_created = Carrier.query.filter_by(
+            created_by=current_user_id, active=True
+        ).all()
 
         for carrier in carriers_created:
             if carrier.user_id:  # If carrier has a user
@@ -708,22 +851,26 @@ def get_all_created_user_ids(user_id):
 
     return visited
 
+
 @app_routes.route("/api/carrier_quotes/", methods=["GET"])
 def carrier_quotes():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
-
+    
+    shipper = Shipper.query.filter_by(user_id=user_id).first()
+    
     carriers = (
-        Carrier.query
-        .join(User, Carrier.user_id == User.id)
-        .filter(
-            Carrier.active.is_(True),
-            Carrier.created_by == user_id,
-            User.role == 'CarrierAdmin'
+        Carrier.query.filter(
+            Carrier.users.any(shipper_id=shipper.id),
+            Carrier.active == True,
+            Carrier.deleted == False,
         )
+        .order_by(Carrier.carrier_name)
         .all()
     )
+
+    print("Carriers:", carriers)
 
     carrier_list = [
         {
@@ -735,18 +882,13 @@ def carrier_quotes():
             "active": carrier.active,
             "created_at": carrier.created_at.isoformat(),
             "updated_at": carrier.updated_at.isoformat(),
-            "user": {
-                "first_name": carrier.user.first_name,
-                "last_name": carrier.user.last_name,
-                "phone": carrier.user.phone,
-                "email": carrier.user.email,
-                "active": carrier.user.active
-            } if carrier.user else None
+            "user": get_user_data_for_shipper(carrier.users, shipper.id),
         }
         for carrier in carriers
     ]
 
     return jsonify(carrier_list), 200
+
 
 @app_routes.route("/api/modes", methods=["GET"])
 def api_modes():
@@ -760,6 +902,7 @@ def api_modes():
     ]
     return jsonify(mode_list), 200
 
+
 @app_routes.route("/api/equipment_types", methods=["GET"])
 def api_equipment_types():
     equipment_types = EquipmentType.query.all()
@@ -771,6 +914,7 @@ def api_equipment_types():
         for equipment in equipment_types
     ]
     return jsonify(equipment_list), 200
+
 
 @app_routes.route("/api/rate_types", methods=["GET"])
 def api_rate_types():
@@ -784,6 +928,7 @@ def api_rate_types():
     ]
     return jsonify(rate_list), 200
 
+
 @app_routes.route("/api/accessorials", methods=["GET"])
 def api_accessorials():
     accessorials = Accessorial.query.all()
@@ -796,6 +941,7 @@ def api_accessorials():
     ]
     return jsonify(accessorial_list), 200
 
+
 @app_routes.route("/api/autocomplete-location", methods=["GET"])
 def autocomplete_location():
     term = request.args.get("q", "").strip().lower()
@@ -806,11 +952,11 @@ def autocomplete_location():
     if term.isdigit():
         query = City.query.filter(City.postal_code.ilike(f"%{term}%"))
         results = query.limit(10).all()
-        
+
         response = [
             {
                 "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
-                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}",
             }
             for city in results
         ]
@@ -825,14 +971,14 @@ def autocomplete_location():
         response = [
             {
                 "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
-                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+                "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}",
             }
             for city in results_full
         ]
         return jsonify(response)
 
     # Si no hay resultados con el término completo, procedemos con el split
-    search_terms = [t.strip() for t in term.replace(',', ' ').split() if t.strip()]
+    search_terms = [t.strip() for t in term.replace(",", " ").split() if t.strip()]
 
     # Construir la consulta base
     query = City.query
@@ -841,15 +987,15 @@ def autocomplete_location():
     if len(search_terms) > 1:
         city_term = search_terms[0]
         province_terms = search_terms[1:]
-        
+
         query = query.filter(City.city_name.ilike(f"%{city_term}%"))
-        
+
         # Filtrar por cada término de provincia (búsqueda flexible)
         province_filters = []
         for term in province_terms:
             province_filters.append(City.province_name.ilike(f"%{term}%"))
             province_filters.append(City.province_abbr.ilike(f"%{term}%"))
-        
+
         query = query.filter(db.or_(*province_filters))
     else:
         # Búsqueda simple en todos los campos relevantes
@@ -859,7 +1005,7 @@ def autocomplete_location():
                 City.city_name.ilike(f"%{single_term}%"),
                 City.province_name.ilike(f"%{single_term}%"),
                 City.province_abbr.ilike(f"%{single_term}%"),
-                City.postal_code.ilike(f"%{single_term}%")
+                City.postal_code.ilike(f"%{single_term}%"),
             )
         )
 
@@ -868,7 +1014,7 @@ def autocomplete_location():
     response = [
         {
             "label": f"{city.city_name}, {city.province_abbr} {city.postal_code} ({city.country_name})",
-            "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}"
+            "value": f"{city.city_name}, {city.province_abbr} {city.postal_code}",
         }
         for city in results
     ]
@@ -876,7 +1022,7 @@ def autocomplete_location():
     return jsonify(response)
 
 
-def send_emails_to_carrier_company_and_users(selected_carriers, quote_id, shipper_name):
+def send_emails_to_carrier_company_and_users(shipper_id, selected_carriers, quote_id, shipper_name):
     """
     Sending email for carrier companies
     """
@@ -886,7 +1032,8 @@ def send_emails_to_carrier_company_and_users(selected_carriers, quote_id, shippe
         # Send the hashed email via POST
         quote_url = f"{Config.DOMAIN_URL}/carrier_pending_quotes/{encrypted_id}"
         for carrier in selected_carriers:
-            if carrier.user.email:
+            user = next((user for user in carrier.users if user.shipper_id == shipper_id), None)
+            if user.email:
                 html_content = render_template(
                     "email/quote.html",
                     quote_url=quote_url,
@@ -896,30 +1043,42 @@ def send_emails_to_carrier_company_and_users(selected_carriers, quote_id, shippe
                 )
 
                 response = send_email(
-                    recipient=carrier.user.email,
+                    recipient=user.email,
                     subject="New Quote Available - Urgent",
                     body_text="You have a new quote available in QuoteZen.",
-                    body_html=html_content
+                    body_html=html_content,
                 )
-                print(f"Email sent to {carrier.user.email}: {response}")
-            
-            creator_carriers = Carrier.query.filter_by(created_by=carrier.user.id).all()
-            for creator_carrier in creator_carriers:                
-                    html_content = render_template(
-                        "email/quote.html",
-                        quote_url=quote_url,
-                        current_year=datetime.now().year,
-                        carrier_name=creator_carrier.carrier_name,
-                        shipper_name=shipper_name,
-                    )
+                print(f"Email sent to {user.email}: {response}")
 
-                    response = send_email(
-                        recipient=creator_carrier.user.email,
-                        subject="New Quote Available - Urgent",
-                        body_text="You have a new quote available in QuoteZen.",
-                        body_html=html_content
+            creator_carriers = Carrier.query.filter_by(created_by=user.id).all()
+            for creator_carrier in creator_carriers:
+                html_content = render_template(
+                    "email/quote.html",
+                    quote_url=quote_url,
+                    current_year=datetime.now().year,
+                    carrier_name=creator_carrier.carrier_name,
+                    shipper_name=shipper_name,
+                )
+
+                for user in creator_carrier.users:
+                    if user.shipper_id == shipper_id:
+                        html_content = render_template(
+                            "email/quote.html",
+                            quote_url=quote_url,
+                            current_year=datetime.now().year,
+                            carrier_name=creator_carrier.carrier_name,
+                            shipper_name=shipper_name,
+                        )
+
+                        response = send_email(
+                            recipient=user.email,
+                            subject="New Quote Available - Urgent",
+                            body_text="You have a new quote available in QuoteZen.",
+                            body_html=html_content,
+                        )
+                    print(
+                        f"Email sent to creator's other carrier {user.email}: {response}"
                     )
-                    print(f"Email sent to creator's other carrier {creator_carrier.user.email}: {response}")
     except Exception as e:
         print(f"Email error: {str(e)}")
 
@@ -936,21 +1095,28 @@ def api_quote():
 
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if not shipper:
-                return jsonify({"status": "error", "message": "User is not a shipper"}), 403
+                return (
+                    jsonify({"status": "error", "message": "User is not a shipper"}),
+                    403,
+                )
 
-            carrier_ids = form.getlist("carrier_ids[]") 
+            carrier_ids = form.getlist("carrier_ids[]")
 
             if not carrier_ids:
-                return jsonify({"status": "error", "message": "No carriers selected"}), 400
+                return (
+                    jsonify({"status": "error", "message": "No carriers selected"}),
+                    400,
+                )
 
             stops_json = form.get("stops", "[]")  # Obtiene el string JSON
             additional_stops = json.loads(stops_json)  # Convierte a lista/dict
-            print("Parsed stops:", additional_stops) 
-
+            print("Parsed stops:", additional_stops)
 
             # Query selected company carriers
             selected_carriers = Carrier.query.filter(Carrier.id.in_(carrier_ids)).all()
-            carriers_of_company_carrier = Carrier.query.filter(Carrier.created_by.in_(carrier_ids)).all()
+            carriers_of_company_carrier = Carrier.query.filter(
+                Carrier.created_by.in_(carrier_ids)
+            ).all()
 
             quote = Quote(
                 mode=form.get("mode"),
@@ -959,8 +1125,16 @@ def api_quote():
                 temp_controlled=False,
                 origin=form.get("origin"),
                 destination=form.get("destination"),
-                pickup_date=datetime.strptime(form.get("pickup_date"), "%Y-%m-%d") if form.get("pickup_date") else None,
-                delivery_date=datetime.strptime(form.get("delivery_date"), "%Y-%m-%d") if form.get("delivery_date") else None,
+                pickup_date=(
+                    datetime.strptime(form.get("pickup_date"), "%Y-%m-%d")
+                    if form.get("pickup_date")
+                    else None
+                ),
+                delivery_date=(
+                    datetime.strptime(form.get("delivery_date"), "%Y-%m-%d")
+                    if form.get("delivery_date")
+                    else None
+                ),
                 commodity=form.get("commodity"),
                 weight=float(form.get("weight") or 0),
                 declared_value=float(form.get("declared_value") or 0),
@@ -970,25 +1144,25 @@ def api_quote():
                 carriers=selected_carriers,
                 open_unit=form.get("leave_open_unit"),
                 open_value=form.get("leave_open_value"),
-                shipper_id=shipper.id  # 👈 aquí se asigna el shipper
+                shipper_id=shipper.id,  # 👈 aquí se asigna el shipper
             )
 
             db.session.add(quote)
             db.session.commit()
 
-            
             send_emails_to_carrier_company_and_users(
+                shipper_id=shipper.id,
                 selected_carriers=selected_carriers + carriers_of_company_carrier,
                 quote_id=quote.id,
                 shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
             )
-            
+
             return jsonify({"status": "success", "quote_id": quote.id})
 
         except Exception as e:
             db.session.rollback()
             return jsonify({"status": "error", "message": str(e)}), 500
-        
+
 
 @app_routes.route("/api/quote/<int:quote_id>", methods=["GET"])
 def get_quote_by_id(quote_id):
@@ -998,27 +1172,42 @@ def get_quote_by_id(quote_id):
 
     # Convert the additional_stops JSON string to a Python object
     try:
-        additional_stops = json.loads(quote.additional_stops) if quote.additional_stops else []
+        additional_stops = (
+            json.loads(quote.additional_stops) if quote.additional_stops else []
+        )
     except json.JSONDecodeError:
         additional_stops = []
 
-    return jsonify({
-        "id": quote.id,
-        "mode": quote.mode,
-        "equipment_type": quote.equipment_type,
-        "rate_type": quote.rate_type,
-        "temp_controlled": quote.temp_controlled,
-        "origin": quote.origin,
-        "destination": quote.destination,
-        "pickup_date": quote.pickup_date.isoformat() if quote.pickup_date else None,
-        "delivery_date": quote.delivery_date.isoformat() if quote.delivery_date else None,
-        "commodity": quote.commodity,
-        "weight": float(quote.weight) if quote.weight else 0.0,
-        "declared_value": float(quote.declared_value) if quote.declared_value else 0.0,
-        "accessorials": [a.strip() for a in (quote.accessorials or "").split(",")],
-        "comments": quote.comments,
-        "additional_stops": additional_stops
-    }), 200
+    return (
+        jsonify(
+            {
+                "id": quote.id,
+                "mode": quote.mode,
+                "equipment_type": quote.equipment_type,
+                "rate_type": quote.rate_type,
+                "temp_controlled": quote.temp_controlled,
+                "origin": quote.origin,
+                "destination": quote.destination,
+                "pickup_date": (
+                    quote.pickup_date.isoformat() if quote.pickup_date else None
+                ),
+                "delivery_date": (
+                    quote.delivery_date.isoformat() if quote.delivery_date else None
+                ),
+                "commodity": quote.commodity,
+                "weight": float(quote.weight) if quote.weight else 0.0,
+                "declared_value": (
+                    float(quote.declared_value) if quote.declared_value else 0.0
+                ),
+                "accessorials": [
+                    a.strip() for a in (quote.accessorials or "").split(",")
+                ],
+                "comments": quote.comments,
+                "additional_stops": additional_stops,
+            }
+        ),
+        200,
+    )
 
 
 @app_routes.route("/api/update_rate", methods=["POST"])
@@ -1045,8 +1234,7 @@ def api_update_rate():
 
         # Guardar historial en QuoteCarrierRate (auditoría)
         quote_rate = QuoteCarrierRate.query.filter_by(
-            quote_id=quote_id,
-            carrier_id=carrier_id
+            quote_id=quote_id, carrier_id=carrier_id
         ).first()
 
         if quote_rate:
@@ -1061,12 +1249,12 @@ def api_update_rate():
                 carrier_admin_id=carrier_admin.user.id,
                 rate=rate,
                 comment=comment,
-                created_at=datetime.utcnow()
+                created_at=datetime.utcnow(),
             )
             db.session.add(quote_rate)
 
         # También actualizamos la tabla quote_carrier
-        
+
         db.session.execute(
             quote_carrier.update()
             .where(quote_carrier.c.quote_id == quote_id)
@@ -1091,23 +1279,26 @@ def quote_decision():
         decision = data.get("decision")  # "accepted" o "declined"
 
         if not all([quote_id, carrier_admin_id, rate, decision]):
-            return jsonify({"status": "error", "message": "Missing required fields"}), 400
+            return (
+                jsonify({"status": "error", "message": "Missing required fields"}),
+                400,
+            )
 
         if decision not in ["accepted", "declined"]:
             return jsonify({"status": "error", "message": "Invalid decision"}), 400
-        
+
         quote = Quote.query.get(quote_id)
         carrier = Carrier.query.get(carrier_admin_id)
 
-        
         if not quote or not carrier:
-            return jsonify({"status": "error", "message": "Quote or Carrier not found"}), 404
+            return (
+                jsonify({"status": "error", "message": "Quote or Carrier not found"}),
+                404,
+            )
 
         # Buscar el registro del rate
         quote_rate = QuoteCarrierRate.query.filter_by(
-            quote_id=quote_id,
-            carrier_id=carrier_admin_id,
-            rate=rate
+            quote_id=quote_id, carrier_id=carrier_admin_id, rate=rate
         ).first()
 
         if not quote_rate:
@@ -1121,15 +1312,19 @@ def quote_decision():
 
         #
 
-        #quote = Quote.query.get(quote_id)
-        #carrier = Carrier.query.get(carrier_admin_id)
+        # quote = Quote.query.get(quote_id)
+        # carrier = Carrier.query.get(carrier_admin_id)
 
         if decision == "accepted":
             try:
                 # Get shipper information
                 shipper = Shipper.query.get(quote.shipper_id)
-                shipper_name = f"{shipper.user.first_name} {shipper.user.last_name}" if shipper and shipper.user else "Unknown Shipper"
-                
+                shipper_name = (
+                    f"{shipper.user.first_name} {shipper.user.last_name}"
+                    if shipper and shipper.user
+                    else "Unknown Shipper"
+                )
+
                 # Render the award email HTML
                 html_content = render_template(
                     "email/quote_awarded.html",
@@ -1145,8 +1340,12 @@ def quote_decision():
                     destination=quote.destination,
                     commodity=quote.commodity,
                     weight=f"{float(quote.weight):,.0f} lbs" if quote.weight else "N/A",
-                    declaredValue=f"${float(quote.declared_value):,.2f}" if quote.declared_value else "N/A",
-                    comments=quote.comments or "None"
+                    declaredValue=(
+                        f"${float(quote.declared_value):,.2f}"
+                        if quote.declared_value
+                        else "N/A"
+                    ),
+                    comments=quote.comments or "None",
                 )
 
                 # Send email to carrier
@@ -1154,7 +1353,7 @@ def quote_decision():
                     recipient=carrier.user.email,
                     subject=f"Quote Awarded - {quote_id}",
                     body_text=f"Your quote for {quote_id} has been awarded.",
-                    body_html=html_content
+                    body_html=html_content,
                 )
 
             except Exception as e:
@@ -1167,6 +1366,7 @@ def quote_decision():
         print("[ERROR] quote_decision:", str(e))
         return jsonify({"status": "error", "message": "Internal server error"}), 500
 
+
 @app_routes.route("/api/lanes", methods=["GET"])
 def get_lanes():
     """Get all frequent lanes for the current shipper"""
@@ -1175,48 +1375,59 @@ def get_lanes():
         user_id = session.get("user_id")
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
-            
+
         shipper = Shipper.query.filter_by(user_id=user_id).first()
         if not shipper:
             return jsonify({"error": "Shipper not found"}), 404
 
         # Get lanes for this shipper only
-        lanes = Lane.query.filter_by(shipper_id=shipper.id).order_by(Lane.created_at.desc()).all()
-        
+        lanes = (
+            Lane.query.filter_by(shipper_id=shipper.id)
+            .order_by(Lane.created_at.desc())
+            .all()
+        )
+
         lanes_data = []
         for lane in lanes:
             # Count carriers associated with this lane
-            
-            
+
             # Get last sent date (you might need to add this field to your model)
-            #last_sent = lane.last_sent.strftime('%m/%d/%Y') if lane.last_sent else "Never"
-            
-            lanes_data.append({
-                "id": lane.id,
-                "nickname": lane.nickname,
-                "origin": lane.origin,
-                "destination": lane.destination,
-                "equipment_type": lane.equipment_type,
-                "carrier_count": 0,
-                "last_sent": "",
-                "created_at": lane.created_at.strftime('%m/%d/%Y') if lane.created_at else None
-            })
-            
-        return jsonify({
-            "status": "success", 
-            "data": lanes_data,
-            "total": len(lanes_data)
-        }), 200
-        
+            # last_sent = lane.last_sent.strftime('%m/%d/%Y') if lane.last_sent else "Never"
+
+            lanes_data.append(
+                {
+                    "id": lane.id,
+                    "nickname": lane.nickname,
+                    "origin": lane.origin,
+                    "destination": lane.destination,
+                    "equipment_type": lane.equipment_type,
+                    "carrier_count": 0,
+                    "last_sent": "",
+                    "created_at": (
+                        lane.created_at.strftime("%m/%d/%Y")
+                        if lane.created_at
+                        else None
+                    ),
+                }
+            )
+
+        return (
+            jsonify(
+                {"status": "success", "data": lanes_data, "total": len(lanes_data)}
+            ),
+            200,
+        )
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/lanes/<int:lane_id>", methods=["GET"])
 def get_lane(lane_id):
     """Get a specific frequent lane"""
     try:
         lane = Lane.query.get_or_404(lane_id)
-        
+
         # Verify ownership (optional security check)
         user_id = session.get("user_id")
         if not user_id:
@@ -1224,7 +1435,7 @@ def get_lane(lane_id):
         shipper = Shipper.query.filter_by(user_id=user_id).first()
         if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
-            
+
         lane_data = {
             "id": lane.id,
             "nickname": lane.nickname,
@@ -1234,21 +1445,26 @@ def get_lane(lane_id):
             "origin": lane.origin,
             "destination": lane.destination,
             "pickup_date": lane.pickup_date.isoformat() if lane.pickup_date else None,
-            "delivery_date": lane.delivery_date.isoformat() if lane.delivery_date else None,
+            "delivery_date": (
+                lane.delivery_date.isoformat() if lane.delivery_date else None
+            ),
             "commodity": lane.commodity,
             "weight": float(lane.weight) if lane.weight else None,
-            "declared_value": float(lane.declared_value) if lane.declared_value else None,
+            "declared_value": (
+                float(lane.declared_value) if lane.declared_value else None
+            ),
             "additional_stops": lane.additional_stops,
             "accessorials": [a.name for a in lane.accessorials],
             "comments": lane.comments,
             "created_at": lane.created_at.isoformat() if lane.created_at else None,
-            "updated_at": lane.updated_at.isoformat() if lane.updated_at else None
+            "updated_at": lane.updated_at.isoformat() if lane.updated_at else None,
         }
-        
+
         return jsonify({"status": "success", "data": lane_data}), 200
-        
+
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/lanes", methods=["POST"])
 def create_lane():
@@ -1256,117 +1472,137 @@ def create_lane():
     try:
         # Get form data from request
         data = request.form.to_dict()
-        
+
         # Get user info from session
         user_id = session.get("user_id")
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
         shipper = Shipper.query.filter_by(user_id=user_id).first()
-        
+
         # Parse multi-select fields
-        accessorials = request.form.getlist('accessorials[]')
-        carrier_ids = request.form.getlist('carrier_ids[]')
-        
+        accessorials = request.form.getlist("accessorials[]")
+        carrier_ids = request.form.getlist("carrier_ids[]")
+
         # Validate required fields
         required_fields = [
-            'nickname', 'mode', 'equipment_type', 'rate_type',
-            'origin', 'destination'
+            "nickname",
+            "mode",
+            "equipment_type",
+            "rate_type",
+            "origin",
+            "destination",
         ]
-        
+
         missing_fields = [field for field in required_fields if not data.get(field)]
         if missing_fields:
-            return jsonify({
-                "status": "error",
-                "message": f"Missing required fields: {', '.join(missing_fields)}"
-            }), 400
-            
+            return (
+                jsonify(
+                    {
+                        "status": "error",
+                        "message": f"Missing required fields: {', '.join(missing_fields)}",
+                    }
+                ),
+                400,
+            )
+
         # Convert dates
         pickup_date = None
-        if data.get('pickup_date'):
-            pickup_date = datetime.strptime(data['pickup_date'], '%Y-%m-%d').date()
-            
+        if data.get("pickup_date"):
+            pickup_date = datetime.strptime(data["pickup_date"], "%Y-%m-%d").date()
+
         delivery_date = None
-        if data.get('delivery_date'):
-            delivery_date = datetime.strptime(data['delivery_date'], '%Y-%m-%d').date()
-        
+        if data.get("delivery_date"):
+            delivery_date = datetime.strptime(data["delivery_date"], "%Y-%m-%d").date()
+
         # Create new lane
         new_lane = Lane(
             shipper_id=shipper.id,
-            nickname=data['nickname'],
-            mode=data['mode'],
-            equipment_type=data['equipment_type'],
-            rate_type=data['rate_type'],
-            origin=data['origin'],
-            destination=data['destination'],
+            nickname=data["nickname"],
+            mode=data["mode"],
+            equipment_type=data["equipment_type"],
+            rate_type=data["rate_type"],
+            origin=data["origin"],
+            destination=data["destination"],
             pickup_date=pickup_date,
             delivery_date=delivery_date,
-            commodity=data.get('commodity', ''),
-            weight=Decimal(str(data.get('weight', 0))),
-            declared_value=Decimal(str(data.get('declared_value', 0))),
-            comments=data.get('comments', ''),
-            leave_open_for_option=data.get('leave_open_for_select', 'hours'),
-            leave_open_for_number=int(data.get('number_leave_open_for', 24))
+            commodity=data.get("commodity", ""),
+            weight=Decimal(str(data.get("weight", 0))),
+            declared_value=Decimal(str(data.get("declared_value", 0))),
+            comments=data.get("comments", ""),
+            leave_open_for_option=data.get("leave_open_for_select", "hours"),
+            leave_open_for_number=int(data.get("number_leave_open_for", 24)),
         )
-        
+
         # Handle additional stops if provided
-        if 'stops' in data:
+        if "stops" in data:
             stops = []
-            for stop_data in data['stops']:
-                stops.append({
-                    'location': stop_data['location'],
-                    'type': stop_data['type']
-                })
+            for stop_data in data["stops"]:
+                stops.append(
+                    {"location": stop_data["location"], "type": stop_data["type"]}
+                )
             new_lane.additional_stops = json.dumps(stops)
-        
+
         # Handle accessorials if provided
         if accessorials:
             accessorial_objs = Accessorial.query.filter(
                 Accessorial.name.in_(accessorials)
             ).all()
             new_lane.accessorials = accessorial_objs
-            
+
         # Handle carriers if provided
-        if carrier_ids and 'select_all' not in carrier_ids:
+        if carrier_ids and "select_all" not in carrier_ids:
             carriers = Carrier.query.filter(
                 Carrier.id.in_([int(id) for id in carrier_ids])
             ).all()
             new_lane.carriers = carriers
-            
+
         db.session.add(new_lane)
         db.session.commit()
-        
-        return jsonify({
-            "status": "success",
-            "message": "Lane created successfully",
-            "lane_id": new_lane.id
-        }), 201
-        
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": "Lane created successfully",
+                    "lane_id": new_lane.id,
+                }
+            ),
+            201,
+        )
+
     except IntegrityError as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": "Database integrity error"}), 400
     except ValueError as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": f"Invalid data format: {str(e)}"}), 400
+        return (
+            jsonify({"status": "error", "message": f"Invalid data format: {str(e)}"}),
+            400,
+        )
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/lanes/<int:lane_id>", methods=["PUT", "POST"])
 def update_lane(lane_id):
     """Update an existing frequent lane"""
     try:
         # Check if this is a PUT with form data (from our frontend)
-        if request.method == "POST" and request.headers.get('X-HTTP-Method-Override') == 'PUT':
+        if (
+            request.method == "POST"
+            and request.headers.get("X-HTTP-Method-Override") == "PUT"
+        ):
             data = request.form.to_dict()
             # Handle multi-value fields
-            data['accessorials'] = request.form.getlist('accessorials[]')
-            data['carrier_ids'] = request.form.getlist('carrier_ids[]')
+            data["accessorials"] = request.form.getlist("accessorials[]")
+            data["carrier_ids"] = request.form.getlist("carrier_ids[]")
         else:
             # Regular PUT with JSON
             data = request.get_json()
 
         lane = Lane.query.get_or_404(lane_id)
-        
+
         # Verify ownership
         user_id = session.get("user_id")
         if not user_id:
@@ -1375,67 +1611,82 @@ def update_lane(lane_id):
 
         if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
-            
+
         # Update basic fields
         update_fields = [
-            'nickname', 'mode', 'equipment_type', 'rate_type',
-            'origin', 'destination', 'commodity', 'comments'
+            "nickname",
+            "mode",
+            "equipment_type",
+            "rate_type",
+            "origin",
+            "destination",
+            "commodity",
+            "comments",
         ]
-        
+
         for field in update_fields:
             if field in data:
                 setattr(lane, field, data[field])
-                
+
         # Handle dates
-        if 'pickup_date' in data and data['pickup_date']:
-            lane.pickup_date = datetime.fromisoformat(data['pickup_date'])
-        if 'delivery_date' in data and data['delivery_date']:
-            lane.delivery_date = datetime.fromisoformat(data['delivery_date'])
-            
+        if "pickup_date" in data and data["pickup_date"]:
+            lane.pickup_date = datetime.fromisoformat(data["pickup_date"])
+        if "delivery_date" in data and data["delivery_date"]:
+            lane.delivery_date = datetime.fromisoformat(data["delivery_date"])
+
         # Handle numeric fields
-        if 'weight' in data:
-            lane.weight = Decimal(str(data['weight'])) if data['weight'] else None
-        if 'declared_value' in data:
-            lane.declared_value = Decimal(str(data['declared_value'])) if data['declared_value'] else None
-            
+        if "weight" in data:
+            lane.weight = Decimal(str(data["weight"])) if data["weight"] else None
+        if "declared_value" in data:
+            lane.declared_value = (
+                Decimal(str(data["declared_value"])) if data["declared_value"] else None
+            )
+
         # Handle additional stops
-        if 'additional_stops' in data:
-            if isinstance(data['additional_stops'], str):
+        if "additional_stops" in data:
+            if isinstance(data["additional_stops"], str):
                 # If it's a string, parse it as JSON
-                lane.additional_stops = json.loads(data['additional_stops'])
+                lane.additional_stops = json.loads(data["additional_stops"])
             else:
-                lane.additional_stops = data['additional_stops']
-            
+                lane.additional_stops = data["additional_stops"]
+
         # Update accessorials
-        if 'accessorials' in data:
+        if "accessorials" in data:
             lane.accessorials = Accessorial.query.filter(
-                Accessorial.name.in_(data['accessorials'])
+                Accessorial.name.in_(data["accessorials"])
             ).all()
-            
+
         # Update carriers
-        if 'carrier_ids' in data:
+        if "carrier_ids" in data:
             # Remove existing carrier associations
             lane.carriers = []
             # Add new carriers
-            carriers = Carrier.query.filter(Carrier.id.in_([int(id) for id in data['carrier_ids']])).all()
+            carriers = Carrier.query.filter(
+                Carrier.id.in_([int(id) for id in data["carrier_ids"]])
+            ).all()
             lane.carriers.extend(carriers)
-            
+
         lane.updated_at = datetime.utcnow()
         db.session.commit()
-        
-        return jsonify({
-            "status": "success",
-            "message": "Lane updated successfully",
-            "data": {
-                "id": lane.id,
-                "nickname": lane.nickname,
-                "origin": lane.origin,
-                "destination": lane.destination,
-                "equipment_type": lane.equipment_type,
-                "carrier_count": len(lane.carriers),
-            }
-        }), 200
-        
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": "Lane updated successfully",
+                    "data": {
+                        "id": lane.id,
+                        "nickname": lane.nickname,
+                        "origin": lane.origin,
+                        "destination": lane.destination,
+                        "equipment_type": lane.equipment_type,
+                        "carrier_count": len(lane.carriers),
+                    },
+                }
+            ),
+            200,
+        )
+
     except IntegrityError as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": "Database integrity error"}), 400
@@ -1443,12 +1694,13 @@ def update_lane(lane_id):
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app_routes.route("/api/lanes/<int:lane_id>", methods=["DELETE"])
 def delete_lane(lane_id):
     """Delete a frequent lane"""
     try:
         lane = Lane.query.get_or_404(lane_id)
-        
+
         # Verify ownership
         user_id = session.get("user_id")
         if not user_id:
@@ -1456,18 +1708,19 @@ def delete_lane(lane_id):
         shipper = Shipper.query.filter_by(user_id=user_id).first()
         if lane.shipper_id != shipper.id:
             return jsonify({"status": "error", "message": "Unauthorized"}), 403
-            
+
         db.session.delete(lane)
         db.session.commit()
-        
-        return jsonify({
-            "status": "success",
-            "message": "Lane deleted successfully"
-        }), 200
-        
+
+        return (
+            jsonify({"status": "success", "message": "Lane deleted successfully"}),
+            200,
+        )
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app_routes.route("/api/quote/decline_all", methods=["POST"])
 def decline_all_quote_carriers():
@@ -1479,12 +1732,15 @@ def decline_all_quote_carriers():
             return jsonify({"status": "error", "message": "Quote ID is required"}), 400
 
         # Get all quote carrier rates for this quote
-        quote_rates = QuoteCarrierRate.query.filter_by(
-            quote_id=quote_id
-        ).all()
+        quote_rates = QuoteCarrierRate.query.filter_by(quote_id=quote_id).all()
 
         if not quote_rates:
-            return jsonify({"status": "error", "message": "No carriers found for this quote"}), 404
+            return (
+                jsonify(
+                    {"status": "error", "message": "No carriers found for this quote"}
+                ),
+                404,
+            )
 
         # Update all rates to declined status
         for rate in quote_rates:
@@ -1497,53 +1753,63 @@ def decline_all_quote_carriers():
 
         db.session.commit()
 
-        return jsonify({
-            "status": "success",
-            "message": f"Declined all {len(quote_rates)} carriers for quote {quote_id}"
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": f"Declined all {len(quote_rates)} carriers for quote {quote_id}",
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
-    
-@app_routes.route('/api/shipper/<int:id>/toggle_active', methods=['PUT'])
+
+
+@app_routes.route("/api/shipper/<int:id>/toggle_active", methods=["PUT"])
 def toggle_shipper_active(id):
     shipper = Shipper.query.get_or_404(id)
     shipper.active = not shipper.active
     shipper.user.active = shipper.active
     db.session.commit()
-    return jsonify({
-        "status": "success",
-        "active": shipper.active
-    })
+    return jsonify({"status": "success", "active": shipper.active})
+
 
 @app_routes.route("/api/quotes/nuke_all", methods=["DELETE"])
 def nuke_all_quotes():
     try:
         # Eliminar registros relacionados primero para evitar errores de FK
         db.session.execute(quote_carrier.delete())  # Tabla de relación muchos-a-muchos
-        
+
         # Eliminar rates asociados
         QuoteCarrierRate.query.delete()
-        
+
         # Eliminar TODOS los quotes sin filtros
         num_deleted = Quote.query.delete()
-        
+
         db.session.commit()
-        
-        return jsonify({
-            "status": "success",
-            "message": f"🔥 Nuked {num_deleted} quotes and all related records",
-            "warning": "This action is irreversible!"
-        }), 200
+
+        return (
+            jsonify(
+                {
+                    "status": "success",
+                    "message": f"🔥 Nuked {num_deleted} quotes and all related records",
+                    "warning": "This action is irreversible!",
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            "status": "error",
-            "message": f"Failed to nuke quotes: {str(e)}"
-        }), 500
-    
+        return (
+            jsonify({"status": "error", "message": f"Failed to nuke quotes: {str(e)}"}),
+            500,
+        )
+
+
 @app_routes.route("/api/dashboard/stats", methods=["GET"])
 def get_dashboard_stats():
     try:
@@ -1562,62 +1828,74 @@ def get_dashboard_stats():
             "active_carriers": 0,
             "active_companies": 0,
             "spendMT": 0,  # Quotes assigned with values
-            "completedQuotes": 0  # Quotes completed
+            "completedQuotes": 0,  # Quotes completed
         }
 
         # Subquery: quotes that have been accepted or declined
-        excluded_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
-            QuoteCarrierRate.status.in_(["accepted", "declined"])
-        ).distinct().subquery()
+        excluded_quotes_subquery = (
+            db.session.query(QuoteCarrierRate.quote_id)
+            .filter(QuoteCarrierRate.status.in_(["accepted", "declined"]))
+            .distinct()
+            .subquery()
+        )
 
         # Get counts based on user role
         if user.role == "Admin":
-            stats.update({
-                "pending_quotes": Quote.query.filter(
-                    ~Quote.id.in_(excluded_quotes_subquery)
-                ).count(),
-                "active_shippers": Shipper.query.filter_by(
-                    active=True, deleted=False
-                ).count(),
-                "active_carriers": Carrier.query.filter_by(active=True).count(),
-                "active_companies": Company.query.filter_by(active=True).count(),
-                "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).filter(
-                    QuoteCarrierRate.status == "accepted"
-                ).scalar() or 0,
-                "completedQuotes": QuoteCarrierRate.query.filter(
-                    QuoteCarrierRate.status == "accepted"
-                ).count()
-            })
+            stats.update(
+                {
+                    "pending_quotes": Quote.query.filter(
+                        ~Quote.id.in_(excluded_quotes_subquery)
+                    ).count(),
+                    "active_shippers": Shipper.query.filter_by(
+                        active=True, deleted=False
+                    ).count(),
+                    "active_carriers": Carrier.query.filter_by(active=True).count(),
+                    "active_companies": Company.query.filter_by(active=True).count(),
+                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
+                    .filter(QuoteCarrierRate.status == "accepted")
+                    .scalar()
+                    or 0,
+                    "completedQuotes": QuoteCarrierRate.query.filter(
+                        QuoteCarrierRate.status == "accepted"
+                    ).count(),
+                }
+            )
 
         elif user.role == "Shipper":
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if shipper:
-                stats.update({
-                    "pending_quotes": Quote.query.filter(
-                        Quote.shipper_id == shipper.id,
-                        ~Quote.id.in_(excluded_quotes_subquery)
-                    ).count(),
-                    "active_shippers": 1,  # Themselves
-                    "active_carriers": db.session.query(Carrier).join(
-                        carrier_shipper
-                    ).filter(
-                        carrier_shipper.c.shipper_id == shipper.id,
-                        Carrier.active == True
-                    ).count(),
-                    "active_companies": 1,  # Their company
-                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).join(
-                        Quote
-                    ).filter(
-                        Quote.shipper_id == shipper.id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).scalar() or 0,
-                    "completedQuotes": db.session.query(QuoteCarrierRate).join(
-                        Quote
-                    ).filter(
-                        Quote.shipper_id == shipper.id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).count()
-                })
+                stats.update(
+                    {
+                        "pending_quotes": Quote.query.filter(
+                            Quote.shipper_id == shipper.id,
+                            ~Quote.id.in_(excluded_quotes_subquery),
+                        ).count(),
+                        "active_shippers": 1,  # Themselves
+                        "active_carriers": db.session.query(Carrier)
+                        .join(carrier_shipper)
+                        .filter(
+                            carrier_shipper.c.shipper_id == shipper.id,
+                            Carrier.active == True,
+                        )
+                        .count(),
+                        "active_companies": 1,  # Their company
+                        "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id == shipper.id,
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .scalar()
+                        or 0,
+                        "completedQuotes": db.session.query(QuoteCarrierRate)
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id == shipper.id,
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .count(),
+                    }
+                )
 
         elif user.role == "CompanyShipper":
             # First get the company associated with this CompanyShipper user
@@ -1625,107 +1903,126 @@ def get_dashboard_stats():
             if company:
                 # Get all active shippers belonging to this company
                 company_shippers = Shipper.query.filter_by(
-                    company_id=company.id,
-                    active=True,
-                    deleted=False
+                    company_id=company.id, active=True, deleted=False
                 ).all()
                 shipper_ids = [s.id for s in company_shippers]
 
                 # Get carriers associated with this company through the association table
                 # First ensure the association table is properly imported/defined
-                
-                
-                stats.update({
-                    "pending_quotes": Quote.query.filter(
-                        Quote.shipper_id.in_(shipper_ids),
-                        ~Quote.id.in_(excluded_quotes_subquery)
-                    ).count(),
-                    "active_shippers": len(shipper_ids),
-                    "active_carriers": 0,
-                    "active_companies": 1,  # Their own company
-                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
-                        .join(Quote)
-                        .filter(
+
+                stats.update(
+                    {
+                        "pending_quotes": Quote.query.filter(
                             Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted"
-                        ).scalar() or 0,
-                    "completedQuotes": db.session.query(QuoteCarrierRate)
-                        .join(Quote)
-                        .filter(
-                            Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted"
+                            ~Quote.id.in_(excluded_quotes_subquery),
                         ).count(),
-                    "completedToday": db.session.query(QuoteCarrierRate)
+                        "active_shippers": len(shipper_ids),
+                        "active_carriers": 0,
+                        "active_companies": 1,  # Their own company
+                        "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
                         .join(Quote)
                         .filter(
                             Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted"
-                        ).count(),
-                })
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .scalar()
+                        or 0,
+                        "completedQuotes": db.session.query(QuoteCarrierRate)
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id.in_(shipper_ids),
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .count(),
+                        "completedToday": db.session.query(QuoteCarrierRate)
+                        .join(Quote)
+                        .filter(
+                            Quote.shipper_id.in_(shipper_ids),
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .count(),
+                    }
+                )
 
         elif user.role == "CarrierAdmin":
             carrier = Carrier.query.filter_by(user_id=user_id).first()
             if carrier:
-                stats.update({
-                    "pending_quotes": db.session.query(Quote).join(
-                        quote_carrier
-                    ).filter(
-                        quote_carrier.c.carrier_id == carrier.id,
-                        ~db.session.query(QuoteCarrierRate).filter(
-                            QuoteCarrierRate.quote_id == Quote.id,
-                            QuoteCarrierRate.carrier_admin_id == carrier.user_id,
-                            QuoteCarrierRate.status.in_(["accepted", "declined"])
-                        ).exists()
-                    ).count(),
-                    "active_shippers": db.session.query(Shipper).join(
-                        carrier_shipper
-                    ).filter(
-                        carrier_shipper.c.carrier_id == carrier.id,
-                        Shipper.active == True
-                    ).count(),
-                    "active_carriers": 1,  # Themselves
-                    "active_companies": 1,  # Their company
-                    "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate)).filter(
-                        QuoteCarrierRate.carrier_admin_id == user_id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).scalar() or 0,
-                    "completedQuotes": QuoteCarrierRate.query.filter(
-                        QuoteCarrierRate.carrier_admin_id == user_id,
-                        QuoteCarrierRate.status == "accepted"
-                    ).count()
-                })
+                stats.update(
+                    {
+                        "pending_quotes": db.session.query(Quote)
+                        .join(quote_carrier)
+                        .filter(
+                            quote_carrier.c.carrier_id == carrier.id,
+                            ~db.session.query(QuoteCarrierRate)
+                            .filter(
+                                QuoteCarrierRate.quote_id == Quote.id,
+                                QuoteCarrierRate.carrier_admin_id == carrier.user_id,
+                                QuoteCarrierRate.status.in_(["accepted", "declined"]),
+                            )
+                            .exists(),
+                        )
+                        .count(),
+                        "active_shippers": db.session.query(Shipper)
+                        .join(carrier_shipper)
+                        .filter(
+                            carrier_shipper.c.carrier_id == carrier.id,
+                            Shipper.active == True,
+                        )
+                        .count(),
+                        "active_carriers": 1,  # Themselves
+                        "active_companies": 1,  # Their company
+                        "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
+                        .filter(
+                            QuoteCarrierRate.carrier_admin_id == user_id,
+                            QuoteCarrierRate.status == "accepted",
+                        )
+                        .scalar()
+                        or 0,
+                        "completedQuotes": QuoteCarrierRate.query.filter(
+                            QuoteCarrierRate.carrier_admin_id == user_id,
+                            QuoteCarrierRate.status == "accepted",
+                        ).count(),
+                    }
+                )
 
-        return jsonify({
-            "user_name": f"{user.first_name} {user.last_name}",
-            "stats": stats
-        }), 200
+        return (
+            jsonify(
+                {"user_name": f"{user.first_name} {user.last_name}", "stats": stats}
+            ),
+            200,
+        )
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Failed to get dashboard stats: {str(e)}"
-        }), 500
-    
+        return (
+            jsonify(
+                {
+                    "status": "error",
+                    "message": f"Failed to get dashboard stats: {str(e)}",
+                }
+            ),
+            500,
+        )
+
 
 @app_routes.route("/api/carrier/<int:carrier_id>/creator", methods=["GET"])
 # @token_required  # Uncomment if you need authentication
 def get_carrier_creator(carrier_id):
     carrier = Carrier.query.filter_by(user_id=carrier_id).first()
-    
+
     if not carrier:
         return jsonify({"error": "Carrier not found"}), 404
-    
+
     if not carrier.created_by:
         return jsonify({"error": "Creator information not available"}), 404
-    
+
     creator = User.query.get(carrier.created_by)
-    
+
     if not creator:
         return jsonify({"error": "Creator user not found"}), 404
-    
+
     # Assuming you have a Shipper model related to User
     shipper = Shipper.query.filter_by(user_id=creator.id).first()
-    
+
     response_data = {
         "creator_id": creator.id,
         "first_name": creator.first_name,
@@ -1733,111 +2030,119 @@ def get_carrier_creator(carrier_id):
         "email": creator.email,
         "phone": creator.phone,
         "created_at": creator.created_at.isoformat() if creator.created_at else None,
-        "shipper_info": {
-            "shipper_id": shipper.id if shipper else None,
-            "company_name": shipper.company.company_name if shipper and shipper.company else None,
-            "duns_number": shipper.company.duns if shipper and shipper.company else None
-        } if shipper else None
+        "shipper_info": (
+            {
+                "shipper_id": shipper.id if shipper else None,
+                "company_name": (
+                    shipper.company.company_name
+                    if shipper and shipper.company
+                    else None
+                ),
+                "duns_number": (
+                    shipper.company.duns if shipper and shipper.company else None
+                ),
+            }
+            if shipper
+            else None
+        ),
     }
-    
+
     return jsonify(response_data)
 
 
-@app_routes.route('/api/quotes/filter', methods=['POST'])
+@app_routes.route("/api/quotes/filter", methods=["POST"])
 def filter_quotes():
     try:
         # Get filters from request
         filters = request.get_json()
-        user_id = session.get('user_id')
-        
+        user_id = session.get("user_id")
+
         if not user_id:
             return jsonify({"error": "Unauthorized"}), 401
 
         # Base query for pending quotes
         query = Quote.query
-        
+
         # For shipper view - only their quotes
-        if session.get('user_role') == 'Shipper':
+        if session.get("user_role") == "Shipper":
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if not shipper:
                 return jsonify({"error": "Shipper not found"}), 404
             query = query.filter_by(shipper_id=shipper.id)
-        
+
         # For carrier admin view - quotes assigned to them
-        elif session.get('user_role') == 'CarrierAdmin':
+        elif session.get("user_role") == "CarrierAdmin":
             carrier = Carrier.query.filter_by(user_id=user_id).first()
             if not carrier:
                 return jsonify({"error": "Carrier not found"}), 404
-            
+
             # Get quotes where this carrier is assigned but hasn't responded yet
             query = query.join(
-                quote_carrier,
-                Quote.id == quote_carrier.c.quote_id
+                quote_carrier, Quote.id == quote_carrier.c.quote_id
             ).filter(
                 quote_carrier.c.carrier_id == carrier.id,
-                ~exists().where(and_(
-                    QuoteCarrierRate.quote_id == Quote.id,
-                    QuoteCarrierRate.carrier_admin_id == user_id
-                ))
+                ~exists().where(
+                    and_(
+                        QuoteCarrierRate.quote_id == Quote.id,
+                        QuoteCarrierRate.carrier_admin_id == user_id,
+                    )
+                ),
             )
 
         # Apply date filters
-        date_start = filters.get('date_start')
-        date_end = filters.get('date_end')
-        
+        date_start = filters.get("date_start")
+        date_end = filters.get("date_end")
+
         if date_start:
-            start_date = datetime.strptime(date_start, '%Y-%m-%d').date()
+            start_date = datetime.strptime(date_start, "%Y-%m-%d").date()
             query = query.filter(Quote.created_at >= start_date)
-            
+
         if date_end:
-            end_date = datetime.strptime(date_end, '%Y-%m-%d').date()
+            end_date = datetime.strptime(date_end, "%Y-%m-%d").date()
             query = query.filter(Quote.created_at <= end_date)
 
         # Apply lane filter (origin → destination)
-        lane = filters.get('lane')
+        lane = filters.get("lane")
         if lane:
-            origin, destination = map(str.strip, lane.split('→'))
+            origin, destination = map(str.strip, lane.split("→"))
             query = query.filter(
-                Quote.origin.ilike(f'%{origin}%'),
-                Quote.destination.ilike(f'%{destination}%')
+                Quote.origin.ilike(f"%{origin}%"),
+                Quote.destination.ilike(f"%{destination}%"),
             )
 
         # Apply equipment filter
-        equipment = filters.get('equipment')
+        equipment = filters.get("equipment")
         if equipment:
             query = query.filter_by(equipment_type=equipment)
 
         # Apply carrier filter (only for shipper view)
-        carrier_filter = filters.get('carrier')
-        if carrier_filter and session.get('user_role') == 'Shipper':
-            if carrier_filter == 'none':
+        carrier_filter = filters.get("carrier")
+        if carrier_filter and session.get("user_role") == "Shipper":
+            if carrier_filter == "none":
                 # Quotes with no accepted carrier
-                query = query.filter(
-                    Quote.accepted_carrier_admin.is_(None)
-                )
+                query = query.filter(Quote.accepted_carrier_admin.is_(None))
             else:
                 # Quotes with specific accepted carrier
                 query = query.filter(
-                    Quote.accepted_carrier_admin.ilike(f'%{carrier_filter}%')
+                    Quote.accepted_carrier_admin.ilike(f"%{carrier_filter}%")
                 )
 
         # Get only pending quotes (not accepted or declined by all carriers)
-        if session.get('user_role') == 'Shipper':
+        if session.get("user_role") == "Shipper":
             # For shipper - quotes that still have carriers who haven't responded
-            subquery = db.session.query(
-                QuoteCarrierRate.quote_id,
-                func.count(QuoteCarrierRate.id).label('response_count')
-            ).group_by(
-                QuoteCarrierRate.quote_id
-            ).subquery()
+            subquery = (
+                db.session.query(
+                    QuoteCarrierRate.quote_id,
+                    func.count(QuoteCarrierRate.id).label("response_count"),
+                )
+                .group_by(QuoteCarrierRate.quote_id)
+                .subquery()
+            )
 
-            query = query.outerjoin(
-                subquery,
-                Quote.id == subquery.c.quote_id
-            ).filter(
+            query = query.outerjoin(subquery, Quote.id == subquery.c.quote_id).filter(
                 or_(
                     subquery.c.response_count.is_(None),
-                    subquery.c.response_count < func.array_length(Quote.carriers, 1)
+                    subquery.c.response_count < func.array_length(Quote.carriers, 1),
                 )
             )
 
@@ -1853,25 +2158,35 @@ def filter_quotes():
                 "origin": quote.origin,
                 "destination": quote.destination,
                 "equipment_type": quote.equipment_type,
-                "pickup_date": quote.pickup_date.isoformat() if quote.pickup_date else None,
+                "pickup_date": (
+                    quote.pickup_date.isoformat() if quote.pickup_date else None
+                ),
                 "open_value": quote.open_value,
                 "open_unit": quote.open_unit,
-                "rates_received": len([r for r in quote.quote_rates if r.rate is not None]),
-                "accepted_rate": float(quote.accepted_rate) if quote.accepted_rate else None,
+                "rates_received": len(
+                    [r for r in quote.quote_rates if r.rate is not None]
+                ),
+                "accepted_rate": (
+                    float(quote.accepted_rate) if quote.accepted_rate else None
+                ),
                 "accepted_carrier": quote.accepted_carrier_admin,
-                "status": "Pending"  # You might have more sophisticated status logic
+                "status": "Pending",  # You might have more sophisticated status logic
             }
             result.append(quote_data)
 
-        return jsonify({
-            "status": "success",
-            "data": result,
-            "count": len(result)
-        })
+        return jsonify({"status": "success", "data": result, "count": len(result)})
 
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
-
+        return jsonify({"status": "error", "message": str(e)}), 500
+    
+def get_user_data_for_shipper(users, shipper_id):
+    user = next((u for u in users if u.shipper_id == shipper_id), None)
+    if user:
+        return {
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone": user.phone,
+            "email": user.email,
+            "active": user.active
+        }
+    return None

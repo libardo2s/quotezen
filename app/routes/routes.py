@@ -38,25 +38,20 @@ def signup():
         email = request.form.get('email')
         contact_phone = request.form.get('contact_phone')
 
-        # Add logic to save to the database (SQLAlchemy)
         new_user = User(
             first_name=first_name,
             last_name=last_name,
             email=email,
             contact_phone=contact_phone
         )
-        #db.session.add(new_user)
-        #db.session.commit()
-        
-        #flash('Account created successfully!', 'success')
         return redirect(url_for('login'))
 
     return render_template('signup.html')
 
+
 @app_routes.route('/complete-registration/<hashed_email>', methods=["GET"])
 def complete_registration(hashed_email):
     try:
-
         f = Fernet(Config.HASH_KEY)
         original_email = f.decrypt(hashed_email.encode()).decode()
 
@@ -69,6 +64,7 @@ def complete_registration(hashed_email):
         print(str(e))
         return redirect(url_for("app_routes.signin"))
     
+
 @app_routes.route('/complete-registration', methods=["POST"])
 def company_complete_registration():
     try:
@@ -107,7 +103,6 @@ def company_complete_registration():
             Username=username
         )
 
-
         return jsonify({
             "status": "success",
             "message": "Registration completed successfully!",
@@ -140,6 +135,7 @@ def otp():
 def forgot_password():
     return render_template('forgot_password.html')
 
+
 @app_routes.route("/dashboard")
 def dashboard():
     if "access_token" not in session:
@@ -147,11 +143,10 @@ def dashboard():
     
     user_role = session.get('user_role')
 
-    # For Admins only
     # Get most recent quotes
     recent_quotes_query = (
         db.session.query(Quote)
-        .options(joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.user))
+        .options(joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier))
         .order_by(Quote.created_at.desc())
         .limit(5)
         .all()
@@ -165,20 +160,22 @@ def dashboard():
         if not awarded_rate and latest_rate:
             status = "Declined"
 
+        carrier_name = awarded_rate.carrier.carrier_name if awarded_rate and awarded_rate.carrier else None
+
         recent_quotes.append({
             "lane": f"{quote.origin}-{quote.destination}",
             "rate": awarded_rate.rate if awarded_rate else None,
-            "carrier": f"{awarded_rate.user.first_name} {awarded_rate.user.last_name}" if awarded_rate else None,
+            "carrier": carrier_name,
             "benchmark": quote.benchmark_rate if hasattr(quote, "benchmark_rate") else None,
             "status": status
         })
 
-    # Top carriers by win percentage (quotes awarded / total quotes)
+    # Top carriers by win percentage
     carriers = Carrier.query.all()
     top_carriers = []
     for carrier in carriers:
-        total_quotes = QuoteCarrierRate.query.filter_by(carrier_admin_id=carrier.created_by).count()
-        awards = QuoteCarrierRate.query.filter_by(carrier_admin_id=carrier.created_by, status="accepted").count()
+        total_quotes = QuoteCarrierRate.query.filter_by(carrier_id=carrier.id).count()
+        awards = QuoteCarrierRate.query.filter_by(carrier_id=carrier.id, status="accepted").count()
         win_percent = round((awards / total_quotes) * 100) if total_quotes > 0 else 0
         top_carriers.append({
             "name": carrier.carrier_name,
@@ -198,7 +195,7 @@ def dashboard():
     )
     user_requests = [{"name": name, "requests": count, "total": count} for name, count in user_requests_query]
 
-    # Quotes per month (example over last 12 months)
+    # Quotes per month
     this_year = datetime.utcnow().year
     quotes_per_month_raw = db.session.query(
         db.func.extract('month', Quote.created_at),
@@ -211,7 +208,6 @@ def dashboard():
         db.func.extract('month', Quote.created_at)
     ).all()
 
-    # Fill in all 12 months with zero if no data
     quotes_per_month = [0] * 12
     for month, count in quotes_per_month_raw:
         quotes_per_month[int(month) - 1] = count
@@ -221,6 +217,7 @@ def dashboard():
                          top_carriers=top_carriers,
                          user_requests=user_requests,
                          quotes_per_month=quotes_per_month)
+
 
 @app_routes.route("/admin_settings", methods=["GET"])
 def admin_settings():
@@ -244,8 +241,6 @@ def shipper():
     if "access_token" not in session:
         return redirect(url_for("app_routes.signin"))
     return render_template("carrier_network.html")
-    # else:
-    #     return redirect(url_for("app_routes.home"))
 
 
 @app_routes.route("/carrier_network", methods=["GET"])
@@ -261,9 +256,13 @@ def carrier_pending_quotes():
         return redirect(url_for("app_routes.signin"))
 
     user_id = session.get("user_id")
-    carrier_user = Carrier.query.filter_by(user_id=user_id).first()
+    user = User.query.get(user_id)
+    carrier = Carrier.query.filter(Carrier.users.contains(user)).filter(
+        Carrier.active.is_(True),
+    ).first()
 
-    if not carrier_user:
+    print("Carrier ID:", carrier.id if carrier else "No Carrier Found")
+    if not carrier:
         return redirect(url_for("app_routes.signin"))
 
     filters = {
@@ -276,17 +275,15 @@ def carrier_pending_quotes():
 
     now = datetime.utcnow()
 
-    # Subconsultas para excluir quotes ya aceptados o declinados
     accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
         QuoteCarrierRate.status == 'accepted'
     ).distinct().subquery()
 
     declined_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
         QuoteCarrierRate.status == 'declined',
-        QuoteCarrierRate.carrier_id == carrier_user.id
+        QuoteCarrierRate.carrier_id == carrier.id
     ).distinct().subquery()
 
-    # Condición para quotes no expirados
     expiry_condition = or_(
         and_(Quote.open_value.is_(None), Quote.open_unit.is_(None)),
         and_(
@@ -304,9 +301,8 @@ def carrier_pending_quotes():
         )
     )
 
-    # Base query con filtros
     query = Quote.query.join(Carrier, Quote.carriers).filter(
-        Carrier.id == carrier_user.id,
+        Carrier.id == carrier.id,
         ~Quote.id.in_(accepted_quotes_subquery),
         ~Quote.id.in_(declined_quotes_subquery),
         expiry_condition
@@ -328,7 +324,7 @@ def carrier_pending_quotes():
     for quote in carrier_quotes:
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
-            carrier_id=carrier_user.id
+            carrier_id=carrier.id
         ).order_by(QuoteCarrierRate.created_at.desc()).first()
 
         quote.submitted_rate = existing_rate.rate if existing_rate else None
@@ -343,30 +339,26 @@ def carrier_pending_quotes():
         pending_quotes=carrier_quotes,
         equipment_types=equipment_types,
         modes=modes,
-        carrier_admin_quote=carrier_user,
+        carrier_admin_quote=carrier,
         rate_types=rate_types,
         now=now
     )
 
 
-
 @app_routes.route("/carrier_pending_quotes/<hashed_id>", methods=["GET"])
 def carrier_pending_quotes_id(hashed_id):
-    
     f = Fernet(Config.HASH_KEY)
     quote_id = f.decrypt(hashed_id.encode()).decode()
 
     user_id = session.get("user_id")
-    carrier_user = Carrier.query.filter_by(user_id=user_id).first()
-    #print("Carrier user:", carrier_user.carrier_name)
+    user = User.query.get(user_id)
+    carrier = user.carrier
 
-    if not carrier_user:
+    if not carrier:
         return redirect(url_for("app_routes.signin"))
 
-    # carrier_user.created_by is the ID of User table
-    carrier_company_id = carrier_user.created_by
+    carrier_company_id = carrier.primary_user_id
 
-    # Recoger filtros de la query
     filters = {
         "equipment_type": request.args.get("equipment_type"),
         "mode": request.args.get("mode"),
@@ -375,12 +367,8 @@ def carrier_pending_quotes_id(hashed_id):
         "destination": request.args.get("destination"),
     }
 
-    # Base query
-    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.user_id == user_id)
-    #print("Query:", len(query.all()))
-    # Aplicar filtros por defecto
+    query = Quote.query.join(Carrier, Quote.carriers).filter(Carrier.id == carrier.id)
 
-    # Aplicar filtros si existen
     if filters["equipment_type"]:
         query = query.filter(Quote.equipment_type == filters["equipment_type"])
     if filters["mode"]:
@@ -394,29 +382,25 @@ def carrier_pending_quotes_id(hashed_id):
 
     carrier_quotes = query.all()
 
-    # Obtener rates enviados por este usuario
     for quote in carrier_quotes:
         existing_rate = QuoteCarrierRate.query.filter_by(
             quote_id=quote.id,
-            carrier_admin_id=carrier_company_id
+            carrier_id=carrier.id
         ).order_by(QuoteCarrierRate.created_at.desc()).first()
 
         quote.submitted_rate = existing_rate.rate if existing_rate else None
         quote.submitted_comment = existing_rate.comment if existing_rate else ""
 
-    # Listas únicas para los select
     equipment_types = [row[0] for row in db.session.query(Quote.equipment_type.distinct()).all()]
     modes = [row[0] for row in db.session.query(Quote.mode.distinct()).all()]
     rate_types = [row[0] for row in db.session.query(Quote.rate_type.distinct()).all()]
-
-    print("Quote ID:", quote_id)
 
     return render_template(
         "carrier_pending_quotes.html",
         pending_quotes=carrier_quotes,
         equipment_types=equipment_types,
         modes=modes,
-        carrier_admin_quote=carrier_user,
+        carrier_admin_quote=carrier,
         carrier_company_id=carrier_company_id,
         rate_types=rate_types,
         now=datetime.utcnow(),
@@ -440,6 +424,7 @@ def quotes():
         accessorials=accessorials
     )
 
+
 @app_routes.route("/pending_quotes", methods=["GET"])
 def pending_quotes():
     if "access_token" not in session:
@@ -451,7 +436,6 @@ def pending_quotes():
     if not shipper:
         return redirect(url_for("app_routes.signin"))
 
-    # Subconsulta: quotes con al menos un rate aceptado
     accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
         QuoteCarrierRate.status == 'accepted' 
     ).distinct().subquery()
@@ -462,11 +446,8 @@ def pending_quotes():
 
     now = datetime.utcnow()
     
-    # Condición para quotes con tiempo de apertura no expirado
     expiry_condition = or_(
-        # Caso 1: No tiene tiempo de apertura definido
         and_(Quote.open_value.is_(None), Quote.open_unit.is_(None)),
-        # Caso 2: Tiene tiempo de apertura y no ha expirado
         and_(
             Quote.open_value.isnot(None),
             Quote.open_unit.isnot(None),
@@ -482,9 +463,8 @@ def pending_quotes():
         )
     )
 
-    # Solo quotes de este shipper que NO tienen ningún rate aceptado y no han expirado
     quotes = Quote.query.options(
-        joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier_admin)
+        joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier)
     ).filter(
         Quote.shipper_id == shipper.id,
         ~Quote.id.in_(accepted_quotes_subquery),
@@ -492,12 +472,11 @@ def pending_quotes():
         expiry_condition
     ).order_by(Quote.created_at.desc()).all()
 
-    # Agrupar los quote_rates por carrier_admin_id (último por fecha)
     for quote in quotes:
         grouped = {}
         for rate in sorted(quote.quote_rates, key=lambda r: r.created_at or datetime.min, reverse=True):
-            if rate.carrier_admin_id not in grouped:
-                grouped[rate.carrier_admin_id] = rate
+            if rate.carrier_id not in grouped:
+                grouped[rate.carrier_id] = rate
         quote.filtered_quote_rates = list(grouped.values())
 
     return render_template(
@@ -505,6 +484,7 @@ def pending_quotes():
         pending_quotes=quotes,
         now=now
     )
+
 
 @app_routes.route("/quote_history", methods=["GET"])
 def quote_history():
@@ -515,12 +495,12 @@ def quote_history():
     now = datetime.utcnow()
 
     shipper = Shipper.query.filter_by(user_id=user_id).first()
-    carrier_admin = Carrier.query.filter_by(user_id=user_id).first()
+    user = User.query.get(user_id)
+    carrier = user.carrier if user else None
 
-    if not shipper and not carrier_admin:
+    if not shipper and not carrier:
         return redirect(url_for("app_routes.signin"))
 
-    # --- Shipper logic (no changes needed) ---
     if shipper:
         quotes = Quote.query.filter_by(shipper_id=shipper.id)\
             .options(joinedload(Quote.quote_rates))\
@@ -544,10 +524,7 @@ def quote_history():
 
             if accepted_rate or declined_rates or is_expired:
                 quote.accepted_rate = accepted_rate.rate if accepted_rate else None
-                quote.accepted_carrier_admin = (
-                    f"{accepted_rate.carrier_admin.first_name} {accepted_rate.user.last_name}"
-                    if accepted_rate else None
-                )
+                quote.accepted_carrier = accepted_rate.carrier.carrier_name if accepted_rate and accepted_rate.carrier else None
                 quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
                 valid_quotes.append(quote)
 
@@ -567,10 +544,9 @@ def quote_history():
             accessorials=accessorials
         )
 
-    # --- Carrier Admin logic (filtered for accepted, declined, or expired) ---
-    elif carrier_admin:
+    elif carrier:
         quote_rates = QuoteCarrierRate.query\
-            .filter_by(carrier_admin_id=carrier_admin.user.id)\
+            .filter_by(carrier_id=carrier.id)\
             .options(joinedload(QuoteCarrierRate.quote).joinedload(Quote.shipper))\
             .order_by(QuoteCarrierRate.created_at.desc())\
             .all()
@@ -579,7 +555,6 @@ def quote_history():
         for rate in quote_rates:
             quote = rate.quote
 
-            # Calculate expiration
             expiration_time = quote.created_at
             if quote.open_unit == "minutes":
                 expiration_time += timedelta(minutes=quote.open_value or 0)
@@ -593,7 +568,6 @@ def quote_history():
             if rate.status in ["accepted", "declined"] or is_expired:
                 quote.rate_status = rate.status
                 quote.rate_value = rate.rate
-                #quote.rate_notes = rate.notes
                 quote.expiration_status = "Expired" if is_expired else "Active"
                 quote.shipper_info = f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}"
                 quote.quote_date = quote.created_at.strftime('%Y-%m-%d')
@@ -613,12 +587,13 @@ def quote_history():
             "quote_history.html",
             quotes=processed_quotes,
             now=now,
-            user_type="carrier_admin",
+            user_type="carrier",
             modes=modes,
             equipment_types=equipment_types,
             rate_types=rate_types,
             accessorials=accessorials
         )
+
 
 @app_routes.route("/frequent_lanes", methods=["GET"])
 def frequent_lanes():
@@ -635,6 +610,7 @@ def frequent_lanes():
         rate_types=rate_types,
         accessorials=accessorials
     )
+
 
 @app_routes.route("/logout", methods=["POST"])
 def logout():

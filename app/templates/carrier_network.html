@@ -404,9 +404,9 @@
                             <td>${carrier.authority || "N/A"}</td>
                             <td>${carrier.scac || "N/A"}</td>
                             <td>${carrier.mc_number || "N/A"}</td>
-                            <td>${carrier.user.first_name || "N/A"} ${carrier.user.last_name || ""}</td>
-                            <td>${carrier.user.phone || "N/A"}</td>
-                            <td>${carrier.user.email || "N/A"}</td>
+                            <td>${carrier.carrier_name || "N/A"}</td>
+                            <td>${carrier.user?.phone || "N/A"}</td>
+                            <td>${carrier.user?.email || "N/A"}</td>
                             <td>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input toggle-carrier-btn" type="checkbox" data-id="${carrier.id}" ${carrier.active ? 'checked' : ''}>
