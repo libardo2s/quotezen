@@ -2,7 +2,8 @@ from decimal import Decimal
 import json
 
 import boto3
-from sqlalchemy import func, or_
+from psycopg2 import DataError
+from sqlalchemy import and_, func, or_, text
 
 from app.controller import create_carrier_user, create_carrier_admin
 from app.database import db
@@ -1099,6 +1100,19 @@ def api_quote():
                     jsonify({"status": "error", "message": "User is not a shipper"}),
                     403,
                 )
+            
+            required_fields = [
+                'mode', 'equipment_type', 'origin', 'destination',
+                'pickup_date', 'leave_open_unit', 'leave_open_value'
+            ]
+            
+            missing_fields = [field for field in required_fields if not form.get(field)]
+        
+            if missing_fields:
+                return jsonify({
+                    "status": "error",
+                    "message": f"Missing required fields: {', '.join(missing_fields)}"
+                }), 400
 
             carrier_ids = form.getlist("carrier_ids[]")
 
@@ -1161,53 +1175,127 @@ def api_quote():
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"status": "error", "message": str(e)}), 500
+            
+            # Handle specific database errors
+            if isinstance(e, (IntegrityError, DataError)):
+                error_info = str(e.orig)
+                
+                if "null value in column" in error_info:
+                    column = error_info.split('"')[1]
+                    return jsonify({
+                        "status": "error",
+                        "message": f"Missing required field: {column.replace('_', ' ').title()}"
+                    }), 400
+                elif "violates foreign key constraint" in error_info:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Invalid reference data provided"
+                    }), 400
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Database error occurred. Please check your data."
+                    }), 400
+                    
+            # Generic error handler
+            return jsonify({
+                "status": "error",
+                "message": "An unexpected error occurred. Please try again later."
+            }), 500
 
 
 @app_routes.route("/api/quote/<int:quote_id>", methods=["GET"])
 def get_quote_by_id(quote_id):
-    quote = Quote.query.get(quote_id)
+    quote = Quote.query.options(
+        db.joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier),
+        db.joinedload(Quote.carriers),
+        db.joinedload(Quote.shipper).joinedload(Shipper.user)
+    ).get(quote_id)
+    
     if not quote:
         return jsonify({"status": "error", "message": "Quote not found"}), 404
 
     # Convert the additional_stops JSON string to a Python object
     try:
-        additional_stops = (
-            json.loads(quote.additional_stops) if quote.additional_stops else []
-        )
+        additional_stops = json.loads(quote.additional_stops) if quote.additional_stops else []
     except json.JSONDecodeError:
         additional_stops = []
 
-    return (
-        jsonify(
-            {
-                "id": quote.id,
-                "mode": quote.mode,
-                "equipment_type": quote.equipment_type,
-                "rate_type": quote.rate_type,
-                "temp_controlled": quote.temp_controlled,
-                "origin": quote.origin,
-                "destination": quote.destination,
-                "pickup_date": (
-                    quote.pickup_date.isoformat() if quote.pickup_date else None
-                ),
-                "delivery_date": (
-                    quote.delivery_date.isoformat() if quote.delivery_date else None
-                ),
-                "commodity": quote.commodity,
-                "weight": float(quote.weight) if quote.weight else 0.0,
-                "declared_value": (
-                    float(quote.declared_value) if quote.declared_value else 0.0
-                ),
-                "accessorials": [
-                    a.strip() for a in (quote.accessorials or "").split(",")
-                ],
-                "comments": quote.comments,
-                "additional_stops": additional_stops,
-            }
-        ),
-        200,
-    )
+    # Prepare rates data
+    rates_data = []
+    for rate in quote.quote_rates:
+        carrier = rate.carrier
+        user = User.query.get(rate.user_id) if rate.user_id else None
+        
+        rates_data.append({
+            "id": rate.id,
+            "carrier_id": carrier.id if carrier else None,
+            "carrier_name": carrier.carrier_name if carrier else "Unknown Carrier",
+            "scac": carrier.scac if carrier else None,
+            "mc_number": carrier.mc_number if carrier else None,
+            "rate": float(rate.rate) if rate.rate else None,
+            "comment": rate.comment,
+            "status": rate.status,
+            "submitted_at": rate.created_at.isoformat() if rate.created_at else None,
+            "submitted_by": f"{user.first_name} {user.last_name}" if user else "System",
+            "user_role": user.role if user else None
+        })
+
+    # Calculate rates summary
+    valid_rates = [r for r in rates_data if r['rate'] is not None]
+    rates_summary = {
+        "count": len(valid_rates),
+        "accepted": len([r for r in rates_data if r['status'] == 'accepted']),
+        "pending": len([r for r in rates_data if r['status'] not in ['accepted', 'declined']]),
+        "lowest": min([r['rate'] for r in valid_rates], default=None),
+        "highest": max([r['rate'] for r in valid_rates], default=None),
+        "average": sum([r['rate'] for r in valid_rates])/len(valid_rates) if valid_rates else None
+    }
+
+    shipper_info = None
+    if quote.shipper and quote.shipper.user:
+        shipper_info = {
+            "id": quote.shipper.id,
+            "name": f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}",
+            "email": quote.shipper.user.email,
+            "company_id": quote.shipper.company_id
+        }
+
+    return jsonify({
+        "status": "success",
+        "quote": {
+            "id": quote.id,
+            "mode": quote.mode,
+            "equipment_type": quote.equipment_type,
+            "rate_type": quote.rate_type,
+            "temp_controlled": quote.temp_controlled,
+            "origin": quote.origin,
+            "destination": quote.destination,
+            "pickup_date": quote.pickup_date.isoformat() if quote.pickup_date else None,
+            "delivery_date": quote.delivery_date.isoformat() if quote.delivery_date else None,
+            "commodity": quote.commodity,
+            "weight": float(quote.weight) if quote.weight else 0.0,
+            "declared_value": float(quote.declared_value) if quote.declared_value else 0.0,
+            "accessorials": [a.strip() for a in (quote.accessorials or "").split(",")],
+            "comments": quote.comments,
+            "additional_stops": additional_stops,
+            "open_unit": quote.open_unit,
+            "open_value": quote.open_value,
+            "created_at": quote.created_at.isoformat() if quote.created_at else None,
+            "status": "open",  # Puedes añadir lógica para determinar el estado
+            "shipper": shipper_info
+        },
+        "rates": {
+            "data": rates_data,
+            "summary": rates_summary
+        },
+        "carriers": [{
+            "id": c.id,
+            "name": c.carrier_name,
+            "scac": c.scac,
+            "mc_number": c.mc_number
+        } for c in quote.carriers]
+    }), 200
 
 
 @app_routes.route("/api/update_rate", methods=["POST"])
@@ -1231,6 +1319,7 @@ def api_update_rate():
             return jsonify({"status": "error", "message": "Invalid rate format"}), 400
 
         carrier_admin = Carrier.query.get(carrier_id)
+        #user_carrier = Carrier.users.any(shipper_id=shipper.id)
 
         # Guardar historial en QuoteCarrierRate (auditoría)
         quote_rate = QuoteCarrierRate.query.filter_by(
@@ -1246,7 +1335,7 @@ def api_update_rate():
                 quote_id=quote_id,
                 carrier_id=carrier_id,
                 user_id=user_id,
-                carrier_admin_id=carrier_admin.user.id,
+                carrier_admin_id=user_id,
                 rate=rate,
                 comment=comment,
                 created_at=datetime.utcnow(),
@@ -1827,9 +1916,11 @@ def get_dashboard_stats():
             "active_shippers": 0,
             "active_carriers": 0,
             "active_companies": 0,
-            "spendMT": 0,  # Quotes assigned with values
-            "completedQuotes": 0,  # Quotes completed
+            "spendMT": 0,
+            "completedQuotes": 0,
         }
+
+        now = datetime.utcnow()
 
         # Subquery: quotes that have been accepted or declined
         excluded_quotes_subquery = (
@@ -1839,12 +1930,29 @@ def get_dashboard_stats():
             .subquery()
         )
 
+        # Condition to check for expired quotes
+        expired_condition = or_(
+            and_(
+                Quote.open_unit == 'minutes',
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 minute'")) <= now
+            ),
+            and_(
+                Quote.open_unit == 'hours',
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 hour'")) <= now
+            ),
+            and_(
+                Quote.open_unit == 'days',
+                Quote.created_at + (Quote.open_value * text("INTERVAL '1 day'")) <= now
+            )
+        )
+
         # Get counts based on user role
         if user.role == "Admin":
             stats.update(
                 {
                     "pending_quotes": Quote.query.filter(
-                        ~Quote.id.in_(excluded_quotes_subquery)
+                        ~Quote.id.in_(excluded_quotes_subquery),
+                        ~expired_condition
                     ).count(),
                     "active_shippers": Shipper.query.filter_by(
                         active=True, deleted=False
@@ -1869,8 +1977,9 @@ def get_dashboard_stats():
                         "pending_quotes": Quote.query.filter(
                             Quote.shipper_id == shipper.id,
                             ~Quote.id.in_(excluded_quotes_subquery),
+                            ~expired_condition
                         ).count(),
-                        "active_shippers": 1,  # Themselves
+                        "active_shippers": 1,
                         "active_carriers": db.session.query(Carrier)
                         .join(carrier_shipper)
                         .filter(
@@ -1878,7 +1987,7 @@ def get_dashboard_stats():
                             Carrier.active == True,
                         )
                         .count(),
-                        "active_companies": 1,  # Their company
+                        "active_companies": 1,
                         "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
                         .join(Quote)
                         .filter(
@@ -1898,7 +2007,6 @@ def get_dashboard_stats():
                 )
 
         elif user.role == "CompanyShipper":
-            # First get the company associated with this CompanyShipper user
             company = Company.query.filter_by(user_id=user_id).first()
             if company:
                 # Get all active shippers belonging to this company
@@ -1907,18 +2015,26 @@ def get_dashboard_stats():
                 ).all()
                 shipper_ids = [s.id for s in company_shippers]
 
-                # Get carriers associated with this company through the association table
-                # First ensure the association table is properly imported/defined
+                # Get active carriers associated with these shippers through carrier_shipper relationship
+                active_carriers = db.session.query(Carrier)\
+                    .join(carrier_shipper)\
+                    .filter(
+                        carrier_shipper.c.shipper_id.in_(shipper_ids),
+                        Carrier.active == True
+                    )\
+                    .distinct()\
+                    .count()
 
                 stats.update(
                     {
                         "pending_quotes": Quote.query.filter(
                             Quote.shipper_id.in_(shipper_ids),
                             ~Quote.id.in_(excluded_quotes_subquery),
+                            ~expired_condition
                         ).count(),
                         "active_shippers": len(shipper_ids),
-                        "active_carriers": 0,
-                        "active_companies": 1,  # Their own company
+                        "active_carriers": active_carriers,  # Carriers asociados a los shippers de la compañía
+                        "active_companies": 1,
                         "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
                         .join(Quote)
                         .filter(
@@ -1928,13 +2044,6 @@ def get_dashboard_stats():
                         .scalar()
                         or 0,
                         "completedQuotes": db.session.query(QuoteCarrierRate)
-                        .join(Quote)
-                        .filter(
-                            Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted",
-                        )
-                        .count(),
-                        "completedToday": db.session.query(QuoteCarrierRate)
                         .join(Quote)
                         .filter(
                             Quote.shipper_id.in_(shipper_ids),
@@ -1960,6 +2069,7 @@ def get_dashboard_stats():
                                 QuoteCarrierRate.status.in_(["accepted", "declined"]),
                             )
                             .exists(),
+                            ~expired_condition
                         )
                         .count(),
                         "active_shippers": db.session.query(Shipper)
@@ -1969,8 +2079,8 @@ def get_dashboard_stats():
                             Shipper.active == True,
                         )
                         .count(),
-                        "active_carriers": 1,  # Themselves
-                        "active_companies": 1,  # Their company
+                        "active_carriers": 1,
+                        "active_companies": 1,
                         "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
                         .filter(
                             QuoteCarrierRate.carrier_admin_id == user_id,
@@ -1985,23 +2095,16 @@ def get_dashboard_stats():
                     }
                 )
 
-        return (
-            jsonify(
-                {"user_name": f"{user.first_name} {user.last_name}", "stats": stats}
-            ),
-            200,
-        )
+        return jsonify({
+            "user_name": f"{user.first_name} {user.last_name}",
+            "stats": stats
+        }), 200
 
     except Exception as e:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": f"Failed to get dashboard stats: {str(e)}",
-                }
-            ),
-            500,
-        )
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to get dashboard stats: {str(e)}"
+        }), 500
 
 
 @app_routes.route("/api/carrier/<int:carrier_id>/creator", methods=["GET"])

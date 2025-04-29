@@ -3,7 +3,7 @@
 {% block title %}New Quote Request | QuoteZen{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-4" style="height: 80vh; overflow-y: auto;">
     {% include "partials/summary_kpis.html" %}
 
     <form method="POST" action="/api/quote" id="quoteForm" style="max-width: 1100px;">

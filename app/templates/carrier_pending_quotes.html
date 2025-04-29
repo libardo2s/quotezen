@@ -3,7 +3,7 @@
 {% block title %}Carrier Pending Quotes | QuoteZen{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-4" style="height: 80vh; overflow-y: auto;">
     <div id="rate-alert" class="alert alert-success d-none" role="alert">
         Rate Updated
     </div>
@@ -15,15 +15,13 @@
         </div>
         <div class="card-body table-responsive">
             <!-- Filter Form -->
-            <!-- Filter Form -->
             <form method="get" class="row g-3 mb-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label">Equipment Type</label>
                     <select name="equipment_type" class="form-select">
                         <option value="">All</option>
                         {% for eq in equipment_types %}
-                        <option value="{{ eq }}" {% if request.args.get('equipment_type')==eq %}selected{% endif %}>{{
-                            eq }}</option>
+                        <option value="{{ eq }}" {% if request.args.get('equipment_type')==eq %}selected{% endif %}>{{ eq }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -41,8 +39,7 @@
                     <select name="rate_type" class="form-select">
                         <option value="">All</option>
                         {% for rt in rate_types %}
-                        <option value="{{ rt }}" {% if request.args.get('rate_type')==rt %}selected{% endif %}>{{ rt }}
-                        </option>
+                        <option value="{{ rt }}" {% if request.args.get('rate_type')==rt %}selected{% endif %}>{{ rt }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -78,17 +75,15 @@
                         <th class="text-center">Rate</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="quotesTableBody">
                     {% for quote in pending_quotes %}
-                    <!-- Main row -->
                     <tr {% if quote_id and quote.id==quote_id %}class="table-success highlight-update" {% endif %}
                         id="quote-{{ quote.id }}" data-quote-id="{{ quote.id }}">
                         <td>{{ quote.mode }}</td>
-                        <td>{{ quote.carriers[0].created_by_user.first_name }} {{
-                            quote.carriers[0].created_by_user.last_name }}</td>
-                        <td>{{ quote.origin }}</td> <!-- Pickup -->
-                        <td>{{ quote.destination }}</td> <!-- Delivery -->
-                        <td>{{ quote.equipment_type }}</td> <!-- Delivery -->
+                        <td>{{ quote.carriers[0].created_by_user.first_name }} {{ quote.carriers[0].created_by_user.last_name }}</td>
+                        <td>{{ quote.origin }}</td>
+                        <td>{{ quote.destination }}</td>
+                        <td>{{ quote.equipment_type }}</td>
                         <td>{{ quote.temp_controlled }}</td>
                         <td>{{ quote.weight}}</td>
                         <td>{{ quote.comments}}</td>
@@ -113,8 +108,7 @@
                                 hx-swap="outerHTML" hx-trigger="submit">
                                 <input type="hidden" name="carrier_id" value="{{ carrier_admin_quote.id }}">
                                 <input type="hidden" name="quote_id" value="{{ quote.id }}">
-                        
-                                <!-- Input para el rate -->
+
                                 <div class="input-group input-group-sm mb-1" style="max-width: 180px;">
                                     <input type="number" required name="rate"
                                         value="{{ quote.submitted_rate if quote.submitted_rate is not none else '' }}"
@@ -123,66 +117,72 @@
                                         <i class="bi bi-check2-circle"></i> Save
                                     </button>
                                 </div>
-                        
-                                <!-- Campo de texto para comentarios -->
+
                                 <textarea name="comment" class="form-control form-control-sm" rows="1"
                                     placeholder="Add comment (optional)">{{ quote.submitted_comment or '' }}</textarea>
                             </form>
                         </td>
                     </tr>
-
                     {% else %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted">No pending quotes found.</td>
+                        <td colspan="11" class="text-center text-muted">No pending quotes found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
+            
+            <!-- Pagination Footer -->
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="dataTables_info" id="pageInfo" role="status" aria-live="polite">
+                        Showing 0 to 0 of 0 entries
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <nav aria-label="Page navigation" class="float-end">
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item disabled" id="prevPage">
+                                <a class="page-link" href="#" tabindex="-1">Previous</a>
+                            </li>
+                            <li class="page-item active">
+                                <span class="page-link">1</span>
+                            </li>
+                            <li class="page-item" id="nextPage">
+                                <a class="page-link" href="#">Next</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
-
 </div>
 
 <script>
-
     document.addEventListener('DOMContentLoaded', function () {
+        // Time remaining functionality
         const timeElements = document.querySelectorAll('.time-remaining');
-
         timeElements.forEach(element => {
-            // Parse initial values
             const createdAt = new Date(element.dataset.createdAt);
             const unit = element.dataset.unit;
             const value = parseFloat(element.dataset.value);
 
-            // Validate inputs
             if (!unit || isNaN(value) || !createdAt.getTime()) {
                 element.textContent = '00:00:00';
                 return;
             }
 
-            // Calculate expiration time
             const expiration = new Date(createdAt);
             switch (unit) {
-                case 'hours':
-                    expiration.setHours(expiration.getHours() + value);
-                    break;
-                case 'days':
-                    expiration.setDate(expiration.getDate() + value);
-                    break;
-                case 'minutes':
-                    expiration.setMinutes(expiration.getMinutes() + value);
-                    break;
-                default:
-                    element.textContent = '00:00:00';
-                    return;
+                case 'hours': expiration.setHours(expiration.getHours() + value); break;
+                case 'days': expiration.setDate(expiration.getDate() + value); break;
+                case 'minutes': expiration.setMinutes(expiration.getMinutes() + value); break;
+                default: element.textContent = '00:00:00'; return;
             }
 
-            // Store timer reference on the element
             element.countdownTimer = setInterval(() => {
                 updateCountdown(element, expiration);
             }, 1000);
-
-            // Initial update
             updateCountdown(element, expiration);
         });
 
@@ -190,7 +190,6 @@
             const now = new Date();
             const diffMs = expiration - now;
 
-            // Handle expired state
             if (diffMs <= 0) {
                 element.textContent = '00:00:00';
                 element.classList.add('expired');
@@ -199,19 +198,13 @@
                 return;
             }
 
-            // Calculate time components
             const totalSeconds = Math.floor(diffMs / 1000);
             const hours = Math.floor(totalSeconds / 3600);
             const minutes = Math.floor((totalSeconds % 3600) / 60);
             const seconds = totalSeconds % 60;
 
-            // Update display
-            element.textContent =
-                `${String(hours).padStart(2, '0')}:` +
-                `${String(minutes).padStart(2, '0')}:` +
-                `${String(seconds).padStart(2, '0')}`;
+            element.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
-            // Add warning class for last 30 minutes
             if (diffMs < 30 * 60 * 1000) {
                 element.classList.add('warning');
             } else {
@@ -219,19 +212,83 @@
             }
         }
 
+        // Pagination functionality
+        let currentPage = 1;
+        const itemsPerPage = 5;
+        const tableRows = document.querySelectorAll('#quotesTableBody tr');
+        const totalItems = tableRows.length;
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const pageInfo = document.getElementById('pageInfo');
+
+        function showPage(page) {
+            const startIndex = (page - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+
+            tableRows.forEach((row, index) => {
+                row.style.display = (index >= startIndex && index < endIndex) ? '' : 'none';
+            });
+
+            updatePageInfo(startIndex + 1, endIndex, totalItems);
+            updatePaginationControls(page);
+        }
+
+        function updatePageInfo(start, end, total) {
+            pageInfo.textContent = `Showing ${start} to ${end} of ${total} entries`;
+        }
+
+        function updatePaginationControls(page) {
+            const prevBtn = document.getElementById('prevPage');
+            const nextBtn = document.getElementById('nextPage');
+            const pageNumber = document.querySelector('.pagination .active .page-link');
+
+            prevBtn.classList.toggle('disabled', page === 1);
+            nextBtn.classList.toggle('disabled', page === totalPages);
+            
+            if (pageNumber) {
+                pageNumber.textContent = page;
+            }
+        }
+
+        document.getElementById('prevPage').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage > 1) {
+                currentPage--;
+                showPage(currentPage);
+            }
+        });
+
+        document.getElementById('nextPage').addEventListener('click', function(e) {
+            e.preventDefault();
+            if (currentPage < totalPages) {
+                currentPage++;
+                showPage(currentPage);
+            }
+        });
+
+        // Highlight updated row if needed
         {% if quote_id %}
-        // Find the row to highlight
         const rowToHighlight = document.getElementById('quote-{{ quote_id }}');
         if (rowToHighlight) {
-            // Scroll to the row (smoothly)
             rowToHighlight.scrollIntoView({ behavior: 'smooth', block: 'center' });
-
-            // Remove the highlight class after animation completes (3s)
             setTimeout(() => {
                 rowToHighlight.classList.remove('highlight-update');
             }, 3000);
         }
         {% endif %}
+
+        // HTMX rate update notification
+        document.body.addEventListener("htmx:afterRequest", function (event) {
+            if (new URL(event.detail.xhr.responseURL).pathname.includes("/api/update_rate")) {
+                const alertBox = document.getElementById("rate-alert");
+                alertBox.classList.remove("d-none");
+                setTimeout(() => {
+                    alertBox.classList.add("d-none");
+                }, 2000);
+            }
+        });
+
+        // Initialize first page
+        showPage(1);
     });
 </script>
 
@@ -240,66 +297,49 @@
         color: orange;
         font-weight: bold;
     }
-
     .time-remaining.expired {
         color: red;
         font-weight: bold;
     }
-
-    /* Estilo para resaltar la fila actualizada */
     .table-success {
         background-color: #d1e7dd !important;
     }
-
-    /* Efecto de parpadeo para llamar la atención */
     @keyframes blink {
-        0% {
-            background-color: #d1e7dd;
-        }
-
-        50% {
-            background-color: #a3cfbb;
-        }
-
-        100% {
-            background-color: #d1e7dd;
-        }
+        0% { background-color: #d1e7dd; }
+        50% { background-color: #a3cfbb; }
+        100% { background-color: #d1e7dd; }
     }
-
     .highlight-update {
         animation: blink 1s 3;
     }
-
-    /* Add to your style section */
     .list-unstyled li {
         padding: 2px 0;
         border-bottom: 1px dotted #eee;
     }
-
     .list-unstyled li:last-child {
         border-bottom: none;
     }
-
     textarea.form-control-sm {
         resize: vertical;
         font-size: 0.85rem;
     }
+    .dataTables_info {
+        padding-top: 0.75rem;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+    .pagination .page-link {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        color: #0d6efd;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+        color: white;
+    }
+    .pagination .page-item.disabled .page-link {
+        color: #6c757d;
+    }
 </style>
-
-<script>
-    document.body.addEventListener("htmx:afterRequest", function (event) {
-        const xhr = event.detail.xhr;
-        const path = new URL(xhr.responseURL).pathname;
-
-        if (path.includes("/api/update_rate")) {
-            const alertBox = document.getElementById("rate-alert");
-            alertBox.classList.remove("d-none");
-            alertBox.textContent = "Rate Updated";
-
-            setTimeout(() => {
-                alertBox.classList.add("d-none");
-            }, 2000);
-        }
-    });
-</script>
 {% endblock %}

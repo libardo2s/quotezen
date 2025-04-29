@@ -3,7 +3,7 @@
 {% block title %}Pending Quotes | QuoteZen{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-4" style="height: 80vh; overflow-y: auto;">
     <div id="decision-alert" class="alert d-none" role="alert"></div>
 
     <!-- Pending Quotes Table -->
@@ -12,7 +12,7 @@
             <h5 class="mb-0">Pending Quotes</h5>
         </div>
         <div class="card-body table-responsive">
-            <table class="table table-hover align-middle">
+            <table class="table table-hover align-middle" id="quotesTable">
                 <thead class="table-light">
                     <tr>
                         <th>#</th>
@@ -24,13 +24,16 @@
                         <th>Time Remaining</th>
                         <th>Requester Form</th>
                         <th>Rates Received</th>
-                        <th class="text-center">Actions</th>
+                        {% if not is_company_user%}
+                            <th class="text-center">Actions</th>
+                        {% endif %}
+                        
                     </tr>
                 </thead>
                 <tbody>
                     {% for quote in pending_quotes %}
                     <!-- Main row -->
-                    <tr>
+                    <tr class="quote-row" data-quote-id="{{ quote.id }}">
                         <td>{{ quote.id }}</td>
                         <td>{{ quote.created_at.strftime('%m-%d-%Y %H:%M:%S UTC') }}</td>
                         <td>{{ quote.origin }} - {{ quote.destination }}</td>
@@ -43,22 +46,23 @@
                             {% endif %}
                         </td>
                         <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                        <td class="time-remaining" 
-                            data-unit="{{ quote.open_unit }}"
-                            data-created-at="{{ quote.created_at.isoformat() + 'Z' }}" 
+                        <td class="time-remaining" data-unit="{{ quote.open_unit }}"
+                            data-created-at="{{ quote.created_at.isoformat() + 'Z' }}"
                             data-value="{{ quote.open_value }}">
                             <!-- Initial value will be set by JS -->
                             00:00:00
                         </td>
                         <td>{{ quote.carriers|length }}</td>
                         <td>{{ quote.filtered_quote_rates|length }}</td>
-
-                        <td class="text-center">
-                            <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
-                                aria-label="Toggle details">
-                                <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
-                            </button>
-                        </td>
+                        {% if not is_company_user%}
+                            <td class="text-center">
+                                
+                                    <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
+                                        aria-label="Toggle details">
+                                        <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
+                                    </button>
+                            </td>
+                        {% endif %}
                     </tr>
 
                     <!-- Expandable row for details -->
@@ -82,7 +86,7 @@
                                             <td>{{ carrier.carrier.carrier_name }}</td>
                                             <td>${{ carrier.rate }}</td>
                                             <td>{{ carrier.contact_name or '—' }}</td>
-                                            <td>{{ carrier.carrier.user.email or '—' }}</td>
+                                            <td>{{ carrier.carrier.carrier_name or '—' }}</td>
                                             <td>{{ carrier.comment or '—' }}</td>
                                             <td>
                                                 {% if carrier.status == 'accepted' %}
@@ -126,6 +130,35 @@
                     {% endfor %}
                 </tbody>
             </table>
+            <!-- Pagination Controls -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted" id="paginationInfo"></div>
+                <nav aria-label="Quote pagination">
+                    <ul class="pagination mb-0" id="paginationControls">
+                        <li class="page-item disabled" id="firstPage">
+                            <a class="page-link" href="#" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled" id="prevPage">
+                            <a class="page-link" href="#" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <!-- Los números de página se insertarán aquí dinámicamente -->
+                        <li class="page-item disabled" id="nextPage">
+                            <a class="page-link" href="#" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled" id="lastPage">
+                            <a class="page-link" href="#" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
         </div>
     </div>
 
@@ -270,6 +303,168 @@
                 element.classList.remove('warning');
             }
         }
+
+        // Configuración de paginación - 5 registros por página
+        const rowsPerPage = 5;
+        let currentPage = 1;
+        const allQuoteRows = Array.from(document.querySelectorAll('.quote-row'));
+        const totalRows = allQuoteRows.length;
+
+        // Inicializar paginación
+        function initPagination() {
+            // Ocultar todos los detalles expandidos al cambiar de página
+            document.querySelectorAll('[id^="quote-details-"]').forEach(row => {
+                row.style.display = 'none';
+            });
+
+            updatePagination();
+            updateTimerElements();
+        }
+
+        // Actualizar la visualización de la paginación
+        function updatePagination() {
+            const totalPages = Math.ceil(totalRows / rowsPerPage);
+
+            // Actualizar texto de información
+            const startItem = (currentPage - 1) * rowsPerPage + 1;
+            const endItem = Math.min(currentPage * rowsPerPage, totalRows);
+            document.getElementById('paginationInfo').textContent =
+                `Mostrando ${startItem} a ${endItem} de ${totalRows} cotizaciones`;
+
+            // Ocultar todas las filas primero
+            allQuoteRows.forEach(row => {
+                row.style.display = 'none';
+                const quoteId = row.getAttribute('data-quote-id');
+                const detailsRow = document.getElementById(`quote-details-${quoteId}`);
+                if (detailsRow) {
+                    detailsRow.style.display = 'none';
+                    // Resetear el ícono de toggle
+                    const icon = document.getElementById(`icon-${quoteId}`);
+                    if (icon) {
+                        icon.classList.remove('bi-chevron-up');
+                        icon.classList.add('bi-chevron-down');
+                    }
+                }
+            });
+
+            // Mostrar solo las filas de la página actual
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
+
+            for (let i = startIndex; i < endIndex; i++) {
+                if (allQuoteRows[i]) {
+                    allQuoteRows[i].style.display = '';
+                }
+            }
+
+            // Actualizar controles de paginación
+            updatePaginationControls(totalPages);
+        }
+
+        // Actualizar los controles de paginación
+        function updatePaginationControls(totalPages) {
+            const paginationControls = document.getElementById('paginationControls');
+            let pageNumberContainer = paginationControls.querySelector('.page-number-container');
+
+            if (pageNumberContainer) {
+                pageNumberContainer.remove();
+            }
+
+            pageNumberContainer = document.createElement('div');
+            pageNumberContainer.className = 'page-number-container d-flex';
+
+            // Mostrar números de página (máximo 5)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+
+            // Ajustar si estamos cerca del inicio o final
+            if (currentPage <= 2) {
+                endPage = Math.min(5, totalPages);
+            }
+            if (currentPage >= totalPages - 1) {
+                startPage = Math.max(totalPages - 4, 1);
+            }
+
+            // Agregar botones de números de página
+            for (let i = startPage; i <= endPage; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === currentPage ? 'active' : ''}`;
+
+                const pageLink = document.createElement('a');
+                pageLink.className = 'page-link';
+                pageLink.href = '#';
+                pageLink.textContent = i;
+                pageLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    goToPage(i);
+                });
+
+                pageItem.appendChild(pageLink);
+                pageNumberContainer.appendChild(pageItem);
+            }
+
+            // Insertar números de página entre los botones de anterior/siguiente
+            const prevPage = document.getElementById('prevPage');
+            prevPage.after(pageNumberContainer);
+
+            // Actualizar estados de los botones
+            document.getElementById('firstPage').classList.toggle('disabled', currentPage === 1);
+            document.getElementById('prevPage').classList.toggle('disabled', currentPage === 1);
+            document.getElementById('nextPage').classList.toggle('disabled', currentPage === totalPages || totalPages === 0);
+            document.getElementById('lastPage').classList.toggle('disabled', currentPage === totalPages || totalPages === 0);
+        }
+
+        // Ir a página específica
+        function goToPage(page) {
+            currentPage = page;
+            updatePagination();
+            updateTimerElements();
+        }
+
+        // Configurar event listeners para los controles
+        function setupPaginationEvents() {
+            document.getElementById('firstPage').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (currentPage > 1) goToPage(1);
+            });
+
+            document.getElementById('prevPage').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (currentPage > 1) goToPage(currentPage - 1);
+            });
+
+            document.getElementById('nextPage').addEventListener('click', (e) => {
+                e.preventDefault();
+                const totalPages = Math.ceil(totalRows / rowsPerPage);
+                if (currentPage < totalPages) goToPage(currentPage + 1);
+            });
+
+            document.getElementById('lastPage').addEventListener('click', (e) => {
+                e.preventDefault();
+                const totalPages = Math.ceil(totalRows / rowsPerPage);
+                if (currentPage < totalPages) goToPage(totalPages);
+            });
+        }
+
+        function updateTimerElements() {
+            const visibleRows = allQuoteRows.filter(row => 
+                row.style.display !== 'none' && 
+                !row.classList.contains('expired')
+            );
+            
+            visibleRows.forEach(row => {
+                const timeElement = row.querySelector('.time-remaining');
+                if (timeElement && !timeElement.hasAttribute('data-timer-initialized')) {
+                    initializeTimer(timeElement);
+                    timeElement.setAttribute('data-timer-initialized', 'true');
+                }
+            });
+        }
+
+        // Inicializar todo
+        setupPaginationEvents();
+        initPagination();
+
     });
 
     // Quote decision functionality
@@ -380,6 +575,43 @@
 
     .swal2-confirm {
         padding: 0.5rem 1.5rem;
+    }
+
+    /* Pagination styling */
+    .pagination {
+        margin: 0;
+    }
+
+    .page-item.active .page-link {
+        background-color: #0d6efd;
+        border-color: #0d6efd;
+    }
+
+    .page-link {
+        color: #0d6efd;
+        min-width: 38px;
+        text-align: center;
+    }
+
+    .page-item.disabled .page-link {
+        color: #6c757d;
+    }
+
+    .page-number-container {
+        margin: 0 5px;
+    }
+
+    /* Estilos responsivos */
+    @media (max-width: 576px) {
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
     }
 </style>
 {% endblock %}

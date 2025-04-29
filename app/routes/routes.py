@@ -3,6 +3,7 @@ import boto3
 import pandas as pd
 from flask import jsonify, request
 from sqlalchemy import and_, case, func, or_, text
+from app.models.company import Company
 from app.routes import app_routes
 from cryptography.fernet import Fernet
 from app.config import Config
@@ -431,9 +432,16 @@ def pending_quotes():
         return redirect(url_for("app_routes.signin"))
 
     user_id = session.get("user_id")
+    
+    # Check if user is a shipper
     shipper = Shipper.query.filter_by(user_id=user_id).first()
+    
+    # Check if user is associated with a company (either as user_id or created_by)
+    company = Company.query.filter(
+        (Company.user_id == user_id) | (Company.created_by == user_id)
+    ).first()
 
-    if not shipper:
+    if not shipper and not company:
         return redirect(url_for("app_routes.signin"))
 
     accepted_quotes_subquery = db.session.query(QuoteCarrierRate.quote_id).filter(
@@ -463,15 +471,29 @@ def pending_quotes():
         )
     )
 
-    quotes = Quote.query.options(
-        joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier)
+    # Base query with options
+    query = Quote.query.options(
+        joinedload(Quote.quote_rates).joinedload(QuoteCarrierRate.carrier),
+        joinedload(Quote.shipper).joinedload(Shipper.user)  # Load shipper and user info
     ).filter(
-        Quote.shipper_id == shipper.id,
         ~Quote.id.in_(accepted_quotes_subquery),
         ~Quote.id.in_(declined_subquery),
         expiry_condition
-    ).order_by(Quote.created_at.desc()).all()
+    ).order_by(Quote.created_at.desc())
 
+    # Modify query based on user type
+    if shipper:
+        # Regular shipper - only see their own quotes
+        query = query.filter(Quote.shipper_id == shipper.id)
+    elif company:
+        # Company user - see quotes from all shippers in their company
+        query = query.join(Quote.shipper).filter(
+            Shipper.company_id == company.id
+        )
+
+    quotes = query.all()
+
+    # Group rates by carrier (latest rate per carrier)
     for quote in quotes:
         grouped = {}
         for rate in sorted(quote.quote_rates, key=lambda r: r.created_at or datetime.min, reverse=True):
@@ -482,7 +504,8 @@ def pending_quotes():
     return render_template(
         "pending_quotes.html",
         pending_quotes=quotes,
-        now=now
+        now=now,
+        is_company_user=bool(company)  # Pass this to template to adjust UI if needed
     )
 
 
@@ -497,11 +520,58 @@ def quote_history():
     shipper = Shipper.query.filter_by(user_id=user_id).first()
     user = User.query.get(user_id)
     carrier = user.carrier if user else None
+    company = Company.query.filter(
+        (Company.user_id == user_id) | (Company.created_by == user_id)
+    ).first()
 
-    if not shipper and not carrier:
+    if not shipper and not carrier and not company:
         return redirect(url_for("app_routes.signin"))
 
-    if shipper:
+    if company:
+        # Lógica para company shipper
+        quotes = Quote.query.join(Shipper).filter(
+            Shipper.company_id == company.id
+        ).options(
+            joinedload(Quote.quote_rates),
+            joinedload(Quote.shipper).joinedload(Shipper.user)
+        ).order_by(Quote.created_at.desc()).all()
+
+        processed_quotes = []
+        for quote in quotes:
+            accepted_rate = next((r for r in quote.quote_rates if r.status == "accepted"), None)
+            declined_rates = [r for r in quote.quote_rates if r.status == "declined"]
+
+            expiration_time = quote.created_at
+            if quote.open_unit == "minutes":
+                expiration_time += timedelta(minutes=quote.open_value or 0)
+            elif quote.open_unit == "hours":
+                expiration_time += timedelta(hours=quote.open_value or 0)
+            elif quote.open_unit == "days":
+                expiration_time += timedelta(days=quote.open_value or 0)
+
+            is_expired = expiration_time < now
+
+            if accepted_rate or declined_rates or is_expired:
+                # Creamos un objeto Quote con los atributos necesarios
+                quote.accepted_rate = accepted_rate.rate if accepted_rate else None
+                quote.accepted_carrier = accepted_rate.carrier.carrier_name if accepted_rate and accepted_rate.carrier else None
+                quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
+                quote.shipper_name = f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}"
+                processed_quotes.append(quote)
+
+        return render_template(
+            "quote_history.html",
+            quotes=processed_quotes,
+            now=now,
+            user_type="company_shipper",
+            modes=Mode.query.all(),
+            equipment_types=EquipmentType.query.all(),
+            rate_types=RateType.query.all(),
+            accessorials=Accessorial.query.all()
+        )
+
+    elif shipper:
+        # Mantener código existente para shipper normal
         quotes = Quote.query.filter_by(shipper_id=shipper.id)\
             .options(joinedload(Quote.quote_rates))\
             .order_by(Quote.created_at.desc())\
@@ -528,23 +598,19 @@ def quote_history():
                 quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
                 valid_quotes.append(quote)
 
-        modes = Mode.query.all()
-        equipment_types = EquipmentType.query.all()
-        rate_types = RateType.query.all()
-        accessorials = Accessorial.query.all()
-
         return render_template(
             "quote_history.html",
             quotes=valid_quotes,
             now=now,
             user_type="shipper",
-            modes=modes,
-            equipment_types=equipment_types,
-            rate_types=rate_types,
-            accessorials=accessorials
+            modes=Mode.query.all(),
+            equipment_types=EquipmentType.query.all(),
+            rate_types=RateType.query.all(),
+            accessorials=Accessorial.query.all()
         )
 
     elif carrier:
+        # Mantener código existente para carrier
         quote_rates = QuoteCarrierRate.query\
             .filter_by(carrier_id=carrier.id)\
             .options(joinedload(QuoteCarrierRate.quote).joinedload(Quote.shipper))\
@@ -554,6 +620,7 @@ def quote_history():
         processed_quotes = []
         for rate in quote_rates:
             quote = rate.quote
+            quote.rate = rate  # Agregamos el rate al objeto quote
 
             expiration_time = quote.created_at
             if quote.open_unit == "minutes":
@@ -571,27 +638,17 @@ def quote_history():
                 quote.expiration_status = "Expired" if is_expired else "Active"
                 quote.shipper_info = f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}"
                 quote.quote_date = quote.created_at.strftime('%Y-%m-%d')
-
-                processed_quotes.append({
-                    'quote': quote,
-                    'rate': rate,
-                    'expiration_status': "Expired" if is_expired else "Active"
-                })
-
-        modes = Mode.query.all()
-        equipment_types = EquipmentType.query.all()
-        rate_types = RateType.query.all()
-        accessorials = Accessorial.query.all()
+                processed_quotes.append(quote)
 
         return render_template(
             "quote_history.html",
             quotes=processed_quotes,
             now=now,
             user_type="carrier",
-            modes=modes,
-            equipment_types=equipment_types,
-            rate_types=rate_types,
-            accessorials=accessorials
+            modes=Mode.query.all(),
+            equipment_types=EquipmentType.query.all(),
+            rate_types=RateType.query.all(),
+            accessorials=Accessorial.query.all()
         )
 
 

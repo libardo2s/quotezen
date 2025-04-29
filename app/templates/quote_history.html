@@ -3,19 +3,16 @@
 {% block title %}Quote History | QuoteZen{% endblock %}
 
 {% block content %}
-<div class="container-fluid p-4">
+<div class="container-fluid p-4" style="height: 80vh; overflow-y: auto;">
     {% include "partials/summary_kpis.html" %}
 
     <div class="card mt-4">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Quote History</h5>
-            <span class="badge bg-{% if user_type == 'shipper' %}primary{% else %}info{% endif %}">
-                Viewing as: {{ 'Shipper' if user_type == 'shipper' else 'Carrier Admin' }}
-            </span>
         </div>
 
         <!-- Filter Section (Shipper View Only) -->
-        {% if user_type == 'shipper' %}
+        {% if user_type == 'shipper' or user_type == 'company_shipper' %}
         <div class="card-header bg-light">
             <form id="quoteFilters" class="row g-3">
                 <div class="col-md-4">
@@ -26,12 +23,12 @@
                         <input type="date" class="form-control" id="dateEnd" aria-label="End date">
                     </div>
                 </div>
-                
+
                 <div class="col-md-3">
                     <label for="laneFilter" class="form-label">Lane</label>
                     <input type="text" class="form-control" id="laneFilter" placeholder="Origin → Destination">
                 </div>
-                
+
                 <div class="col-md-2">
                     <label for="equipmentFilter" class="form-label">Equipment</label>
                     <select class="form-select" id="equipmentFilter">
@@ -41,18 +38,20 @@
                         {% endfor %}
                     </select>
                 </div>
-                
+
+                {% if user_type == 'shipper' %}
                 <div class="col-md-2">
                     <label for="carrierFilter" class="form-label">Accepted Carrier</label>
                     <input type="text" class="form-control" id="carrierFilter" placeholder="Carrier Name">
                 </div>
-                
-                <div class="col-md-1 d-flex flex-column">
-                    <button type="button" class="btn btn-primary mb-2" onclick="applyFilters()">
-                        <i class="bi bi-funnel"></i> Filter
+                {% endif %}
+
+                <div class="col-md-{% if user_type == 'shipper' %}1{% else %}3{% endif %} d-flex flex-column gap-1">
+                    <button type="button" class="btn btn-primary btn-sm p-1" onclick="applyFilters()">
+                        <i class="bi bi-funnel fs-6"></i> <span class="small">Filter</span>
                     </button>
-                    <button type="button" class="btn btn-danger" onclick="resetAllFilters()">
-                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    <button type="button" class="btn btn-danger btn-sm p-1" onclick="resetAllFilters()">
+                        <i class="bi bi-arrow-counterclockwise fs-6"></i> <span class="small">Reset</span>
                     </button>
                 </div>
             </form>
@@ -63,10 +62,13 @@
             <table class="table table-hover align-middle" id="quotesTable">
                 <thead class="table-light">
                     <tr>
-                        {% if user_type == 'shipper' %}
-                        <!-- Shipper View Columns -->
+                        {% if user_type == 'shipper' or user_type == 'company_shipper' %}
+                        <!-- Shipper/Company View Columns -->
                         <th>#</th>
                         <th>Created At</th>
+                        {% if user_type == 'company_shipper' %}
+                        <th>Shipper</th>
+                        {% endif %}
                         <th>Lane</th>
                         <th>Equipment</th>
                         <th>Send At</th>
@@ -75,6 +77,7 @@
                         <th>Accepted Rate</th>
                         <th>Accepted Carrier</th>
                         <th>Status</th>
+                        <th>Actions</th>
                         {% else %}
                         <!-- Carrier Admin View Columns -->
                         <th>#</th>
@@ -91,106 +94,142 @@
                 </thead>
 
                 <tbody>
-                    {% if user_type == 'shipper' %}
-                    <!-- Shipper View Rows -->
-                    {% for quote in quotes %}
-                    <tr class="quote-row" 
-                        data-created-at="{{ quote.created_at.strftime('%Y-%m-%d') }}"
-                        data-lane="{{ quote.origin }} → {{ quote.destination }}"
-                        data-equipment="{{ quote.equipment_type or '' }}"
-                        data-carrier="{{ quote.accepted_carrier_admin or '' }}">
-                        <td>{{ quote.id }}</td>
-                        <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
-                        <td>{{ quote.origin }} → {{ quote.destination }}</td>
-                        <td>{{ quote.equipment_type or '—' }}</td>
-                        <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M') }}</td>
-                        <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
-                        <td>{{ quote.quote_rates|length }}</td>
-                        <td>
-                            {% if quote.accepted_rate %}
-                            ${{ "{:,.2f}".format(quote.accepted_rate) }}
-                            {% else %}
-                            —
+                    {% if quotes|length > 0 %}
+                        {% for quote in quotes %}
+                        {% if user_type == 'shipper' or user_type == 'company_shipper' %}
+                        <!-- Shipper/Company View Rows -->
+                        <tr class="quote-row" 
+                            data-created-at="{{ quote.created_at.strftime('%Y-%m-%d') }}"
+                            data-lane="{{ quote.origin }} → {{ quote.destination }}"
+                            data-equipment="{{ quote.equipment_type or '' }}"
+                            data-carrier="{{ (quote.accepted_carrier or quote.accepted_carrier_admin) or '' }}">
+                            <td>{{ quote.id }}</td>
+                            <td>{{ quote.created_at.strftime('%m-%d-%y %H:%M') }}</td>
+                            {% if user_type == 'company_shipper' %}
+                            <td>{{ quote.shipper_name }}</td>
                             {% endif %}
-                        </td>
-                        <td>
-                            {% if quote.accepted_carrier_admin %}
-                            {{ quote.accepted_carrier_admin }}
-                            {% else %}
-                            —
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge bg-{% if quote.status_summary == 'Accepted' %}success
+                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
+                            <td>{{ quote.equipment_type or '—' }}</td>
+                            <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M') }}</td>
+                            <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
+                            <td>{{ quote.quote_rates|length if quote.quote_rates else 0 }}</td>
+                            <td>
+                                {% if quote.accepted_rate %}
+                                ${{ "{:,.2f}".format(quote.accepted_rate) }}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if quote.accepted_carrier or quote.accepted_carrier_admin %}
+                                {{ quote.accepted_carrier or quote.accepted_carrier_admin }}
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if quote.status_summary == 'Accepted' %}success
                                                      {% elif quote.status_summary == 'Declined' %}danger
                                                      {% else %}secondary{% endif %}">
-                                {{ quote.status_summary }}
-                            </span>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="10" class="text-center text-muted">No quote history found.</td>
-                    </tr>
-                    {% endfor %}
-
-                    {% else %}
-                    <!-- Carrier Admin View Rows -->
-                    {% for item in quotes %}
-                    {% set quote = item.quote %}
-                    <tr>
-                        <td>{{ quote.id }}</td>
-                        <td>{{ quote.shipper.user.company_name }}</td>
-                        <td>{{ quote.origin }} → {{ quote.destination }}</td>
-                        <td>{{ quote.equipment_type or '—' }}</td>
-                        <td>{{ quote.created_at.strftime('%m-%d-%y') }}</td>
-                        <td>${{ "{:,.2f}".format(item.rate.rate) }}</td>
-                        <td>
-                            <span class="badge bg-{% if item.rate.status == 'accepted' %}success
-                                                     {% elif item.rate.status == 'declined' %}danger
+                                    {{ quote.status_summary }}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#quoteDetailsModal" data-quote-id="{{ quote.id }}">
+                                    Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <!-- Carrier Admin View Rows -->
+                        <tr>
+                            <td>{{ quote.id }}</td>
+                            <td>{{ quote.shipper_info }}</td>
+                            <td>{{ quote.origin }} → {{ quote.destination }}</td>
+                            <td>{{ quote.equipment_type or '—' }}</td>
+                            <td>{{ quote.quote_date }}</td>
+                            <td>${{ "{:,.2f}".format(quote.rate_value) }}</td>
+                            <td>
+                                <span class="badge bg-{% if quote.rate_status == 'accepted' %}success
+                                                     {% elif quote.rate_status == 'declined' %}danger
                                                      {% else %}warning{% endif %}">
-                                {{ item.rate.status|capitalize }}
-                            </span>
-                        </td>
-                        <td>
-                            <span
-                                class="badge bg-{% if item.expiration_status == 'Expired' %}secondary{% else %}success{% endif %}">
-                                {% if item.expiration_status == 'Expired' %}
-                                <i class="bi bi-hourglass-bottom"></i> Expired
-                                {% else %}
-                                <i class="bi bi-check-circle"></i> Active
-                                {% endif %}
-                            </span>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
-                                data-bs-target="#quoteDetailsModal" data-quote-id="{{ quote.id }}">
-                                Details
-                            </button>
-                        </td>
-                    </tr>
+                                    {{ quote.rate_status|capitalize }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if quote.expiration_status == 'Expired' %}secondary{% else %}success{% endif %}">
+                                    {% if quote.expiration_status == 'Expired' %}
+                                    <i class="bi bi-hourglass-bottom"></i> Expired
+                                    {% else %}
+                                    <i class="bi bi-check-circle"></i> Active
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#quoteDetailsModal" data-quote-id="{{ quote.id }}">
+                                    Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted">No quote history found.</td>
+                        <td colspan="{% if user_type == 'shipper' or user_type == 'company_shipper' %}10{% else %}9{% endif %}" 
+                            class="text-center text-muted">
+                            No quote history found.
+                        </td>
                     </tr>
-                    {% endfor %}
                     {% endif %}
                 </tbody>
             </table>
+            
+            <!-- Pagination Controls -->
+            <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="text-muted" id="paginationInfo">
+                    Showing 0 to 0 of 0 entries
+                </div>
+                <nav aria-label="Quote pagination">
+                    <ul class="pagination mb-0" id="paginationControls">
+                        <li class="page-item disabled" id="firstPage">
+                            <a class="page-link" href="#" aria-label="First">
+                                <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled" id="prevPage">
+                            <a class="page-link" href="#" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <!-- Page numbers will be inserted here by JavaScript -->
+                        <li class="page-item disabled" id="nextPage">
+                            <a class="page-link" href="#" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item disabled" id="lastPage">
+                            <a class="page-link" href="#" aria-label="Last">
+                                <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
         </div>
     </div>
 </div>
 
 <!-- Modal for Quote Details -->
-<div class="modal fade" id="quoteDetailsModal" tabindex="-1" aria-labelledby="quoteDetailsModalLabel"
-    aria-hidden="true">
+<div class="modal fade" id="quoteDetailsModal" tabindex="-1" aria-labelledby="quoteDetailsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="quoteDetailsModalLabel">Quote Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body" id="quoteDetailsContent">
+            <div class="modal-body" id="quoteDetailsContent" style="max-height: 70vh; overflow-y: auto;">
                 <!-- Content will be loaded via AJAX -->
                 <div class="text-center py-4">
                     <div class="spinner-border" role="status">
@@ -206,110 +245,230 @@
 </div>
 
 <script>
-    // Set default dates (today for end date, 30 days ago for start date)
     document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates for filters
         const today = new Date();
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(today.getDate() - 30);
-        
-        document.getElementById('dateEnd').valueAsDate = today;
-        document.getElementById('dateStart').valueAsDate = thirtyDaysAgo;
-        
-        // Apply filters on page load
-        applyFilters();
-    });
 
-    // Reset date range
-    function resetDateRange() {
-        document.getElementById('dateStart').value = '';
-        document.getElementById('dateEnd').value = '';
-        applyFilters();
-    }
-
-    // Reset all filters
-    function resetAllFilters() {
-        // Reset all filter inputs
-        document.getElementById('dateStart').value = '';
-        document.getElementById('dateEnd').value = '';
-        document.getElementById('laneFilter').value = '';
-        document.getElementById('equipmentFilter').value = '';
-        document.getElementById('carrierFilter').value = '';
-        
-        // Show all rows
-        const rows = document.querySelectorAll('.quote-row');
-        rows.forEach(row => {
-            row.style.display = '';
-        });
-        
-        // Remove no results message if it exists
-        const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
-        if (noResultsRow) {
-            noResultsRow.remove();
+        if (document.getElementById('dateStart') && document.getElementById('dateEnd')) {
+            document.getElementById('dateEnd').valueAsDate = today;
+            document.getElementById('dateStart').valueAsDate = thirtyDaysAgo;
         }
-    }
 
-    // Apply filters function
-    function applyFilters() {
-        const dateStart = document.getElementById('dateStart').value;
-        const dateEnd = document.getElementById('dateEnd').value;
-        const laneFilter = document.getElementById('laneFilter').value.toLowerCase();
-        const equipmentFilter = document.getElementById('equipmentFilter').value.toLowerCase();
-        const carrierFilter = document.getElementById('carrierFilter').value.toLowerCase();
+        // Pagination configuration
+        const rowsPerPage = 10;
+        let currentPage = 1;
+        let allRows = [];
+        let filteredRows = [];
+
+        // Initialize pagination
+        function initPagination() {
+            // Select only main rows (excluding detail rows and no-results message)
+            allRows = Array.from(document.querySelectorAll('#quotesTable > tbody > tr')).filter(tr => 
+                !tr.id.startsWith('quote-details-') && 
+                !tr.classList.contains('text-center') && 
+                !tr.classList.contains('text-muted')
+            );
+            
+            filteredRows = [...allRows];
+            updatePagination();
+        }
+
+        // Update pagination display
+        function updatePagination() {
+            const totalRows = filteredRows.length;
+            const totalPages = Math.ceil(totalRows / rowsPerPage);
+            
+            // Update pagination info text
+            const startItem = (currentPage - 1) * rowsPerPage + 1;
+            const endItem = Math.min(currentPage * rowsPerPage, totalRows);
+            document.getElementById('paginationInfo').textContent = 
+                `Showing ${startItem} to ${endItem} of ${totalRows} entries`;
+            
+            // Hide all rows first
+            allRows.forEach(row => row.style.display = 'none');
+            
+            // Show only rows for current page
+            const startIndex = (currentPage - 1) * rowsPerPage;
+            const endIndex = Math.min(startIndex + rowsPerPage, totalRows);
+            
+            for (let i = startIndex; i < endIndex; i++) {
+                if (filteredRows[i]) {
+                    filteredRows[i].style.display = '';
+                }
+            }
+            
+            // Update pagination controls
+            updatePaginationControls(totalPages);
+        }
         
-        const rows = document.querySelectorAll('.quote-row');
-        let hasVisibleRows = false;
+        // Update pagination controls
+        function updatePaginationControls(totalPages) {
+            const paginationControls = document.getElementById('paginationControls');
+            let pageNumberContainer = paginationControls.querySelector('.page-number-container');
+            
+            if (pageNumberContainer) {
+                pageNumberContainer.remove();
+            }
+            
+            pageNumberContainer = document.createElement('div');
+            pageNumberContainer.className = 'page-number-container d-flex';
+            
+            // Show page numbers (max 5 around current page)
+            let startPage = Math.max(1, currentPage - 2);
+            let endPage = Math.min(totalPages, currentPage + 2);
+            
+            // Adjust if near start or end
+            if (currentPage <= 2) {
+                endPage = Math.min(5, totalPages);
+            }
+            if (currentPage >= totalPages - 1) {
+                startPage = Math.max(totalPages - 4, 1);
+            }
+            
+            // Add page number buttons
+            for (let i = startPage; i <= endPage; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                
+                const pageLink = document.createElement('a');
+                pageLink.className = 'page-link';
+                pageLink.href = '#';
+                pageLink.textContent = i;
+                pageLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    goToPage(i);
+                });
+                
+                pageItem.appendChild(pageLink);
+                pageNumberContainer.appendChild(pageItem);
+            }
+            
+            // Insert page numbers between prev/next buttons
+            const prevPage = document.getElementById('prevPage');
+            prevPage.after(pageNumberContainer);
+            
+            // Update button states
+            document.getElementById('firstPage').classList.toggle('disabled', currentPage === 1);
+            document.getElementById('prevPage').classList.toggle('disabled', currentPage === 1);
+            document.getElementById('nextPage').classList.toggle('disabled', currentPage === totalPages || totalPages === 0);
+            document.getElementById('lastPage').classList.toggle('disabled', currentPage === totalPages || totalPages === 0);
+        }
         
-        rows.forEach(row => {
-            const createdAt = row.getAttribute('data-created-at');
-            const lane = row.getAttribute('data-lane').toLowerCase();
-            const equipment = row.getAttribute('data-equipment').toLowerCase();
-            const carrier = (row.getAttribute('data-carrier') || '').toLowerCase();
-            
-            let showRow = true;
-            
-            // Apply date filter
-            if (dateStart && dateEnd) {
-                showRow = showRow && (createdAt >= dateStart && createdAt <= dateEnd);
-            } else if (dateStart) {
-                showRow = showRow && (createdAt >= dateStart);
-            } else if (dateEnd) {
-                showRow = showRow && (createdAt <= dateEnd);
-            }
-            
-            // Apply lane filter (partial match)
-            if (laneFilter) {
-                showRow = showRow && lane.includes(laneFilter);
-            }
-            
-            // Apply equipment filter
-            if (equipmentFilter) {
-                showRow = showRow && equipment.includes(equipmentFilter);
-            }
-            
-            // Apply carrier filter (partial match)
-            if (carrierFilter) {
-                showRow = showRow && carrier.includes(carrierFilter);
-            }
-            
-            row.style.display = showRow ? '' : 'none';
-            if (showRow) hasVisibleRows = true;
-        });
+        // Navigate to specific page
+        function goToPage(page) {
+            currentPage = page;
+            updatePagination();
+        }
         
-        // Show message if no rows match
-        const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
-        const tbody = document.querySelector('#quotesTable tbody');
-        
-        if (!hasVisibleRows) {
-            if (!noResultsRow) {
-                tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">No quotes match your filters</td></tr>';
-            }
-        } else {
-            // Remove no results message if it exists and we have visible rows
-            if (noResultsRow && hasVisibleRows) {
+        // Apply filters function
+        function applyFilters() {
+            const dateStart = document.getElementById('dateStart').value;
+            const dateEnd = document.getElementById('dateEnd').value;
+            const laneFilter = document.getElementById('laneFilter').value.toLowerCase();
+            const equipmentFilter = document.getElementById('equipmentFilter').value.toLowerCase();
+            const carrierFilter = document.getElementById('carrierFilter') ? 
+                document.getElementById('carrierFilter').value.toLowerCase() : '';
+            
+            filteredRows = allRows.filter(row => {
+                const createdAt = row.getAttribute('data-created-at');
+                const lane = row.getAttribute('data-lane').toLowerCase();
+                const equipment = row.getAttribute('data-equipment').toLowerCase();
+                const carrier = (row.getAttribute('data-carrier') || '').toLowerCase();
+                
+                let showRow = true;
+                
+                // Date filter
+                if (dateStart && dateEnd) {
+                    showRow = showRow && (createdAt >= dateStart && createdAt <= dateEnd);
+                } else if (dateStart) {
+                    showRow = showRow && (createdAt >= dateStart);
+                } else if (dateEnd) {
+                    showRow = showRow && (createdAt <= dateEnd);
+                }
+                
+                // Lane filter
+                if (laneFilter) {
+                    showRow = showRow && lane.includes(laneFilter);
+                }
+                
+                // Equipment filter
+                if (equipmentFilter) {
+                    showRow = showRow && equipment.includes(equipmentFilter);
+                }
+                
+                // Carrier filter (for shippers only)
+                if (carrierFilter && carrierFilter.length > 0) {
+                    showRow = showRow && carrier.includes(carrierFilter);
+                }
+                
+                return showRow;
+            });
+            
+            // Reset to first page after filtering
+            currentPage = 1;
+            updatePagination();
+            
+            // Show no results message if needed
+            const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
+            const tbody = document.querySelector('#quotesTable tbody');
+            
+            if (filteredRows.length === 0) {
+                if (!noResultsRow) {
+                    const cols = {% if user_type == 'shipper' or user_type == 'company_shipper' %}10{% else %}9{% endif %};
+                    tbody.innerHTML = `<tr><td colspan="${cols}" class="text-center text-muted">No quotes match your filters</td></tr>`;
+                }
+            } else if (noResultsRow) {
                 noResultsRow.remove();
             }
         }
-    }
+        
+        // Reset all filters
+        function resetAllFilters() {
+            if (document.getElementById('dateStart')) document.getElementById('dateStart').value = '';
+            if (document.getElementById('dateEnd')) document.getElementById('dateEnd').value = '';
+            if (document.getElementById('laneFilter')) document.getElementById('laneFilter').value = '';
+            if (document.getElementById('equipmentFilter')) document.getElementById('equipmentFilter').value = '';
+            if (document.getElementById('carrierFilter')) document.getElementById('carrierFilter').value = '';
+            
+            filteredRows = [...allRows];
+            currentPage = 1;
+            updatePagination();
+            
+            // Remove no results message if it exists
+            const noResultsRow = document.querySelector('#quotesTable tbody tr.text-center.text-muted');
+            if (noResultsRow) {
+                noResultsRow.remove();
+            }
+        }
+        
+        // Setup event listeners
+        document.getElementById('firstPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) goToPage(1);
+        });
+        
+        document.getElementById('prevPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            if (currentPage > 1) goToPage(currentPage - 1);
+        });
+        
+        document.getElementById('nextPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (currentPage < totalPages) goToPage(currentPage + 1);
+        });
+        
+        document.getElementById('lastPage').addEventListener('click', (e) => {
+            e.preventDefault();
+            const totalPages = Math.ceil(filteredRows.length / rowsPerPage);
+            if (currentPage < totalPages) goToPage(totalPages);
+        });
+        
+        // Initialize pagination
+        initPagination();
+    });
 
     // Quote Details Modal
     const quoteDetailsModal = document.getElementById('quoteDetailsModal');
@@ -335,25 +494,219 @@
             });
     });
 
-    // Format quote details
+    // Format quote details with collapsible sections
     function formatQuoteDetails(data) {
+        // Format rates table
+        let ratesTable = '';
+        if (data.rates && data.rates.data && data.rates.data.length > 0) {
+            ratesTable = `
+            <div class="card mt-3">
+                <div class="card-header d-flex justify-content-between align-items-center" data-bs-toggle="collapse" href="#ratesCollapse" role="button">
+                    <h6 class="mb-0">Carrier Offers (${data.rates.data.length})</h6>
+                    <div class="badge bg-primary rounded-pill">
+                        ${data.rates.summary.accepted} Accepted / ${data.rates.summary.pending} Pending
+                        <i class="bi bi-chevron-down ms-1"></i>
+                    </div>
+                </div>
+                <div class="collapse show" id="ratesCollapse">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Carrier</th>
+                                        <th>Rate</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.rates.data.map(rate => `
+                                    <tr class="${rate.status === 'accepted' ? 'table-success' : rate.status === 'declined' ? 'table-danger' : ''}" 
+                                        data-bs-toggle="collapse" data-bs-target="#rateDetail-${rate.id}" aria-expanded="false">
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div>
+                                                    <h6 class="mb-0">${rate.carrier_name}</h6>
+                                                    <small class="text-muted">${rate.scac || '—'} ${rate.mc_number ? '| MC ' + rate.mc_number : ''}</small>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td>$${rate.rate ? rate.rate.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—'}</td>
+                                        <td>
+                                            <span class="badge bg-${rate.status === 'accepted' ? 'success' : rate.status === 'declined' ? 'danger' : 'warning'}">
+                                                ${rate.status.charAt(0).toUpperCase() + rate.status.slice(1)}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr class="collapse" id="rateDetail-${rate.id}">
+                                        <td colspan="3">
+                                            <div class="p-3 bg-light">
+                                                <p><strong>Submitted:</strong> ${formatDate(rate.submitted_at)} by ${rate.submitted_by}</p>
+                                                <p><strong>Comment:</strong> ${rate.comment || '—'}</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        } else {
+            ratesTable = `
+            <div class="card mt-3">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-truck text-muted fs-1"></i>
+                    <p class="text-muted mt-2 mb-0">No carrier offers received yet</p>
+                </div>
+            </div>`;
+        }
+
+        // Main quote information with accordion
         return `
-        <ul class="list-group">
-            <li class="list-group-item"><strong>Origin:</strong> ${data.origin}</li>
-            <li class="list-group-item"><strong>Destination:</strong> ${data.destination}</li>
-            <li class="list-group-item"><strong>Pickup Date:</strong> ${formatDate(data.pickup_date)}</li>
-            <li class="list-group-item"><strong>Delivery Date:</strong> ${formatDate(data.delivery_date)}</li>
-            <li class="list-group-item"><strong>Weight:</strong> ${data.weight} lbs</li>
-            <li class="list-group-item"><strong>Equipment:</strong> ${data.equipment_type}</li>
-            <li class="list-group-item"><strong>Mode:</strong> ${data.mode}</li>
-            <li class="list-group-item"><strong>Temp Controlled:</strong> ${data.temp_controlled ? 'Yes' : 'No'}</li>
-            <li class="list-group-item"><strong>Declared Value:</strong> $${Number(data.declared_value).toLocaleString()}</li>
-            <li class="list-group-item"><strong>Commodity:</strong> ${data.commodity}</li>
-            <li class="list-group-item"><strong>Comments:</strong> ${data.comments}</li>
-            <li class="list-group-item"><strong>Accessorials:</strong>
-                <ul>${data.accessorials.map(item => `<li>${item}</li>`).join('')}</ul>
-            </li>
-        </ul>`;
+        <div class="accordion" id="quoteAccordion">
+            <!-- Basic Information -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#basicInfo">
+                        <i class="bi bi-info-circle me-2"></i> Basic Information
+                    </button>
+                </h2>
+                <div id="basicInfo" class="accordion-collapse collapse show" data-bs-parent="#quoteAccordion">
+                    <div class="accordion-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>Quote ID:</strong> ${data.quote.id}</li>
+                                    <li class="list-group-item"><strong>Created:</strong> ${formatDate(data.quote.created_at)}</li>
+                                    <li class="list-group-item"><strong>Shipper:</strong> ${data.quote.shipper.name}</li>
+                                    <li class="list-group-item"><strong>Email:</strong> ${data.quote.shipper.email}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item"><strong>Mode:</strong> ${data.quote.mode}</li>
+                                    <li class="list-group-item"><strong>Equipment:</strong> ${data.quote.equipment_type}</li>
+                                    <li class="list-group-item"><strong>Temp Controlled:</strong> ${data.quote.temp_controlled ? 'Yes' : 'No'}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lane Information -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#laneInfo">
+                        <i class="bi bi-geo-alt me-2"></i> Lane Details
+                    </button>
+                </h2>
+                <div id="laneInfo" class="accordion-collapse collapse" data-bs-parent="#quoteAccordion">
+                    <div class="accordion-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Origin</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Location:</strong> ${data.quote.origin}</p>
+                                        <p><strong>Pickup Date:</strong> ${formatDate(data.quote.pickup_date)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Destination</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Location:</strong> ${data.quote.destination}</p>
+                                        <p><strong>Delivery Date:</strong> ${formatDate(data.quote.delivery_date)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        ${data.quote.additional_stops && data.quote.additional_stops.length > 0 ? `
+                        <div class="mt-3">
+                            <h6 class="mb-2">Additional Stops (${data.quote.additional_stops.length})</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Stop #</th>
+                                            <th>Location</th>
+                                            <th>Type</th>
+                                            <th>Appointment</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${data.quote.additional_stops.map((stop, index) => `
+                                        <tr>
+                                            <td>${index + 1}</td>
+                                            <td>${stop.location || '—'}</td>
+                                            <td>${stop.type || '—'}</td>
+                                            <td>${stop.appointment ? formatDate(stop.appointment) : '—'}</td>
+                                        </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shipment Details -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#shipmentDetails">
+                        <i class="bi bi-box-seam me-2"></i> Shipment Details
+                    </button>
+                </h2>
+                <div id="shipmentDetails" class="accordion-collapse collapse" data-bs-parent="#quoteAccordion">
+                    <div class="accordion-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Commodity:</strong> ${data.quote.commodity || '—'}</p>
+                                <p><strong>Weight:</strong> ${data.quote.weight} lbs</p>
+                                <p><strong>Declared Value:</strong> $${Number(data.quote.declared_value).toLocaleString()}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Open For:</strong> ${data.quote.open_value} ${data.quote.open_unit}</p>
+                                <p><strong>Comments:</strong> ${data.quote.comments || '—'}</p>
+                            </div>
+                        </div>
+                        
+                        ${data.quote.accessorials && data.quote.accessorials.length > 0 ? `
+                        <div class="mt-3">
+                            <h6 class="mb-2">Accessorials</h6>
+                            <ul class="list-unstyled">
+                                ${data.quote.accessorials.map(item => `<li>• ${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Carrier Offers -->
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#carrierOffers">
+                        <i class="bi bi-truck me-2"></i> Carrier Offers
+                    </button>
+                </h2>
+                <div id="carrierOffers" class="accordion-collapse collapse" data-bs-parent="#quoteAccordion">
+                    <div class="accordion-body p-0">
+                        ${ratesTable}
+                    </div>
+                </div>
+            </div>
+        </div>`;
     }
 
     // Helper function to format ISO dates
@@ -368,46 +721,57 @@
 </script>
 
 <style>
-    /* Custom styling for filters */
-    #quoteFilters .form-label {
+    /* Modal styling */
+    #quoteDetailsModal .modal-body {
+        padding: 1rem;
+    }
+    
+    /* Accordion styling */
+    #quoteDetailsModal .accordion-button {
+        padding: 0.75rem 1.25rem;
         font-weight: 500;
-        font-size: 0.875rem;
     }
     
-    /* Button styling */
-    #quoteFilters .btn {
+    #quoteDetailsModal .accordion-button:not(.collapsed) {
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    #quoteDetailsModal .accordion-body {
+        padding: 1rem;
+    }
+    
+    /* Table styling */
+    #quoteDetailsModal .table {
+        margin-bottom: 0;
+    }
+    
+    #quoteDetailsModal .table th {
         white-space: nowrap;
-        width: 100%;
+        font-size: 0.85rem;
     }
     
-    /* Reset button highlight */
-    #quoteFilters .btn-danger {
-        background-color: #dc3545;
-        border-color: #dc3545;
+    #quoteDetailsModal .table td {
+        vertical-align: middle;
+        font-size: 0.9rem;
     }
     
-    #quoteFilters .btn-danger:hover {
-        background-color: #bb2d3b;
-        border-color: #b02a37;
+    #quoteDetailsModal .table tr[data-bs-toggle="collapse"] {
+        cursor: pointer;
+    }
+    
+    #quoteDetailsModal .table tr.collapse td {
+        padding: 0;
+        border-top: none;
+    }
+    
+    #quoteDetailsModal .table tr.collapse.show td {
+        border-bottom: 1px solid #dee2e6;
     }
     
     /* Responsive adjustments */
     @media (max-width: 768px) {
-        #quoteFilters .col-md-4,
-        #quoteFilters .col-md-3, 
-        #quoteFilters .col-md-2,
-        #quoteFilters .col-md-1 {
+        #quoteDetailsModal .accordion-body .row > div {
             margin-bottom: 1rem;
-        }
-        
-        #quoteFilters .d-flex.flex-column {
-            flex-direction: row !important;
-            gap: 0.5rem;
-        }
-        
-        #quoteFilters .btn {
-            width: auto;
-            flex: 1;
         }
     }
 </style>
