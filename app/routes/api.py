@@ -181,7 +181,6 @@ def api_company():
                 for company in companies
             ]
         )
-
     if request.method == "POST":
         try:
             # Retrieve form data
@@ -192,34 +191,43 @@ def api_company():
             address = request.form.get("address")
             contact_email = request.form.get("contact_email")
 
-            f = Fernet(Config.HASH_KEY)
-            encrypted_email = f.encrypt(contact_email.encode()).decode()
-
-            # Send the hashed email via POST
-            register_url = (
-                f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
-            )
-
             # Validate required fields
-            if not all(
-                [
-                    company_name,
-                    duns,
-                    contact_name,
-                    contact_phone,
-                    address,
-                    contact_email,
-                ]
-            ):
+            if not all([
+                company_name,
+                duns,
+                contact_name,
+                contact_phone,
+                address,
+                contact_email,
+            ]):
                 return (
                     jsonify({"status": "error", "message": "All fields are required"}),
                     400,
                 )
 
-            # Get creator user ID from session (or use current_user.id)
-            creator_id = session.get("user_id")  # Or: current_user.id
+            # Check if email already exists
+            existing_user = User.query.filter_by(email=contact_email).first()
+            if existing_user:
+                return (
+                    jsonify({"status": "error", "message": "A user with this email already exists"}),
+                    400,
+                )
 
-            # Create a user for the company (CompanyShipper role)
+            # Check if DUNS already exists
+            existing_company = Company.query.filter_by(duns=duns).first()
+            if existing_company:
+                return (
+                    jsonify({"status": "error", "message": "A company with this DUNS number already exists"}),
+                    400,
+                )
+
+            f = Fernet(Config.HASH_KEY)
+            encrypted_email = f.encrypt(contact_email.encode()).decode()
+
+            # Rest of your code remains the same...
+            register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+            creator_id = session.get("user_id")
+            
             company_user = User(
                 first_name=contact_name,
                 last_name="",
@@ -228,24 +236,21 @@ def api_company():
                 address=address,
                 role="CompanyShipper",
             )
-
+            
             db.session.add(company_user)
             db.session.commit()
-
-            # Create the company associated with the user
+            
             new_company = Company(
                 company_name=company_name,
                 duns=duns,
                 user_id=company_user.id,
                 created_by=creator_id,
             )
-
+            
             db.session.add(new_company)
             db.session.commit()
-
+            
             try:
-
-                # Render HTML email content
                 html_content = render_template(
                     "email/company_welcome_email.html", register_url=register_url
                 )
@@ -260,7 +265,6 @@ def api_company():
             except Exception as e:
                 print(f"Email error: {str(e)}")
 
-            # Return new table row for HTMX
             return (
                 jsonify(
                     {
@@ -270,38 +274,6 @@ def api_company():
                     }
                 ),
                 200,
-            )
-
-        except IntegrityError as e:
-            db.session.rollback()
-            print(e.orig)
-            if isinstance(e.orig, UniqueViolation):
-                # Check which constraint was violated
-                if "companies_duns_key" in str(e.orig):
-                    return (
-                        jsonify(
-                            {
-                                "status": "error",
-                                "message": "A company with this DUNS number already exists",
-                            }
-                        ),
-                        400,
-                    )
-                elif "ix_users_email" in str(e.orig):
-                    return (
-                        jsonify(
-                            {
-                                "status": "error",
-                                "message": "A user with this email already exists",
-                            }
-                        ),
-                        400,
-                    )
-            return (
-                jsonify(
-                    {"status": "error", "message": "Database integrity error occurred"}
-                ),
-                400,
             )
 
         except Exception as e:
@@ -2293,3 +2265,63 @@ def get_user_data_for_shipper(users, shipper_id):
             "active": user.active
         }
     return None
+
+
+@app_routes.route("/api/cognito/delete_all_users", methods=["DELETE"])
+def delete_all_cognito_users():
+    """
+    Endpoint to delete all users from a Cognito User Pool
+    WARNING: This is a destructive operation and should be protected
+    """
+    try:
+        # Initialize Cognito client
+        client = boto3.client('cognito-idp', region_name=Config.COGNITO_REGION)
+        
+        # List all users in the pool
+        users = []
+        pagination_token = None
+        
+        while True:
+            list_users_args = {
+                'UserPoolId': Config.USER_POOL_ID,
+                'Limit': 60  # Maximum allowed by Cognito
+            }
+            
+            if pagination_token:
+                list_users_args['PaginationToken'] = pagination_token
+                
+            response = client.list_users(**list_users_args)
+            users.extend(response['Users'])
+            
+            if 'PaginationToken' not in response:
+                break
+                
+            pagination_token = response['PaginationToken']
+        
+        # Delete users in batches (Cognito has rate limits)
+        deleted_count = 0
+        for user in users:
+            try:
+                username = user['Username']
+                client.admin_delete_user(
+                    UserPoolId=Config.USER_POOL_ID,
+                    Username=username
+                )
+                deleted_count += 1
+                # Small delay to avoid hitting rate limits
+                time.sleep(0.1)
+            except Exception as e:
+                print(f"Error deleting user {username}: {str(e)}")
+                continue
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Deleted {deleted_count} users from Cognito User Pool",
+            "total_users": len(users)
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": f"Failed to delete users: {str(e)}"
+        }), 500
