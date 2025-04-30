@@ -106,6 +106,11 @@ def create_carrier_admin(data, user_id, db):
         db.session.add(new_user)
         db.session.flush()
 
+        # Prepare email variables
+        f = Fernet(Config.HASH_KEY)
+        encrypted_email = f.encrypt(data.get("contact_email").encode()).decode()
+        register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+        
         if existing_carrier:
             # Associate user with existing carrier
             new_user.carrier_id = existing_carrier.id
@@ -116,10 +121,30 @@ def create_carrier_admin(data, user_id, db):
             
             db.session.commit()
             
+            # Send email for existing carrier
+            try:
+                html_content = render_template(
+                    "email/carrier_welcome_email.html",
+                    shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
+                    contact_name=data["contact_name"],
+                    invite_url=register_url,
+                    current_year=datetime.utcnow().year
+                )
+
+                send_email(
+                    recipient=data.get("contact_email"),
+                    subject="You're invited to QuoteZen!",
+                    body_text="You've been invited to QuoteZen. Click the link to complete registration.",
+                    body_html=html_content
+                )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
+            
             return jsonify({
                 "status": "success",
                 "message": "User created and associated with existing carrier",
-                "carrier_id": existing_carrier.id
+                "carrier_id": existing_carrier.id,
+                "complete_registration": register_url
             }), 200
         else:
             # Create new carrier with user as primary
@@ -143,10 +168,30 @@ def create_carrier_admin(data, user_id, db):
             
             db.session.commit()
             
+            # Send email for new carrier
+            try:
+                html_content = render_template(
+                    "email/carrier_welcome_email.html",
+                    shipper_name=f"{shipper.user.first_name} {shipper.user.last_name}",
+                    contact_name=data["contact_name"],
+                    invite_url=register_url,
+                    current_year=datetime.utcnow().year
+                )
+
+                send_email(
+                    recipient=data.get("contact_email"),
+                    subject="You're invited to QuoteZen!",
+                    body_text="You've been invited to QuoteZen. Click the link to complete registration.",
+                    body_html=html_content
+                )
+            except Exception as e:
+                print(f"Email error: {str(e)}")
+            
             return jsonify({
                 "status": "success",
                 "message": "New carrier and admin user created",
-                "carrier_id": new_carrier.id
+                "carrier_id": new_carrier.id,
+                "complete_registration": register_url
             }), 200
 
     except IntegrityError as e:
