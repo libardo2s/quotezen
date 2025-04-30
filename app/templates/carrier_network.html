@@ -325,14 +325,14 @@
 
             // Mostrar confirmación con SweetAlert
             const result = await Swal.fire({
-                title: '¿Confirmar cambio?',
-                text: `¿Estás seguro de querer ${isActive ? 'activar' : 'desactivar'} el carrier ${carrierName}?`,
+                title: 'Confirm change?',
+                text: `Are you sure you want to ${isActive ? 'activate' : 'deactivate'} the carrier ${carrierName}?`,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#198754',
                 cancelButtonColor: '#dc3545',
-                confirmButtonText: 'Sí, cambiar',
-                cancelButtonText: 'Cancelar'
+                confirmButtonText: 'Yes, change',
+                cancelButtonText: 'Cancel'
             });
 
             if (result.isConfirmed) {
