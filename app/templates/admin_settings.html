@@ -538,6 +538,7 @@
                             ${response.message}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>`;
+                        
                     }
                 } else if (response.status === "success") {
                     // Success handling
@@ -545,7 +546,7 @@
                     modal.querySelector('form').reset();
                     const modalInstance = bootstrap.Modal.getInstance(modal);
                     modalInstance.hide();
-
+                    window.location.reload();
                     // Show success toast or notification
                     showToast('Company created successfully!', 'success');
                 }
