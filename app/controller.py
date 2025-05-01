@@ -153,10 +153,9 @@ def create_carrier_admin(data, user_id, db):
                 authority=data.get("authority"),
                 scac=data.get("scac"),
                 mc_number=data.get("mc_number"),
-                active=data.get("active", True),
+                active=False,
                 primary_user_id=new_user.id,
-                created_by=user_id,
-                active=False
+                created_by=user_id
             )
             db.session.add(new_carrier)
             db.session.flush()
