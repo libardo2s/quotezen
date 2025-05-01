@@ -104,6 +104,24 @@ def company_complete_registration():
             Username=username
         )
 
+        user = User.query.filter_by(email=username).first()
+        if not user:
+            return jsonify({"status": "error", "message": "Usuario no encontrado"}), 404
+
+        user.active = True
+        
+        # Buscar y activar cualquier carrier asociado
+        carrier = Carrier.query.filter(
+            Carrier.users.any(id=user.id),
+            Carrier.deleted == False
+        ).first()
+
+        if carrier:
+            carrier.active = True
+            carrier.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+
         return jsonify({
             "status": "success",
             "message": "Registration completed successfully!",

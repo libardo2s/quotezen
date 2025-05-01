@@ -100,7 +100,7 @@ def create_carrier_admin(data, user_id, db):
             email=data.get("contact_email"),
             phone=data.get("contact_phone"),
             role="CarrierAdmin",
-            active=True,
+            active=False,
             shipper_id=shipper.id,
         )
         db.session.add(new_user)
@@ -155,7 +155,8 @@ def create_carrier_admin(data, user_id, db):
                 mc_number=data.get("mc_number"),
                 active=data.get("active", True),
                 primary_user_id=new_user.id,
-                created_by=user_id
+                created_by=user_id,
+                active=False
             )
             db.session.add(new_carrier)
             db.session.flush()
