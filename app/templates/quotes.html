@@ -15,7 +15,7 @@
 
                         <div class="row g-3">
                             <!-- Mode, Equipment, Rate Type -->
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Mode</label>
                                 <select class="form-select" name="mode">
                                     <option value="Select">Select</option>
@@ -24,7 +24,7 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label class="form-label">Equipment Type</label>
                                 <select class="form-select" name="equipment_type">
                                     <option value="Select">Select</option>
@@ -33,7 +33,11 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-2">
+                                <label class="form-label">Temp</label>
+                                <input id="temp" type="text" name="temp" class="form-control">
+                            </div>
+                            <div class="col-md-3">
                                 <label class="form-label">Rate Type</label>
                                 <select class="form-select" name="rate_type">
                                     <option value="Select">Select</option>

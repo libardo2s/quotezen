@@ -691,6 +691,8 @@ def get_carrier_by_mc(mc_number):
 @app_routes.route("/api/carrier/<int:carrier_id>", methods=["GET"])
 # @token_required
 def get_carrier_by_id(carrier_id):
+    user_id = session.get("user_id")
+    shipper = Shipper.query.filter_by(user_id=user_id).first()
     carrier = Carrier.query.get(carrier_id)
 
     if not carrier:
@@ -706,17 +708,7 @@ def get_carrier_by_id(carrier_id):
             "active": carrier.active,
             "created_at": carrier.created_at.isoformat(),
             "updated_at": carrier.updated_at.isoformat(),
-            "user": (
-                {
-                    "first_name": carrier.user.first_name,
-                    "last_name": carrier.user.last_name,
-                    "phone": carrier.user.phone,
-                    "email": carrier.user.email,
-                    "active": carrier.user.active,
-                }
-                if carrier.users
-                else None
-            ),
+            "user": get_user_data_for_shipper(carrier.users, shipper.id),
         }
     )
 
@@ -740,11 +732,13 @@ def update_carrier(carrier_id):
             carrier.scac = data.get("scac")
             carrier.mc_number = data.get("mc_number")
 
+            '''
             user = carrier.user
             user.first_name = data.get("contact_name")
             user.last_name = data.get("contact_name")
             user.phone = data.get("contact_phone")
             user.email = data.get("contact_email")
+            '''
 
         db.session.commit()
 
@@ -1130,7 +1124,8 @@ def api_quote():
                 carriers=selected_carriers,
                 open_unit=form.get("leave_open_unit"),
                 open_value=form.get("leave_open_value"),
-                shipper_id=shipper.id,  # 👈 aquí se asigna el shipper
+                shipper_id=shipper.id,
+                temp=form.get('temp')
             )
 
             db.session.add(quote)

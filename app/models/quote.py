@@ -27,6 +27,7 @@ class Quote(db.Model):
     commodity = Column(String(100), nullable=False)  # Type of goods
     weight = Column(Float, nullable=False)  # Weight of shipment
     declared_value = Column(Float, nullable=True)  # Declared monetary value
+    temp = Column(String(100), nullable=True, default='')
 
     # Additional Details
     additional_stops = Column(JSON, nullable=True) 

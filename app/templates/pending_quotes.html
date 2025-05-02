@@ -19,10 +19,11 @@
                         <th>Created At (UTC)</th>
                         <th>Lane</th>
                         <th>Equipment Type</th>
-                        <th>Send At (UTC)</th>
+                        <th>Temp</th>
+                        <th>Pickup Date(UTC)</th>
                         <th>Open For</th>
                         <th>Time Remaining</th>
-                        <th>Requester Form</th>
+                        <th>Requested From</th>
                         <th>Rates Received</th>
                         {% if not is_company_user%}
                             <th class="text-center">Actions</th>
@@ -37,7 +38,8 @@
                         <td>{{ quote.id }}</td>
                         <td>{{ quote.created_at.strftime('%m-%d-%Y %H:%M:%S UTC') }}</td>
                         <td>{{ quote.origin }} - {{ quote.destination }}</td>
-                        <td>{{ quote.equipment_type or 'R' }}</td>
+                        <td>{{ quote.equipment_type or '' }}</td>
+                        <td>{{ quote.temp or '' }}</td>
                         <td>
                             {% if quote.pickup_date.date() == today %}
                             Today {{ quote.pickup_date.strftime('%H:%M:%S UTC') }}
@@ -85,8 +87,8 @@
                                         <tr>
                                             <td>{{ carrier.carrier.carrier_name }}</td>
                                             <td>${{ carrier.rate }}</td>
-                                            <td>{{ carrier.contact_name or '—' }}</td>
                                             <td>{{ carrier.carrier.carrier_name or '—' }}</td>
+                                            <td>{{ carrier.carrier_admin.email or '—' }}</td>
                                             <td>{{ carrier.comment or '—' }}</td>
                                             <td>
                                                 {% if carrier.status == 'accepted' %}
@@ -329,7 +331,7 @@
             const startItem = (currentPage - 1) * rowsPerPage + 1;
             const endItem = Math.min(currentPage * rowsPerPage, totalRows);
             document.getElementById('paginationInfo').textContent =
-                `Mostrando ${startItem} a ${endItem} de ${totalRows} cotizaciones`;
+                `Showing ${startItem} to ${endItem} of ${totalRows} quotes`;
 
             // Ocultar todas las filas primero
             allQuoteRows.forEach(row => {
