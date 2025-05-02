@@ -1939,26 +1939,39 @@ def get_dashboard_stats():
         elif user.role == "Shipper":
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if shipper:
+                # Get all shippers from the same company
+                company_shippers = Shipper.query.filter_by(
+                    company_id=shipper.company_id, 
+                    active=True, 
+                    deleted=False
+                ).all() if shipper.company_id else [shipper]
+                
+                shipper_ids = [s.id for s in company_shippers]
+                
+                # Get active carriers associated with these shippers
+                active_carriers = db.session.query(Carrier)\
+                    .join(carrier_shipper)\
+                    .filter(
+                        carrier_shipper.c.shipper_id.in_(shipper_ids),
+                        Carrier.active == True
+                    )\
+                    .distinct()\
+                    .count()
+
                 stats.update(
                     {
                         "pending_quotes": Quote.query.filter(
-                            Quote.shipper_id == shipper.id,
+                            Quote.shipper_id.in_(shipper_ids),
                             ~Quote.id.in_(excluded_quotes_subquery),
                             ~expired_condition
                         ).count(),
-                        "active_shippers": 1,
-                        "active_carriers": db.session.query(Carrier)
-                        .join(carrier_shipper)
-                        .filter(
-                            carrier_shipper.c.shipper_id == shipper.id,
-                            Carrier.active == True,
-                        )
-                        .count(),
-                        "active_companies": 1,
+                        "active_shippers": len(company_shippers),
+                        "active_carriers": active_carriers,
+                        "active_companies": 1 if shipper.company_id else 0,
                         "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
                         .join(Quote)
                         .filter(
-                            Quote.shipper_id == shipper.id,
+                            Quote.shipper_id.in_(shipper_ids),
                             QuoteCarrierRate.status == "accepted",
                         )
                         .scalar()
@@ -1966,7 +1979,7 @@ def get_dashboard_stats():
                         "completedQuotes": db.session.query(QuoteCarrierRate)
                         .join(Quote)
                         .filter(
-                            Quote.shipper_id == shipper.id,
+                            Quote.shipper_id.in_(shipper_ids),
                             QuoteCarrierRate.status == "accepted",
                         )
                         .count(),

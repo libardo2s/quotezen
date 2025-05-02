@@ -280,7 +280,6 @@ def carrier_pending_quotes():
         Carrier.active.is_(True),
     ).first()
 
-    print("Carrier ID:", carrier.id if carrier else "No Carrier Found")
     if not carrier:
         return redirect(url_for("app_routes.signin"))
 
@@ -320,12 +319,28 @@ def carrier_pending_quotes():
         )
     )
 
-    query = Quote.query.join(Carrier, Quote.carriers).filter(
-        Carrier.id == carrier.id,
-        ~Quote.id.in_(accepted_quotes_subquery),
-        ~Quote.id.in_(declined_quotes_subquery),
-        expiry_condition
-    )
+    # Obtener el shipper actual y su compañía
+    shipper = Shipper.query.filter(Shipper.users.contains(user)).first()
+    if shipper:
+        # Consulta para quotes del shipper actual o de shippers de la misma compañía
+        query = Quote.query.join(Shipper, Quote.shipper).join(Carrier, Quote.carriers).filter(
+            Carrier.id == carrier.id,
+            ~Quote.id.in_(accepted_quotes_subquery),
+            ~Quote.id.in_(declined_quotes_subquery),
+            expiry_condition,
+            or_(
+                Quote.shipper_id == shipper.id,
+                Shipper.company_id == shipper.company_id
+            )
+        )
+    else:
+        # Si no es shipper, mantener la consulta original
+        query = Quote.query.join(Carrier, Quote.carriers).filter(
+            Carrier.id == carrier.id,
+            ~Quote.id.in_(accepted_quotes_subquery),
+            ~Quote.id.in_(declined_quotes_subquery),
+            expiry_condition
+        )
 
     if filters["equipment_type"]:
         query = query.filter(Quote.equipment_type == filters["equipment_type"])
@@ -362,7 +377,6 @@ def carrier_pending_quotes():
         rate_types=rate_types,
         now=now
     )
-
 
 @app_routes.route("/carrier_pending_quotes/<hashed_id>", methods=["GET"])
 def carrier_pending_quotes_id(hashed_id):
@@ -500,14 +514,21 @@ def pending_quotes():
     ).order_by(Quote.created_at.desc())
 
     # Modify query based on user type
-    if shipper:
-        # Regular shipper - only see their own quotes
-        query = query.filter(Quote.shipper_id == shipper.id)
-    elif company:
+    if company:
         # Company user - see quotes from all shippers in their company
         query = query.join(Quote.shipper).filter(
             Shipper.company_id == company.id
         )
+    elif shipper:
+        # Regular shipper - see their own quotes AND quotes from same company shippers
+        if shipper.company_id:
+            # Get all shippers from the same company
+            company_shippers = Shipper.query.filter_by(company_id=shipper.company_id).all()
+            shipper_ids = [s.id for s in company_shippers]
+            query = query.filter(Quote.shipper_id.in_(shipper_ids))
+        else:
+            # Shipper without company - only their own quotes
+            query = query.filter(Quote.shipper_id == shipper.id)
 
     quotes = query.all()
 
@@ -518,12 +539,16 @@ def pending_quotes():
             if rate.carrier_id not in grouped:
                 grouped[rate.carrier_id] = rate
         quote.filtered_quote_rates = list(grouped.values())
+        
+        # Add flag to identify if quote belongs to current shipper
+        quote.is_own_quote = quote.shipper_id == shipper.id if shipper else False
 
     return render_template(
         "pending_quotes.html",
         pending_quotes=quotes,
         now=now,
-        is_company_user=bool(company)  # Pass this to template to adjust UI if needed
+        is_company_user=bool(company),
+        current_shipper_id=shipper.id if shipper else None  # Pass current shipper ID to template
     )
 
 
@@ -589,8 +614,15 @@ def quote_history():
         )
 
     elif shipper:
-        # Mantener código existente para shipper normal
-        quotes = Quote.query.filter_by(shipper_id=shipper.id)\
+        # Nueva lógica para shipper que incluye quotes de la misma compañía
+        company_id = shipper.company_id
+        
+        # Obtener todos los shippers de la misma compañía
+        company_shippers = Shipper.query.filter_by(company_id=company_id).all()
+        shipper_ids = [s.id for s in company_shippers]
+        
+        # Consulta para obtener quotes del shipper actual o de shippers de la misma compañía
+        quotes = Quote.query.filter(Quote.shipper_id.in_(shipper_ids))\
             .options(joinedload(Quote.quote_rates))\
             .order_by(Quote.created_at.desc())\
             .all()
@@ -614,6 +646,14 @@ def quote_history():
                 quote.accepted_rate = accepted_rate.rate if accepted_rate else None
                 quote.accepted_carrier = accepted_rate.carrier.carrier_name if accepted_rate and accepted_rate.carrier else None
                 quote.status_summary = "Accepted" if accepted_rate else "Declined" if declined_rates else "Expired"
+                
+                # Agregar información del shipper para identificar si es propio o de otro
+                is_own_quote = quote.shipper_id == shipper.id
+                quote.shipper_info = {
+                    "name": f"{quote.shipper.user.first_name} {quote.shipper.user.last_name}",
+                    "is_own": is_own_quote
+                }
+                
                 valid_quotes.append(quote)
 
         return render_template(
