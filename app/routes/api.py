@@ -699,7 +699,17 @@ def api_shipper():
 
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+            # Handle specific SQLAlchemy errors
+            if "UniqueViolation" in str(e) and "uq_user_email" in str(e):
+                return jsonify({
+                    "success": False, 
+                    "message": "This email address is already registered. Please use a different email."
+                }), 400
+            else:
+                return jsonify({
+                    "success": False, 
+                    "message": "An unexpected error occurred. Please try again later."
+                }), 500
 
 
 @app_routes.route("/api/shipper/<int:shipper_id>", methods=["GET"])

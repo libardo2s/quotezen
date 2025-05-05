@@ -231,22 +231,29 @@
                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
+                        <!-- Error message container at the top -->
+                        <div id="shipper-message" class="mb-3"></div>
+
                         <div class="mb-3">
                             <label for="first_name" class="form-label">First Name</label>
                             <input type="text" class="form-control" name="first_name" required>
+                            <div class="invalid-feedback">Please provide a first name.</div>
                         </div>
                         <div class="mb-3">
                             <label for="last_name" class="form-label">Last Name</label>
                             <input type="text" class="form-control" name="last_name" required>
+                            <div class="invalid-feedback">Please provide a last name.</div>
                         </div>
                         <div class="mb-3">
                             <label for="email" class="form-label">Email Address</label>
                             <input type="email" class="form-control" name="email" required>
+                            <div class="invalid-feedback">Please provide a valid email address.</div>
                         </div>
                         <div class="mb-3">
                             <label for="phone" class="form-label">Contact Phone</label>
                             <input type="tel" class="form-control" name="phone" pattern="\d+" inputmode="numeric"
                                 required>
+                            <div class="invalid-feedback">Please provide a valid phone number.</div>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -256,7 +263,6 @@
                     <div id="shipper-loading-spinner" class="htmx-indicator">
                         <span class="spinner-border spinner-border-sm text-primary"></span> Saving...
                     </div>
-                    <div id="shipper-message" class="mt-2"></div>
                 </form>
             </div>
         </div>
@@ -643,42 +649,78 @@
 
         // Shippers
         if (path.includes("shipper")) {
-            const container = document.getElementById("shipper-message");
+            const modal = document.getElementById("addShipperModal");
+            const messageContainer = modal.querySelector("#shipper-message");
+            const form = modal.querySelector("form");
 
             try {
                 const response = JSON.parse(event.detail.xhr.responseText);
 
-                if (response.status === "success") {
-                    container.innerHTML = `
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    ${response.message}
+                if (response.success === false) {
+                    // Clear previous errors
+                    form.classList.remove("was-validated");
+                    const invalidFields = form.querySelectorAll(".is-invalid");
+                    invalidFields.forEach(field => field.classList.remove("is-invalid"));
+
+                    // Show error message
+                    messageContainer.innerHTML = `
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        ${response.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+
+                    // Highlight the problematic field (if it's a specific field error)
+                    if (response.field) {
+                        const input = form.querySelector(`[name="${response.field}"]`);
+                        if (input) {
+                            input.classList.add("is-invalid");
+                            const feedback = input.nextElementSibling;
+                            if (feedback && feedback.classList.contains("invalid-feedback")) {
+                                feedback.textContent = response.message;
+                            }
+                        }
+                    }
+                } else if (response.status === "success") {
+                    // Success handling
+                    htmx.trigger("#shipperTableBody", "refresh");
+                    form.reset();
+
+                    // Show success message
+                    messageContainer.innerHTML = `
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        ${response.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                `;
+
+                    // Close modal after delay
+                    setTimeout(() => {
+                        const modalInstance = bootstrap.Modal.getInstance(modal);
+                        modalInstance.hide();
+                    }, 1500);
+                }
+            } catch (err) {
+                console.error("Error parsing response:", err);
+                messageContainer.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    An unexpected error occurred. Please try again.
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
-
-                    htmx.trigger("#shipperTableBody", "refresh");
-
-
-                    setTimeout(() => {
-                        const modalId = verb === "post" ? "addShipperModal" : "editShipperModal";
-                        const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
-                        if (modal) modal.hide();
-
-                        // Optionally reset the form
-                        document.querySelector(`#${modalId} form`).reset();
-
-                        // Clear the message container after a few seconds
-                        setTimeout(() => container.innerHTML = "", 4000);
-                    }, 1000);
-                } else if (response.status === "error") {
-                    //showMessage(response.message, "danger");
-                }
-            } catch (err) {
-                console.error("Failed to parse shipper response:", err);
-                //showMessage("Something went wrong while processing shipper request.", "danger");
             }
+
         } else {
             console.log("here")
+        }
+    });
+
+    // Add form validation
+    document.addEventListener("htmx:configRequest", function (evt) {
+        const form = evt.target.closest("form");
+        if (form && !form.checkValidity()) {
+            evt.preventDefault();
+            form.classList.add("was-validated");
         }
     });
 
