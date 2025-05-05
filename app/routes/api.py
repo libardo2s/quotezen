@@ -1,9 +1,12 @@
 from decimal import Decimal
 import json
-
+import re
 import boto3
 from psycopg2 import DataError
 from sqlalchemy import and_, func, or_, text
+from botocore.exceptions import ClientError
+import secrets
+from itsdangerous import URLSafeTimedSerializer
 
 from app.controller import create_carrier_user, create_carrier_admin
 from app.database import db
@@ -43,6 +46,27 @@ from decimal import Decimal
 from app.routes import app_routes
 from app.database import db
 from app.models import Lane, Accessorial
+
+
+serializer = URLSafeTimedSerializer(Config.SECRET_KEY)
+
+
+def generate_reset_token(email):
+    """Generate a secure token for password reset"""
+    return serializer.dumps(email, salt=Config.PASSWORD_RESET_SALT)
+
+def verify_reset_token(token, expiration=Config.PASSWORD_RESET_EXPIRE_HOURS*3600):
+    """Verify the reset token and return email if valid"""
+    try:
+        email = serializer.loads(
+            token,
+            salt=Config.PASSWORD_RESET_SALT,
+            max_age=expiration
+        )
+        return email
+    except Exception as e:
+        print(f"Token verification failed: {str(e)}")
+        return None
 
 
 @app_routes.route("/api/status", methods=["GET"])
@@ -118,39 +142,198 @@ def api_sign_in():
         return jsonify({"status": "error", "message": f"Server error: {str(e)}"}), 500
 
 
+
 @app_routes.route("/api/forgot_password", methods=["POST"])
 def api_forgot_password():
-    data = request.get_json()
-    username = data.get("username")
-    if not username:
-        return jsonify({"status": "error", "message": "Email is required"}), 400
-
-    client = boto3.client("cognito-idp", region_name=Config.COGNITO_REGION)
-
     try:
-        client.forgot_password(ClientId=Config.CLIENT_ID, Username=username)
-        return (
-            jsonify(
-                {"status": "success", "message": "A reset code was sent to your email"}
-            ),
-            200,
-        )
-    except client.exceptions.UserNotFoundException:
-        return jsonify({"status": "error", "message": "User not found"}), 404
-    except client.exceptions.LimitExceededException:
-        return (
-            jsonify(
-                {
-                    "status": "error",
-                    "message": "Too many reset requests. Try again later.",
-                }
-            ),
-            429,
-        )
-    except client.exceptions.CodeMismatchException:
-        return jsonify({"status": "error", "message": "Invalid verification code"}), 400
+        data = request.get_json()
+        email = data.get("email")
+        
+        if not email:
+            return jsonify({
+                "status": "error",
+                "message": "Email is required"
+            }), 400
+            
+        # Enhanced email validation
+        if not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+            return jsonify({
+                "status": "error",
+                "message": "Please enter a valid email address"
+            }), 400
+
+        # Initialize Cognito client
+        cognito = boto3.client("cognito-idp", region_name=Config.COGNITO_REGION)
+        
+        try:
+            # Step 1: Initiate password reset with Cognito
+            response = cognito.forgot_password(
+                ClientId=Config.CLIENT_ID,
+                Username=email
+            )
+            
+            print("Cognito forgot_password response:", response)
+
+            # Step 2: Generate reset token and link
+            reset_token = generate_reset_token(email)
+            reset_link = f"{Config.FRONTEND_URL}/reset-password?token={reset_token}"
+            
+            # Step 3: Send email via SES
+            ses = boto3.client('ses', region_name=Config.AWS_REGION)
+            
+            try:
+                # Verify SES identity first
+                ses.get_identity_verification_attributes(
+                    Identities=[Config.SES_SENDER_EMAIL]
+                )
+                
+                # Send the email
+                response = ses.send_email(
+                    Source=Config.SES_SENDER_EMAIL,
+                    Destination={'ToAddresses': [email]},
+                    Message={
+                        'Subject': {'Data': 'Password Reset Instructions'},
+                        'Body': {
+                            'Text': {
+                                'Data': f'Click this link to reset your password: {reset_link}\n'
+                                        'This link will expire in 24 hours.'
+                            },
+                            'Html': {
+                                'Data': f'''
+                                <html>
+                                <body style="font-family: Arial, sans-serif;">
+                                    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                                        <h2 style="color: #4e73df;">Password Reset</h2>
+                                        <p>We received a request to reset your password.</p>
+                                        <p>Click the button below to reset your password:</p>
+                                        <a href="{reset_link}" 
+                                           style="background-color: #4e73df; color: white; 
+                                                  padding: 12px 24px; text-decoration: none; 
+                                                  border-radius: 4px; display: inline-block;">
+                                            Reset Password
+                                        </a>
+                                        <p style="margin-top: 20px;">Or copy this link:<br>
+                                        <code style="word-break: break-all;">{reset_link}</code></p>
+                                        <p style="font-size: 12px; color: #666;">
+                                            This link expires in 24 hours.<br>
+                                            If you didn't request this, please ignore this email.
+                                        </p>
+                                    </div>
+                                </body>
+                                </html>
+                                '''
+                            }
+                        }
+                    }
+                )
+                print("SES email sent successfully:", response)
+                
+                return jsonify({
+                    "status": "success",
+                    "message": "Password reset email sent. Please check your inbox."
+                }), 200
+                
+            except ClientError as e:
+                error_code = e.response['Error']['Code']
+                error_msg = e.response['Error']['Message']
+                print(f"SES Error ({error_code}): {error_msg}")
+                
+                if error_code == 'MessageRejected':
+                    return jsonify({
+                        "status": "error",
+                        "message": "Email sending failed. Please contact support."
+                    }), 500
+                else:
+                    return jsonify({
+                        "status": "error",
+                        "message": "Failed to send password reset email",
+                        "error": error_msg
+                    }), 500
+                    
+        except cognito.exceptions.UserNotFoundException:
+            # Return generic success message for security
+            return jsonify({
+                "status": "success",
+                "message": "If this email is registered, you'll receive a reset link"
+            }), 200
+            
+        except cognito.exceptions.LimitExceededException:
+            return jsonify({
+                "status": "error",
+                "message": "Too many attempts. Please try again later."
+            }), 429
+            
+        except Exception as e:
+            print(f"Cognito error: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": "Failed to initiate password reset"
+            }), 500
+
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        print(f"System error: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "An unexpected error occurred"
+        }), 500
+
+
+def handle_password_reset_fallback(email):
+    """Fallback method when Cognito email fails"""
+    try:
+        # Generate a custom reset code
+        reset_code = generate_reset_code()
+        
+        # Store the code in your database (pseudo-code)
+        # store_reset_code(email, reset_code)
+        
+        # Send via SES
+        ses = boto3.client('ses', region_name=Config.AWS_REGION)
+        reset_link = f"{Config.FRONTEND_URL}/reset-password?code={reset_code}&email={email}"
+        
+        response = ses.send_email(
+            Source=Config.SES_SENDER_EMAIL,
+            Destination={'ToAddresses': [email]},
+            Message={
+                'Subject': {'Data': 'Password Reset Instructions'},
+                'Body': {
+                    'Text': {
+                        'Data': f'Use this link to reset your password: {reset_link}'
+                    },
+                    'Html': {
+                        'Data': f'''
+                        <html>
+                        <body>
+                            <h2>Password Reset</h2>
+                            <p>Click <a href="{reset_link}">here</a> to reset your password.</p>
+                            <p>Or copy this link: {reset_link}</p>
+                        </body>
+                        </html>
+                        '''
+                    }
+                }
+            }
+        )
+        
+        return jsonify({
+            "status": "success",
+            "message": "Password reset email sent (fallback method)"
+        }), 200
+        
+    except Exception as e:
+        print("Fallback password reset failed:", str(e))
+        return jsonify({
+            "status": "error",
+            "message": "Failed to send password reset email"
+        }), 500
+
+
+def generate_reset_code():
+    """Generate a secure reset code"""
+    import secrets
+    import string
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(32))
 
 
 @app_routes.route("/api/company", methods=["GET", "POST"])

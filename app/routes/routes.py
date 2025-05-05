@@ -14,11 +14,13 @@ from app.models import Quote, QuoteCarrierRate, Shipper
 from app.database import db
 from sqlalchemy.orm import joinedload
 from datetime import datetime
-
+from itsdangerous import URLSafeTimedSerializer
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 csv_path = os.path.join(base_dir, '..', 'static', 'address_info.csv')
 location_df = pd.read_csv(csv_path, low_memory=False)
+
+serializer = URLSafeTimedSerializer(Config.SECRET_KEY)
 
 
 @app_routes.route("/", methods=["GET"])
@@ -731,3 +733,95 @@ def frequent_lanes():
 def logout():
     session.clear()
     return redirect(url_for("app_routes.signin"))
+
+
+@app_routes.route("/api/reset_password", methods=["POST"])
+def api_reset_password():
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        new_password = data.get('new_password')
+        confirm_password = data.get('confirm_password')
+        
+        if not all([token, new_password, confirm_password]):
+            return jsonify({
+                "status": "error",
+                "message": "All fields are required"
+            }), 400
+            
+        if new_password != confirm_password:
+            return jsonify({
+                "status": "error",
+                "message": "Passwords do not match"
+            }), 400
+            
+        # Verify token
+        try:
+            email = serializer.loads(
+                token,
+                salt=Config.PASSWORD_RESET_SALT,
+                max_age=Config.PASSWORD_RESET_EXPIRE_HOURS*3600
+            )
+        except:
+            return jsonify({
+                "status": "error",
+                "message": "Invalid or expired token"
+            }), 400
+            
+        # Update password in Cognito
+        client = boto3.client('cognito-idp', region_name=Config.COGNITO_REGION)
+        
+        try:
+            # First initiate forgot password flow to get the reset code
+            client.forgot_password(
+                ClientId=Config.CLIENT_ID,
+                Username=email
+            )
+            
+            # In a real app, you would need to handle the confirmation code flow here
+            # This is a simplified version that uses admin_set_user_password
+            client.admin_set_user_password(
+                UserPoolId=Config.USER_POOL_ID,
+                Username=email,
+                Password=new_password,
+                Permanent=True
+            )
+            
+            return jsonify({
+                "status": "success",
+                "message": "Password updated successfully"
+            })
+            
+        except client.exceptions.InvalidPasswordException as e:
+            return jsonify({
+                "status": "error",
+                "message": "Password does not meet requirements"
+            }), 400
+        except Exception as e:
+            print(f"Password reset error: {str(e)}")
+            return jsonify({
+                "status": "error",
+                "message": "Failed to update password"
+            }), 500
+            
+    except Exception as e:
+        print(f"System error: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "An unexpected error occurred"
+        }), 500
+    
+@app_routes.route("/reset-password", methods=["GET"])
+def reset_password_page():
+    token = request.args.get('token')
+    if not token:
+        #flash('Invalid password reset link', 'danger')
+        return redirect(url_for('app_routes.forgot_password'))
+    
+    try:
+        # Verify the token is valid (but don't extract email yet)
+        serializer.loads(token, salt=Config.PASSWORD_RESET_SALT)
+        return render_template('reset_password.html', token=token)
+    except:
+        #flash('The reset link is invalid or has expired', 'danger')
+        return redirect(url_for('app_routes.forgot_password'))
