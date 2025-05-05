@@ -649,7 +649,7 @@ def api_carrier():
             return jsonify(carrier_list), 200
         else:
             shipper = Shipper.query.filter_by(user_id=user_id).first()
-            carriers = Carrier.query.filter_by(created_by=user_id).all()
+            carriers=Carrier.query.filter(Carrier.users.any(shipper_id=shipper.id))
             carrier_list = [
                 {
                     "id": carrier.id,
