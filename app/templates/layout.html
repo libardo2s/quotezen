@@ -70,7 +70,7 @@
             {% if session.get('user_role') in ['CarrierAdmin'] %}
                 <a href="{{ url_for('app_routes.carrier_network') }}" class="sidebar-link text-decoration-none p-3 text-white">
                     <i class="fas fa-network-wired me-3"></i>
-                    <span class="hide-on-collapse">Shipper Network</span>
+                    <span class="hide-on-collapse">Carrier Network</span>
                 </a>
             {% endif %}
             {% if session.get('user_role') in ['Admin', 'CarrierAdmin', 'ShipperAdmin', 'CompanyShipper'] %}
