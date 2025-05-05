@@ -11,12 +11,19 @@ from app.models import User, Company, Shipper, Carrier, Mode, EquipmentType, Rat
 def create_carrier_user(data, user_id, db):
     # Creating a carrier with a Shipper
     user = User.query.filter_by(id=user_id).first()
+    if not user:
+        return jsonify({
+            "status": "error",
+            "message": "User not found"
+        }), 404
+
     carrier = Carrier.query.filter(Carrier.users.contains(user)).first()
     f = Fernet(Config.HASH_KEY)
     encrypted_email = f.encrypt(data.get("email").encode()).decode()
 
     # Send the hashed email via POST
     register_url = f"{Config.DOMAIN_URL}/complete-registration/{encrypted_email}"
+    
     try:
         new_user = User(
             first_name=data.get("first_name"),
@@ -30,13 +37,18 @@ def create_carrier_user(data, user_id, db):
         db.session.flush()
 
         new_carrier = Carrier(
-            carrier_name=data.get("first_name"),
+            carrier_name=data.get("carrier_name", data.get("first_name")),  # Use carrier_name if provided, else first_name
             active=data.get("active", True),
-            user_id=new_user.id,
+            primary_user_id=new_user.id,  # Changed from user_id to primary_user_id
             created_by=user_id,
         )
         db.session.add(new_carrier)
         db.session.flush()
+        
+        # If you need to associate with shippers
+        if carrier and carrier.shippers:
+            new_carrier.shippers.extend(carrier.shippers)
+        
         db.session.commit()
 
     except Exception as e:
@@ -45,20 +57,20 @@ def create_carrier_user(data, user_id, db):
             "status": "error",
             "message": str(e),
         }), 400
-    print(register_url)
+
     try:
+        shipper_name = f"{carrier.user.first_name} {carrier.user.last_name}" if carrier else "the system admin"
+        
         html_content = render_template(
             "email/carrier_welcome_email.html",
-            shipper_name=f"{carrier.user.first_name} {carrier.user.last_name}",
-            contact_name=data["carrier_name"],
+            shipper_name=shipper_name,
+            contact_name=data.get("first_name"),
             invite_url=register_url,
             current_year=datetime.utcnow().year
         )
 
-        print(html_content)
-
         response = send_email(
-            recipient=data.get("contact_email"),
+            recipient=data.get("email"),
             subject="You're invited to QuoteZen!",
             body_text="You've been invited to QuoteZen. Click the link to complete registration.",
             body_html=html_content
@@ -66,12 +78,11 @@ def create_carrier_user(data, user_id, db):
     except Exception as e:
         print(f"Email error: {str(e)}")
 
-    return jsonify(
-        {
-            "status": "success",
-            "message": "Carrier created",
-            "complete_registration": register_url
-        }), 200
+    return jsonify({
+        "status": "success",
+        "message": "Carrier created",
+        "complete_registration": register_url
+    }), 200
 
 def create_carrier_admin(data, user_id, db):
     shipper = Shipper.query.filter_by(user_id=user_id).first()

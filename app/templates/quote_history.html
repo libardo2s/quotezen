@@ -99,7 +99,7 @@
                         {% if user_type == 'shipper' or user_type == 'company_shipper' %}
                         <!-- Shipper/Company View Rows -->
                         <tr class="quote-row" 
-                            data-created-at="{{ quote.created_at.strftime('%Y-%m-%d') }}"
+                            data-created-at="{{ quote.created_at.strftime('%d/%m/%Y') }}"
                             data-lane="{{ quote.origin }} → {{ quote.destination }}"
                             data-equipment="{{ quote.equipment_type or '' }}"
                             data-carrier="{{ (quote.accepted_carrier or quote.accepted_carrier_admin) or '' }}">
@@ -148,7 +148,7 @@
                             <td>{{ quote.shipper_info }}</td>
                             <td>{{ quote.origin }} → {{ quote.destination }}</td>
                             <td>{{ quote.equipment_type or '—' }}</td>
-                            <td>{{ quote.quote_date }}</td>
+                            <td>{{ quote.quote_date | format_date('%m/%d/%Y') }}</td>
                             <td>${{ "{:,.2f}".format(quote.rate_value) }}</td>
                             <td>
                                 <span class="badge bg-{% if quote.rate_status == 'accepted' %}success

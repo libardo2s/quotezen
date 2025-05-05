@@ -620,29 +620,52 @@ def api_carrier():
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"error": "Unauthorized"}), 401
+    
     if request.method == "GET":
-        shipper = Shipper.query.filter_by(user_id=user_id).first()
-        carriers = Carrier.query.filter(Carrier.users.any(shipper_id=shipper.id)).all()
-        carrier_list = [
-            {
-                "id": carrier.id,
-                "carrier_name": carrier.carrier_name,
-                "authority": carrier.authority,
-                "scac": carrier.scac,
-                "mc_number": carrier.mc_number,
-                "active": carrier.active,
-                "created_at": carrier.created_at.isoformat(),
-                "updated_at": carrier.updated_at.isoformat(),
-                "user": get_user_data_for_shipper(carrier.users, shipper.id),
+        user = User.query.get(user_id)
+        
+        if user.role == 'CarrierAdmin':
+            carriers = Carrier.query.filter_by(created_by=user_id).all()
+            carrier_list = [
+                {
+                    "id": carrier.id,
+                    "carrier_name": carrier.carrier_name,
+                    "authority": carrier.authority,
+                    "scac": carrier.scac,
+                    "mc_number": carrier.mc_number,
+                    "active": carrier.active,
+                    "created_at": carrier.created_at.isoformat() if carrier.created_at else None,
+                    "updated_at": carrier.updated_at.isoformat() if carrier.updated_at else None,
+                    "user": {
+                        "id": carrier.primary_user.id,
+                        "first_name": carrier.primary_user.first_name,
+                        "last_name": carrier.primary_user.last_name,
+                        "email": carrier.primary_user.email,
+                        "phone": carrier.primary_user.phone
+                    } if carrier.primary_user else None
+                }
+                for carrier in carriers
+            ]
+            return jsonify(carrier_list), 200
+        else:
+            shipper = Shipper.query.filter_by(user_id=user_id).first()
+            carriers = Carrier.query.filter_by(created_by=user_id).all()
+            carrier_list = [
+                {
+                    "id": carrier.id,
+                    "carrier_name": carrier.carrier_name,
+                    "authority": carrier.authority,
+                    "scac": carrier.scac,
+                    "mc_number": carrier.mc_number,
+                    "active": carrier.active,
+                    "created_at": carrier.created_at.isoformat(),
+                    "updated_at": carrier.updated_at.isoformat(),
+                    "user": get_user_data_for_shipper(carrier.users, shipper.id if shipper else None),
+                }
+                for carrier in carriers
+            ]
 
-            }
-            for carrier in carriers
-        ]
-
-        for carrier in carriers:
-            print(f"Carrier ID: {carrier.id}, Carrier Name: {carrier.carrier_name}")
-
-        return jsonify(carrier_list), 200
+            return jsonify(carrier_list), 200
 
     if request.method == "POST":
         data = request.form
@@ -655,6 +678,7 @@ def api_carrier():
 @app_routes.route("/api/carrier/<string:mc_number>", methods=["GET"])
 # @token_required
 def get_carrier_by_mc(mc_number):
+
     carrier = Carrier.query.filter_by(
         mc_number=mc_number,
         active=True,
@@ -2034,7 +2058,8 @@ def get_dashboard_stats():
                 )
 
         elif user.role == "CarrierAdmin":
-            carrier = Carrier.query.filter_by(user_id=user_id).first()
+            user = User.query.get(user_id)
+            carrier = Carrier.query.filter(Carrier.users.any(id=user.id)).first()
             if carrier:
                 stats.update(
                     {
@@ -2045,7 +2070,7 @@ def get_dashboard_stats():
                             ~db.session.query(QuoteCarrierRate)
                             .filter(
                                 QuoteCarrierRate.quote_id == Quote.id,
-                                QuoteCarrierRate.carrier_admin_id == carrier.user_id,
+                                QuoteCarrierRate.carrier_admin_id == user_id,
                                 QuoteCarrierRate.status.in_(["accepted", "declined"]),
                             )
                             .exists(),
@@ -2087,50 +2112,50 @@ def get_dashboard_stats():
         }), 500
 
 
-@app_routes.route("/api/carrier/<int:carrier_id>/creator", methods=["GET"])
-# @token_required  # Uncomment if you need authentication
+@app_routes.route("/api/carrier/<int:carrier_id>/shippers", methods=["GET"])
 def get_carrier_creator(carrier_id):
-    carrier = Carrier.query.filter_by(user_id=carrier_id).first()
-
+    # Primero verificar que el carrier existe
+    user = User.query.get(carrier_id)
+    carrier = Carrier.query.filter(Carrier.users.any(id=user.id)).first()
+    
     if not carrier:
         return jsonify({"error": "Carrier not found"}), 404
 
-    if not carrier.created_by:
-        return jsonify({"error": "Creator information not available"}), 404
-
-    creator = User.query.get(carrier.created_by)
-
-    if not creator:
-        return jsonify({"error": "Creator user not found"}), 404
-
-    # Assuming you have a Shipper model related to User
-    shipper = Shipper.query.filter_by(user_id=creator.id).first()
-
-    response_data = {
-        "creator_id": creator.id,
-        "first_name": creator.first_name,
-        "last_name": creator.last_name,
-        "email": creator.email,
-        "phone": creator.phone,
-        "created_at": creator.created_at.isoformat() if creator.created_at else None,
-        "shipper_info": (
-            {
-                "shipper_id": shipper.id if shipper else None,
-                "company_name": (
-                    shipper.company.company_name
-                    if shipper and shipper.company
-                    else None
-                ),
-                "duns_number": (
-                    shipper.company.duns if shipper and shipper.company else None
-                ),
+    # Obtener todos los shippers asociados a este carrier usando la relación definida
+    associated_shippers = []
+    
+    for shipper in carrier.shippers:  # Esto usa la relación back_populates="shippers" del modelo Carrier
+        user = shipper.user  # Accediendo al usuario relacionado
+        company = shipper.company  # Accediendo a la compañía relacionada
+        
+        shipper_data = {
+            "shipper_id": shipper.id,
+            "user_info": {
+                "user_id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "phone": user.phone
+            },
+            "company_info": {
+                "company_id": company.id,
+                "company_name": company.company_name,
+                "duns_number": company.duns,
+                "mc_number": company.mc_number if hasattr(company, 'mc_number') else None
+            },
+            "association_details": {
+                "is_active": shipper.active,
+                "created_at": shipper.created_at.isoformat() if shipper.created_at else None
             }
-            if shipper
-            else None
-        ),
-    }
+        }
+        associated_shippers.append(shipper_data)
 
-    return jsonify(response_data)
+    return jsonify({
+        "carrier_id": carrier.id,
+        "carrier_name": carrier.carrier_name,
+        "associated_shippers": associated_shippers,
+        "count": len(associated_shippers)
+    })
 
 
 @app_routes.route("/api/quotes/filter", methods=["POST"])

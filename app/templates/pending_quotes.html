@@ -26,9 +26,9 @@
                         <th>Requested From</th>
                         <th>Rates Received</th>
                         {% if not is_company_user%}
-                            <th class="text-center">Actions</th>
+                        <th class="text-center">Actions</th>
                         {% endif %}
-                        
+
                     </tr>
                 </thead>
                 <tbody>
@@ -36,15 +36,15 @@
                     <!-- Main row -->
                     <tr class="quote-row" data-quote-id="{{ quote.id }}">
                         <td>{{ quote.id }}</td>
-                        <td>{{ quote.created_at.strftime('%m-%d-%Y %H:%M:%S UTC') }}</td>
+                        <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S UTC') }}</td>
                         <td>{{ quote.origin }} - {{ quote.destination }}</td>
                         <td>{{ quote.equipment_type or '' }}</td>
                         <td>{{ quote.temp or '' }}</td>
                         <td>
                             {% if quote.pickup_date.date() == today %}
-                            Today {{ quote.pickup_date.strftime('%H:%M:%S UTC') }}
+                            Today {{ quote.pickup_date.strftime('%I:%M:%S %p %Z') }}
                             {% else %}
-                            {{ quote.pickup_date.strftime('%m-%d-%Y %H:%M:%S UTC') }}
+                            {{ quote.pickup_date.strftime('%m-%d-%y %I:%M:%S %p %Z') }} <!-- MM-DD-YY format -->
                             {% endif %}
                         </td>
                         <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
@@ -57,13 +57,13 @@
                         <td>{{ quote.carriers|length }}</td>
                         <td>{{ quote.filtered_quote_rates|length }}</td>
                         {% if not is_company_user%}
-                            <td class="text-center">
-                                
-                                    <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
-                                        aria-label="Toggle details">
-                                        <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
-                                    </button>
-                            </td>
+                        <td class="text-center">
+
+                            <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
+                                aria-label="Toggle details">
+                                <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
+                            </button>
+                        </td>
                         {% endif %}
                     </tr>
 
@@ -449,11 +449,11 @@
         }
 
         function updateTimerElements() {
-            const visibleRows = allQuoteRows.filter(row => 
-                row.style.display !== 'none' && 
+            const visibleRows = allQuoteRows.filter(row =>
+                row.style.display !== 'none' &&
                 !row.classList.contains('expired')
             );
-            
+
             visibleRows.forEach(row => {
                 const timeElement = row.querySelector('.time-remaining');
                 if (timeElement && !timeElement.hasAttribute('data-timer-initialized')) {

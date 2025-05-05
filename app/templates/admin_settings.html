@@ -67,8 +67,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="duns_number" class="form-label">DUNS Number</label>
-                            <input type="text" class="form-control" id="duns_number" name="duns"
-                                inputmode="numeric">
+                            <input type="text" class="form-control" id="duns_number" name="duns" inputmode="numeric">
                         </div>
                         <div class="mb-3">
                             <label for="contact_name" class="form-label">Contact Name</label>
@@ -418,7 +417,7 @@
                     return;
                 }
 
-                if(document.getElementById("activeShippersCount"))
+                if (document.getElementById("activeShippersCount"))
                     document.getElementById("activeShippersCount").textContent = data.length;
 
                 const rows = data.map(shipper => `
@@ -458,46 +457,128 @@
         }
 
         if (event.detail.requestConfig.path.includes('/api/carrier/') &&
-            event.detail.requestConfig.path.includes('/creator')) {
+            event.detail.requestConfig.path.includes('/shippers')) {
 
+            const target = event.target;
             try {
                 const data = JSON.parse(event.detail.xhr.responseText);
+                console.log(data)
 
                 if (data.error) {
-                    event.target.innerHTML = `<div class="text-danger">${data.error}</div>`;
+                    target.innerHTML = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    ${data.error}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>`;
                     return;
                 }
 
-                let html = `
-                    <div class="d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong>Created By:</strong> ${data.first_name} ${data.last_name}
+                // Handle the carrier with associated shippers
+                if (data.associated_shippers) {
+                    target.innerHTML = `
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-truck me-2"></i>
+                                ${data.carrier_name || 'Carrier'} (ID: ${data.carrier_id || 'N/A'})
+                            </h5>
+                            <span class="badge bg-light text-dark">
+                                ${data.count || 0} Associated Shippers
+                            </span>
                         </div>
-                        <span class="badge bg-info">Shipper</span>
                     </div>
-                    <div class="mt-2">
-                        <small class="text-muted">Email: ${data.email}</small>
+                    <div class="card-body">
+                        ${data.associated_shippers
+                            .filter(shipper => shipper.association_details.is_active)
+                            .map(shipper => `
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <i class="fas fa-user me-2"></i>
+                                                    ${shipper.user_info.first_name} ${shipper.user_info.last_name}
+                                                </h6>
+                                                <div class="text-muted small">
+                                                    <i class="fas fa-envelope me-1"></i> ${shipper.user_info.email}
+                                                </div>
+                                                <div class="text-muted small">
+                                                    <i class="fas fa-phone me-1"></i> ${shipper.user_info.phone}
+                                                </div>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge bg-info">
+                                                    Shipper ID: ${shipper.shipper_id}
+                                                </span>
+                                                <div class="mt-2 small text-muted">
+                                                    <i class="fas fa-calendar-alt me-1"></i>
+                                                    ${formatDate(shipper.association_details.created_at)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="border-top pt-3 mt-2">
+                                            <h6 class="mb-2">
+                                                <i class="fas fa-building me-2"></i>
+                                                Company Information
+                                            </h6>
+                                            <div class="row">
+                                                <div class="col-md-4">
+                                                    <strong>Name:</strong> ${shipper.company_info.company_name || 'N/A'}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>DUNS:</strong> ${shipper.company_info.duns_number || 'N/A'}
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <strong>ID:</strong> ${shipper.company_info.company_id || 'N/A'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
                     </div>
-                `;
-
-                if (data.shipper_info) {
-                    html += `
-                        <div class="mt-2">
-                            <strong>Company:</strong> ${data.shipper_info.company_name || 'N/A'}
+                </div>
+            `;
+                } else {
+                    // Fallback for single creator format
+                    target.innerHTML = `
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1">${data.first_name} ${data.last_name}</h5>
+                                <small class="text-muted">${data.email}</small>
+                            </div>
+                            <span class="badge bg-info">Creator</span>
                         </div>
-                        <div>
-                            <small class="text-muted">DUNS: ${data.shipper_info.duns_number || 'N/A'}</small>
-                        </div>
-                    `;
+                        ${data.shipper_info ? `
+                            <hr class="my-2">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Company:</strong> ${data.shipper_info.company_name || 'N/A'}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>DUNS:</strong> ${data.shipper_info.duns_number || 'N/A'}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>`;
                 }
-
-                event.target.innerHTML = html;
 
             } catch (err) {
                 console.error('Error parsing creator data:', err);
-                event.target.innerHTML = '<div class="text-danger">Error loading creator information</div>';
+                target.innerHTML = `
+            <div class="alert alert-danger alert-dismissible fade show">
+                Error loading creator information
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
             }
         }
+
+
     });
 
     document.body.addEventListener("htmx:afterRequest", function (event) {
@@ -538,7 +619,7 @@
                             ${response.message}
                             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                         </div>`;
-                        
+
                     }
                 } else if (response.status === "success") {
                     // Success handling
@@ -840,6 +921,21 @@
         container.style.zIndex = '11';
         document.body.appendChild(container);
         return container;
+    }
+
+    function formatDate(dateString) {
+        if (!dateString) return 'N/A';
+        try {
+            const date = new Date(dateString);
+            const month = String(date.getMonth() + 1).padStart(2, '0'); // meses son 0-11
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = String(date.getFullYear()).slice(-2); // últimos 2 dígitos
+
+            return `${month}-${day}-${year}`;
+            // Ejemplo de salida: "05-06-25" (para May 6, 2025)
+        } catch (e) {
+            return 'Invalid date';
+        }
     }
 
 </script>

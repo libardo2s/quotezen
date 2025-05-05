@@ -320,7 +320,7 @@ def carrier_pending_quotes():
     )
 
     # Obtener el shipper actual y su compañía
-    shipper = Shipper.query.filter(Shipper.users.contains(user)).first()
+    shipper = Shipper.query.filter_by(user_id=user.id).first()
     if shipper:
         # Consulta para quotes del shipper actual o de shippers de la misma compañía
         query = Quote.query.join(Shipper, Quote.shipper).join(Carrier, Quote.carriers).filter(
