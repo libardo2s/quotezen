@@ -1349,8 +1349,7 @@ def api_quote():
                 )
             
             required_fields = [
-                'mode', 'equipment_type', 'origin', 'destination',
-                'pickup_date', 'leave_open_unit', 'leave_open_value'
+                'mode', 'equipment_type', 'origin', 'destination', 'leave_open_value'
             ]
             
             missing_fields = [field for field in required_fields if not form.get(field)]
