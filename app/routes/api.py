@@ -842,9 +842,20 @@ def api_carrier():
             return jsonify(carrier_list), 200
         else:
             shipper = Shipper.query.filter_by(user_id=user_id).first()
-            carriers=Carrier.query.filter(Carrier.users.any(shipper_id=shipper.id))
-            carrier_list = [
-                {
+            if not shipper:
+                return jsonify({"error": "Shipper not found"}), 404
+
+            # Get all shippers from the same company
+            company_shippers = Shipper.query.filter_by(company_id=shipper.company_id).all()
+
+            # Get all carriers associated with these shippers
+            carriers = Carrier.query.filter(
+                Carrier.shippers.any(Shipper.id.in_([s.id for s in company_shippers]))
+            ).distinct()
+
+            def get_carrier_full_data(carrier, current_shipper_id):
+                """Get complete carrier data including primary user and ownership info"""
+                carrier_data = {
                     "id": carrier.id,
                     "carrier_name": carrier.carrier_name,
                     "authority": carrier.authority,
@@ -853,10 +864,40 @@ def api_carrier():
                     "active": carrier.active,
                     "created_at": carrier.created_at.isoformat(),
                     "updated_at": carrier.updated_at.isoformat(),
-                    "user": get_user_data_for_shipper(carrier.users, shipper.id if shipper else None),
+                    "belongs_to_current_shipper": any(
+                        s.id == current_shipper_id for s in carrier.shippers
+                    ),
+                    "user": None,
+                    "created_by": None
                 }
-                for carrier in carriers
-            ]
+                
+                # Get primary user data (from primary_user relationship)
+                if carrier.primary_user:
+                    carrier_data["user"] = {
+                        "id": carrier.primary_user.id,
+                        "first_name": carrier.primary_user.first_name,
+                        "last_name": carrier.primary_user.last_name,
+                        "email": carrier.primary_user.email,
+                        "phone": carrier.primary_user.phone,
+                        "active": carrier.primary_user.active,
+                        "role": getattr(carrier.primary_user, 'role', None)
+                    }
+                
+                # Get creator info (from created_by_user relationship)
+                if carrier.created_by_user:
+                    carrier_data["created_by"] = {
+                        "user_id": carrier.created_by_user.id,
+                        "name": f"{carrier.created_by_user.first_name} {carrier.created_by_user.last_name}",
+                        "email": carrier.created_by_user.email
+                    }
+                
+                return carrier_data
+
+            # Build complete carrier list
+            carrier_list = [get_carrier_full_data(carrier, shipper.id) for carrier in carriers]
+
+            # Optional: Sort with current shipper's carriers first
+            carrier_list.sort(key=lambda x: not x["belongs_to_current_shipper"])
 
             return jsonify(carrier_list), 200
 
@@ -866,7 +907,30 @@ def api_carrier():
             return create_carrier_user(data=data, user_id=user_id, db=db)
         else:
             return create_carrier_admin(data=data, user_id=user_id, db=db)
+        
 
+def get_user_data_shipper(carrier, target_shipper_id):
+    """
+    Obtiene los datos del usuario asociado a un shipper específico desde un carrier
+    """
+    if not target_shipper_id:
+        return None
+    
+    # Encontrar la relación entre este carrier y el shipper objetivo
+    for shipper_rel in carrier.shippers:
+        if shipper_rel.id == target_shipper_id:
+            # Obtener el usuario asociado a este shipper
+            user = shipper_rel.user
+            return {
+                "id": user.id,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "phone": user.phone,
+                "email": user.email,
+                "active": user.active,
+                "role": getattr(user, 'role', None)
+            }
+    return None
 
 @app_routes.route("/api/carrier/<string:mc_number>", methods=["GET"])
 # @token_required
@@ -2156,50 +2220,39 @@ def get_dashboard_stats():
         elif user.role == "Shipper":
             shipper = Shipper.query.filter_by(user_id=user_id).first()
             if shipper:
-                # Get all shippers from the same company
-                company_shippers = Shipper.query.filter_by(
-                    company_id=shipper.company_id, 
-                    active=True, 
-                    deleted=False
-                ).all() if shipper.company_id else [shipper]
-                
-                shipper_ids = [s.id for s in company_shippers]
-                
-                # Get active carriers associated with these shippers
-                active_carriers = db.session.query(Carrier)\
-                    .join(carrier_shipper)\
-                    .filter(
-                        carrier_shipper.c.shipper_id.in_(shipper_ids),
-                        Carrier.active == True
-                    )\
-                    .distinct()\
-                    .count()
-
+                # Get stats only for the logged-in shipper
                 stats.update(
                     {
                         "pending_quotes": Quote.query.filter(
-                            Quote.shipper_id.in_(shipper_ids),
+                            Quote.shipper_id == shipper.id,
                             ~Quote.id.in_(excluded_quotes_subquery),
                             ~expired_condition
                         ).count(),
-                        "active_shippers": len(company_shippers),
-                        "active_carriers": active_carriers,
+                        "active_shippers": 1,  # Only counting the logged-in shipper
+                        "active_carriers": db.session.query(Carrier)
+                            .join(carrier_shipper)
+                            .filter(
+                                carrier_shipper.c.shipper_id == shipper.id,
+                                Carrier.active == True
+                            )
+                            .distinct()
+                            .count(),
                         "active_companies": 1 if shipper.company_id else 0,
                         "spendMT": db.session.query(func.sum(QuoteCarrierRate.rate))
-                        .join(Quote)
-                        .filter(
-                            Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted",
-                        )
-                        .scalar()
-                        or 0,
+                            .join(Quote)
+                            .filter(
+                                Quote.shipper_id == shipper.id,
+                                QuoteCarrierRate.status == "accepted",
+                            )
+                            .scalar()
+                            or 0,
                         "completedQuotes": db.session.query(QuoteCarrierRate)
-                        .join(Quote)
-                        .filter(
-                            Quote.shipper_id.in_(shipper_ids),
-                            QuoteCarrierRate.status == "accepted",
-                        )
-                        .count(),
+                            .join(Quote)
+                            .filter(
+                                Quote.shipper_id == shipper.id,
+                                QuoteCarrierRate.status == "accepted",
+                            )
+                            .count(),
                     }
                 )
 

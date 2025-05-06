@@ -101,7 +101,7 @@ def create_carrier_admin(data, user_id, db):
         if User.query.filter_by(email=data["contact_email"]).first():
             return jsonify({
                 "status": "error", 
-                "message": "User with this email already exists"
+                "message": "email already registered in the system"
             }), 400
 
         # Create new user
