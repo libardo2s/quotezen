@@ -28,7 +28,6 @@
                         {% if not is_company_user%}
                         <th class="text-center">Actions</th>
                         {% endif %}
-
                     </tr>
                 </thead>
                 <tbody>
@@ -36,29 +35,41 @@
                     <!-- Main row -->
                     <tr class="quote-row" data-quote-id="{{ quote.id }}">
                         <td>{{ quote.id }}</td>
-                        <td>{{ quote.pickup_date.strftime('%m-%d-%y %H:%M:%S UTC') }}</td>
+                        <td>
+                            {% if quote.created_at %}
+                            {{ quote.created_at.strftime('%m-%d-%y %H:%M:%S UTC') }}
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
                         <td>{{ quote.origin }} - {{ quote.destination }}</td>
                         <td>{{ quote.equipment_type or '' }}</td>
                         <td>{{ quote.temp or '' }}</td>
                         <td>
+                            {% if quote.pickup_date %}
                             {% if quote.pickup_date.date() == today %}
                             Today {{ quote.pickup_date.strftime('%I:%M:%S %p %Z') }}
                             {% else %}
-                            {{ quote.pickup_date.strftime('%m-%d-%y %I:%M:%S %p %Z') }} <!-- MM-DD-YY format -->
+                            {{ quote.pickup_date.strftime('%m-%d-%y %I:%M:%S %p %Z') }}
+                            {% endif %}
+                            {% else %}
+                            —
                             {% endif %}
                         </td>
                         <td>{{ quote.open_value }} {{ quote.open_unit }}</td>
                         <td class="time-remaining" data-unit="{{ quote.open_unit }}"
-                            data-created-at="{{ quote.created_at.isoformat() + 'Z' }}"
+                            data-created-at="{% if quote.created_at %}{{ quote.created_at.isoformat() + 'Z' }}{% endif %}"
                             data-value="{{ quote.open_value }}">
-                            <!-- Initial value will be set by JS -->
+                            {% if quote.created_at and quote.open_value and quote.open_unit %}
                             00:00:00
+                            {% else %}
+                            —
+                            {% endif %}
                         </td>
                         <td>{{ quote.carriers|length }}</td>
                         <td>{{ quote.filtered_quote_rates|length }}</td>
                         {% if not is_company_user%}
                         <td class="text-center">
-
                             <button class="btn btn-sm toggle-detail-btn" onclick="toggleDetails({{ quote.id }})"
                                 aria-label="Toggle details">
                                 <i class="bi bi-chevron-down" id="icon-{{ quote.id }}"></i>
