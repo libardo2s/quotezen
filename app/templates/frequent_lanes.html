@@ -9,7 +9,7 @@
 
     <!-- Modal for Additional Stops -->
     <div class="modal fade" id="additionalStopsModal" tabindex="-1" aria-labelledby="additionalStopsModalLabel"
-        aria-hidden="true">
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <form id="additionalStopsForm">
@@ -150,7 +150,8 @@
                                             <div class="col-md-6">
                                                 <label class="form-label d-block">Additional Stops</label>
                                                 <button type="button" class="btn btn-outline-secondary"
-                                                    data-bs-toggle="modal" data-bs-target="#additionalStopsModal">
+                                                    data-bs-toggle="modal" data-bs-target="#additionalStopsModal"
+                                                    hx-preserve="true">
                                                     Manage Additional Stops
                                                 </button>
                                             </div>
@@ -517,7 +518,28 @@
                     }
                 });
             }
+
+            const quoteModal = document.getElementById('quoteModal');
+            const additionalStopsModal = document.getElementById('additionalStopsModal');
+
+            if (quoteModal && additionalStopsModal) {
+                const bsQuoteModal = bootstrap.Modal.getInstance(quoteModal) || new bootstrap.Modal(quoteModal);
+                const bsAdditionalStopsModal = bootstrap.Modal.getInstance(additionalStopsModal) || new bootstrap.Modal(additionalStopsModal);
+
+                // Cuando se abre el modal de Additional Stops
+                additionalStopsModal.addEventListener('show.bs.modal', function () {
+                    // Opcional: puedes ocultar el modal de creación temporalmente
+                    bsQuoteModal.hide();
+                });
+
+                // Cuando se cierra el modal de Additional Stops
+                additionalStopsModal.addEventListener('hidden.bs.modal', function () {
+                    // Vuelve a mostrar el modal de creación
+                    bsQuoteModal.show();
+                });
+            }
         });
+
         document.addEventListener("htmx:afterOnLoad", function (evt) {
             const target = evt.detail.target;
 
