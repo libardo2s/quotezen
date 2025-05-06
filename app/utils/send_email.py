@@ -1,4 +1,5 @@
 import boto3
+from app.config import Config
 
 
 def send_email(recipient, subject, body_text, body_html=None):
@@ -13,7 +14,7 @@ def send_email(recipient, subject, body_text, body_html=None):
         body['Html'] = {'Data': body_html}
 
     response = ses.send_email(
-        Source="adrip@quotezen.io",
+        Source=Config.SES_SENDER_EMAIL,
         Destination={'ToAddresses': [recipient]},
         Message={
             'Subject': {'Data': subject},
