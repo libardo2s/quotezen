@@ -1196,31 +1196,31 @@
 
             // Validar nickname
             if (!nickname) {
-                showError("El campo 'Lane Nickname' es requerido");
+                showError("The 'Lane Nickname' field is required");
                 return false;
             }
 
-            // Validar campos select
+            // Validate select fields
             if (mode === "Select") {
-                showError("Por favor seleccione un Mode");
+                showError("Please select a Mode");
                 return false;
             }
             if (equipmentType === "Select") {
-                showError("Por favor seleccione un Equipment Type");
+                showError("Please select an Equipment Type");
                 return false;
             }
             if (rateType === "Select") {
-                showError("Por favor seleccione un Rate Type");
+                showError("Please select a Rate Type");
                 return false;
             }
 
-            // Validar ubicaciones
+            // Validate locations
             if (!origin) {
-                showError("El campo Origin es requerido");
+                showError("The Origin field is required");
                 return false;
             }
             if (!destination) {
-                showError("El campo Destination es requerido");
+                showError("The Destination field is required");
                 return false;
             }
 
